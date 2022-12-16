@@ -10,7 +10,9 @@ class Money:
             raise TypeError('Cannot sum two different currency')
         return type(self)(self.value + other.value)
 
-    def __mul__(self, other: int) -> 'Money':
+    def __mul__(self, other: float | int) -> 'Money':
+        if not issubclass(type(other), (float, int)):
+            raise TypeError(f'Cannot multiply currency on {type(other)}')
         return type(self)(self.value * other)
 
     def __repr__(self) -> str:
