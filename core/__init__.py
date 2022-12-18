@@ -1,1 +1,1 @@
-from .main import Money, Dollar, Euro
+from .main import Money, Bank

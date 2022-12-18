@@ -1,29 +1,46 @@
 class Money:
-    def __init__(self, value: float):
+    __currency_names = {
+        'USD': 'Dollar',
+        'EUR': 'Euro',
+    }
+
+    def __init__(self, value: float, currency: str):
         self.value = value
+        self.currency = currency
+
+    @staticmethod
+    def dollar(value) -> 'Money':
+        return Money(value, 'USD')
+
+    @staticmethod
+    def euro(value) -> 'Money':
+        return Money(value, 'EUR')
 
     def __eq__(self, other: 'Money') -> bool:
-        return (type(self) == type(other)) and (self.value == other.value)
+        return (self.currency == other.currency) and (self.value == other.value)
 
     def __add__(self, other: 'Money') -> 'Money':
-        if type(self) != type(other):
+        if self.currency != other.currency:
             raise TypeError('Cannot sum two different currency')
-        return type(self)(self.value + other.value)
+        return Money(self.value + other.value, self.currency)
 
     def __mul__(self, other: float | int) -> 'Money':
         if not issubclass(type(other), (float, int)):
             raise TypeError(f'Cannot multiply currency on {type(other)}')
-        return type(self)(self.value * other)
+        return Money(self.value * other, self.currency)
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}({self.value})'
+        return f'{self.__currency_names[self.currency]}({self.value})'
 
 
-class Dollar(Money):
-    def __init__(self, value: float):
-        super().__init__(value)
+class Bank:
+    def __init__(self):
+        self.__exchanges = {}
 
+    def add_exchange(self, currency: str, to: str, rate: float | int) -> None:
+        self.__exchanges[(currency, to)] = rate
 
-class Euro(Money):
-    def __init__(self, value: float):
-        super().__init__(value)
+    def exchange(self, currency: Money, to: str) -> Money:
+        if currency.currency == to:
+            return currency
+        return Money(currency.value * self.__exchanges[(currency.currency, to)], to)
