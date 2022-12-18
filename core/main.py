@@ -9,11 +9,11 @@ class Money:
         self.currency = currency
 
     @staticmethod
-    def dollar(value) -> 'Money':
+    def dollar(value: float) -> 'Money':
         return Money(value, 'USD')
 
     @staticmethod
-    def euro(value) -> 'Money':
+    def euro(value: float) -> 'Money':
         return Money(value, 'EUR')
 
     def __eq__(self, other: 'Money') -> bool:
