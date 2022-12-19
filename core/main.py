@@ -2,6 +2,8 @@ class Money:
     __currency_names = {
         'USD': 'Dollar',
         'EUR': 'Euro',
+        'RUB': 'Rub',
+        'BLN': 'Bln'
     }
 
     def __init__(self, value: float, currency: str):
@@ -15,6 +17,14 @@ class Money:
     @staticmethod
     def euro(value: float) -> 'Money':
         return Money(value, 'EUR')
+
+    @staticmethod
+    def rub(value: float) -> 'Money':
+        return Money(value, 'RUB')
+
+    @staticmethod
+    def bln(value: float) -> 'Money':
+        return Money(value, 'BLN')
 
     def __eq__(self, other: 'Money') -> bool:
         return (self.currency == other.currency) and (self.value == other.value)

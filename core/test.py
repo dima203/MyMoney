@@ -1,6 +1,6 @@
 import pytest
 
-from core import Money, Bank
+from .main import Money, Bank
 
 
 class TestMoney:
