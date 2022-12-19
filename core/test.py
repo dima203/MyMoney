@@ -29,7 +29,7 @@ class TestDifferenceMoney:
         assert result == Money.dollar(12)
 
         with pytest.raises(TypeError):
-            result = Money.dollar(5) + Money.euro(7)
+            Money.dollar(5) + Money.euro(7)
 
     def test_currency_multiply(self):
         result = Money.dollar(5) * 3
@@ -56,3 +56,7 @@ class TestBankExchange:
     def test_self_exchange(self):
         result = self.bank.exchange(Money.dollar(5), 'USD')
         assert result == Money.dollar(5)
+
+    def test_key_error_exchange(self):
+        with pytest.raises(KeyError):
+            self.bank.exchange(Money.dollar(5), 'RUB')
