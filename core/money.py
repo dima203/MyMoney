@@ -3,10 +3,10 @@ class Money:
         'USD': 'Dollar',
         'EUR': 'Euro',
         'RUB': 'Rub',
-        'BLN': 'Bln'
+        'BYN': 'Byn'
     }
 
-    def __init__(self, value: float, currency: str):
+    def __init__(self, value: float, currency: str) -> None:
         self.value = value
         self.currency = currency
 
@@ -23,8 +23,8 @@ class Money:
         return Money(value, 'RUB')
 
     @staticmethod
-    def bln(value: float) -> 'Money':
-        return Money(value, 'BLN')
+    def byn(value: float) -> 'Money':
+        return Money(value, 'BYN')
 
     def __eq__(self, other: 'Money') -> bool:
         return (self.currency == other.currency) and (self.value == other.value)
@@ -41,20 +41,3 @@ class Money:
 
     def __repr__(self) -> str:
         return f'{self.__currency_names[self.currency]}({self.value})'
-
-
-class Bank:
-    def __init__(self):
-        self.__exchanges = {}
-
-    def add_exchange(self, currency: str, to: str, rate: float | int) -> None:
-        self.__exchanges[(currency, to)] = rate
-
-    def exchange(self, currency: Money, to: str) -> Money:
-        if currency.currency == to:
-            return currency
-
-        if (currency.currency, to) not in self.__exchanges:
-            raise KeyError(f'Exchange from {currency.currency} to {to} is not exist')
-
-        return Money(currency.value * self.__exchanges[(currency.currency, to)], to)

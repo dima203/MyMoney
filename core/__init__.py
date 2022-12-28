@@ -1,1 +1,3 @@
-from .main import Money, Bank
+from .exchange import Bank
+from .money import Money
+from .account import Account
