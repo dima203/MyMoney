@@ -7,9 +7,16 @@ class TestMoney:
     def test_currency_equal(self):
         assert Money.dollar(5) == Money.dollar(5)
 
+    def test_currency_little(self):
+        assert Money.dollar(3) < Money.dollar(5)
+
     def test_currency_sum(self):
         result = Money.dollar(5) + Money.dollar(7)
         assert result == Money.dollar(12)
+
+    def test_currency_sub(self):
+        result = Money.dollar(13) - Money.dollar(7)
+        assert result == Money.dollar(6)
 
     def test_currency_multiply(self):
         result = Money.dollar(5) * 2
@@ -23,6 +30,10 @@ class TestMoney:
 class TestDifferenceMoney:
     def test_currency_not_equal(self):
         assert Money.dollar(5) != Money.euro(5)
+
+    def test_currency_little(self):
+        with pytest.raises(TypeError):
+            Money.dollar(3) < Money.byn(5)
 
     def test_currency_sum(self):
         result = Money.dollar(5) + Money.dollar(7)

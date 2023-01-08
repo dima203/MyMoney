@@ -29,10 +29,20 @@ class Money:
     def __eq__(self, other: 'Money') -> bool:
         return (self.currency == other.currency) and (self.value == other.value)
 
+    def __lt__(self, other: 'Money') -> bool:
+        if self.currency != other.currency:
+            raise TypeError('Cannot compare different currency')
+        return self.value < other.value
+
     def __add__(self, other: 'Money') -> 'Money':
         if self.currency != other.currency:
             raise TypeError('Cannot sum two different currency')
         return Money(self.value + other.value, self.currency)
+
+    def __sub__(self, other: 'Money') -> 'Money':
+        if self.currency != other.currency:
+            raise TypeError('Cannot sub two different currency')
+        return Money(self.value - other.value, self.currency)
 
     def __mul__(self, other: float | int) -> 'Money':
         if not issubclass(type(other), (float, int)):
