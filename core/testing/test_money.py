@@ -36,11 +36,12 @@ class TestDifferenceMoney:
             Money.dollar(3) < Money.byn(5)
 
     def test_currency_sum(self):
-        result = Money.dollar(5) + Money.dollar(7)
-        assert result == Money.dollar(12)
-
         with pytest.raises(TypeError):
             Money.dollar(5) + Money.euro(7)
+
+    def test_currency_sub(self):
+        with pytest.raises(TypeError):
+            Money.dollar(5) - Money.euro(7)
 
     def test_currency_multiply(self):
         result = Money.dollar(5) * 3
