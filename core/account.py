@@ -12,7 +12,6 @@ class Account:
 
     def remove(self, value: Money, bank: Bank) -> Money:
         if self.value < bank.exchange(value, self.value.currency):
-            print(self.value, bank.exchange(value, self.value.currency))
             raise ValueError('Cannot sub bigger value from account')
         self.value -= bank.exchange(value, self.value.currency)
         return bank.exchange(value, self.value.currency)
