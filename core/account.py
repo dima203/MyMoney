@@ -37,3 +37,9 @@ class Account:
         if exc_type is not None:
             self.value = self.__saved_value
         return True
+
+    def to_json(self) -> dict[str, str | int]:
+        return {
+            'value': self.value.value,
+            'currency': self.value.currency
+        }
