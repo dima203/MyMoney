@@ -1,6 +1,6 @@
 from console_view import CommandHandler, DataBaseView
 from database import JSONBase
-from core import Account
+from core import Account, Money, Bank
 
 from console_view.view import Viewer
 
@@ -22,7 +22,7 @@ class TestCommandHandle(Viewer):
         self.showed_error = None
         self.database = DataBaseView(JSONBase(''))
         self.database.add_account('test', Account('BYN'))
-        self.handler = CommandHandler(self.database, self)
+        self.handler = CommandHandler(self.database, self, Bank())
 
     def test_get_all_command_handle(self) -> None:
         self.handler.process(('get', 'all'))
@@ -36,6 +36,20 @@ class TestCommandHandle(Viewer):
     def test_get_none_account_command_handle(self) -> None:
         self.handler.process(('get', 'none'))
         assert self.showed_error == 'Account with name "none" is not exist.'
+
+    def test_create_account_command_handle(self) -> None:
+        self.handler.process(('create', 'test2', 'BYN'))
+        assert self.database.get_account('test2')
+
+    def test_create_command_handle(self) -> None:
+        self.handler.process(('create', ))
+        assert self.showed_error == 'Wrong command syntax "create"\n' \
+                                    'create have syntax:\n' \
+                                    'create <name> <currency>'
+
+    def test_add_income_command_handle(self) -> None:
+        self.handler.process(('add', 'income', 'test', '10', 'BYN'))
+        assert self.database.get_account('test').value == Money.byn(10)
 
     def test_not_command_handle(self) -> None:
         self.handler.process(('not_command', ))
