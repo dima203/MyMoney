@@ -1,6 +1,6 @@
 from console_view.data import DataBaseView
 from console_view.view import Viewer
-from core import Account, Money, Bank, Income
+from core import Account, Money, Bank, Income, Expense
 
 
 class CommandHandler:
@@ -32,6 +32,10 @@ class CommandHandler:
                     case 'income', str(account_name), str(value), str(currency):
                         transaction = Income(self.__database_view.get_account(account_name),
                                              Money(int(value), currency))
+                        transaction.accept(self.__bank)
+                    case 'expense', str(account_name), str(value), str(currency):
+                        transaction = Expense(self.__database_view.get_account(account_name),
+                                              Money(int(value), currency))
                         transaction.accept(self.__bank)
             case 'exit', :
                 return True

@@ -1,4 +1,5 @@
 from . import CommandHandler, DataBaseView, ConsoleInput, ConsoleViewer
+from core import Bank
 
 from database import JSONBase
 
@@ -9,7 +10,8 @@ class Application:
         self.database_view = DataBaseView(self.database)
         self.viewer = ConsoleViewer()
         self.input = ConsoleInput()
-        self.command_handler = CommandHandler(self.database_view, self.viewer)
+        self.bank = Bank()
+        self.command_handler = CommandHandler(self.database_view, self.viewer, self.bank)
 
     def run(self) -> None:
         self.database_view.load_accounts()

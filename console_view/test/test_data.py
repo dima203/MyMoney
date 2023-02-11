@@ -7,7 +7,7 @@ from database import JSONBase
 
 class TestDataBaseView:
     def setup_method(self) -> None:
-        self.db_view = DataBaseView(JSONBase(r'E:\PyCharmProjects\MyMoney\console_view\test\test_accounts.json'))
+        self.db_view = DataBaseView(JSONBase(str(Path.cwd() / 'console_view/test/test_accounts.json')))
         self.account = Account('BYN')
         self.account.add(Money.byn(10), Bank())
         self.db_view.add_account('test', self.account)
