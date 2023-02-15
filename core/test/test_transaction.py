@@ -15,7 +15,7 @@ class TestTransfer:
         account = Account('', 'BYN')
         income = Income(0, account, Money.byn(10), self.bank)
         target_account = Account('1', 'BYN')
-        transaction = Transfer(1, account, target_account, Money.byn(10), self.bank)
+        transaction = Transfer(1, target_account, account, Money.byn(10), self.bank)
         assert account.get_balance() == Money.byn(0)
         assert target_account.get_balance() == Money.byn(10)
 
@@ -23,7 +23,7 @@ class TestTransfer:
         account = Account('', 'USD')
         income = Income(0, account, Money.dollar(10), self.bank)
         target_account = Account('1', 'BYN')
-        transaction = Transfer(1, account, target_account, Money.dollar(4), self.bank)
+        transaction = Transfer(1, target_account, account, Money.dollar(4), self.bank)
         assert account.get_balance() == Money.dollar(6)
         assert target_account.get_balance() == Money.byn(10)
 
@@ -31,7 +31,7 @@ class TestTransfer:
         account = Account('', 'BYN')
         income = Income(0, account, Money.byn(10), self.bank)
         target_account = Account('1', 'BYN')
-        transaction = Transfer(1, account, target_account, Money.byn(10), self.bank)
+        transaction = Transfer(1, target_account, account, Money.byn(10), self.bank)
         assert account.get_balance() == Money.byn(0)
         assert target_account.get_balance() == Money.byn(10)
         del transaction

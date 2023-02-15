@@ -39,11 +39,11 @@ class CommandHandler:
                         transaction = Expense(0, None, Money(int(value), currency), self.__bank)
                         self.__transaction_view.add_transaction(transaction)
                         transaction.connect(self.__database_view.get_account(account_name))
-                    case 'transfer', str(account), str(target_account), str(value), str(currency):
+                    case 'transfer', str(from_account), str(to_account), str(value), str(currency):
                         transaction = Transfer(0, None, None, Money(int(value), currency), self.__bank)
                         self.__transaction_view.add_transaction(transaction)
-                        transaction.connect(self.__database_view.get_account(account),
-                                            self.__database_view.get_account(target_account))
+                        transaction.connect(self.__database_view.get_account(from_account),
+                                            self.__database_view.get_account(to_account))
             case 'exit', :
                 return True
             case _:
