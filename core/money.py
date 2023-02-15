@@ -49,5 +49,8 @@ class Money:
             raise TypeError(f'Cannot multiply currency on {type(other)}')
         return Money(self.value * other, self.currency)
 
+    def __neg__(self):
+        return Money(-self.value, self.currency)
+
     def __repr__(self) -> str:
         return f'{self.__currency_names[self.currency]}({self.value})'

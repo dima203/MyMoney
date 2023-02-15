@@ -1,8 +1,8 @@
-from core import Account, Money
+from core import Account, Money, Transaction
 from database import JSONBase
 
 
-class DataBaseView:
+class AccountBaseView:
     def __init__(self, database: JSONBase) -> None:
         self.__accounts: dict[str, Account] = {}
         self.__database = database
@@ -27,3 +27,13 @@ class DataBaseView:
         for key, account in self.__accounts.items():
             accounts_dict[key] = account.to_json()
         self.__database.save(accounts_dict)
+
+
+class TransactionBaseView:
+    def __init__(self, database: JSONBase) -> None:
+        self.__transactions: dict[int, Transaction] = {}
+        self.__database = database
+
+    def get_transaction(self, transaction_id: int) -> Transaction:
+        pass
+

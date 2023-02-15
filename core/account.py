@@ -27,26 +27,6 @@ class Account(Storage):
     def add_source(self, source: Storage):
         self.__transactions.append(ref(source))
 
-    def add(self, value: Money, bank: Bank) -> Money:
-        """
-        Add value of money to account.
-
-        :param value: amount of money to add
-        :type value: Money
-        :param bank: bank to exchange value to expected currency
-        :type bank: Bank
-        :return: amount of added money in expected currency
-        :rtype: Money
-        """
-        self.value += bank.exchange(value, self.value.currency)
-        return bank.exchange(value, self.value.currency)
-
-    def remove(self, value: Money, bank: Bank) -> Money:
-        if self.value < bank.exchange(value, self.value.currency):
-            raise ValueError('Cannot sub bigger value from account')
-        self.value -= bank.exchange(value, self.value.currency)
-        return bank.exchange(value, self.value.currency)
-
     def __enter__(self) -> Self:
         self.__saved_value = self.value
         return self

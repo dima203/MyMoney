@@ -1,1 +1,1 @@
-from .database_view import DataBaseView
+from .database_view import AccountBaseView
