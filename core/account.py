@@ -1,13 +1,31 @@
 from typing import Self
+from weakref import ref, ReferenceType
 
+from .storage import Storage
 from .money import Money
 from .exchange import Bank
 
 
-class Account:
+class Account(Storage):
     def __init__(self, currency: str) -> None:
-        self.value: Money = Money(0, currency)
+        self.currency = currency
         self.__saved_value: Money = Money(0, currency)
+        self.__transactions: list[ReferenceType] = []
+
+    def get_balance(self) -> Money:
+        result = Money(0, self.currency)
+        deleted_transactions = []
+        for transaction in self.__transactions:
+            if transaction() is None:
+                deleted_transactions.append(transaction)
+            else:
+                result += transaction().get_balance()
+        for deleted in deleted_transactions:
+            self.__transactions.remove(deleted)
+        return result
+
+    def add_source(self, source: Storage):
+        self.__transactions.append(ref(source))
 
     def add(self, value: Money, bank: Bank) -> Money:
         """

@@ -1,23 +1,24 @@
 from abc import ABC, abstractmethod
 
+from .storage import Storage
 from .account import Account
 from .exchange import Bank
 from .money import Money
 
 
-class Transaction(ABC):
-    def __init__(self, account: Account, currency: Money) -> None:
-        self._account = account
-        self._currency = currency
+class Transaction(Storage):
+    def __init__(self, currency: Money) -> None:
+        self._value = currency
         self._transaction_bank = Bank()
 
-    @abstractmethod
-    def accept(self, bank: Bank) -> None:
-        pass
+    def get_balance(self) -> Money:
+        return self._value
 
-    @abstractmethod
-    def cancel(self) -> None:
-        pass
+    def to_json(self) -> dict[str, str | int]:
+        return {
+            'value': self._value.value,
+            'currency': self._value.currency
+        }
 
 
 class Transfer(Transaction):
