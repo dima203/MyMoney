@@ -4,6 +4,8 @@ from .money import Money
 
 
 class Storage(ABC):
+    id = None
+
     @abstractmethod
     def get_balance(self) -> Money: ...
 

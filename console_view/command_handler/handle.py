@@ -1,11 +1,13 @@
-from console_view.data import AccountBaseView
+from console_view.data import AccountBaseView, TransactionBaseView
 from console_view.view import Viewer
-from core import Account, Money, Bank, Income, Expense
+from core import Account, Money, Bank, Income, Expense, Transfer
 
 
 class CommandHandler:
-    def __init__(self, database_view: AccountBaseView, viewer: Viewer, bank: Bank) -> None:
+    def __init__(self, database_view: AccountBaseView, transaction_view: TransactionBaseView,
+                 viewer: Viewer, bank: Bank) -> None:
         self.__database_view = database_view
+        self.__transaction_view = transaction_view
         self.__viewer = viewer
         self.__bank = bank
 
@@ -22,7 +24,7 @@ class CommandHandler:
                     return False
                 self.__viewer.show_account(name, self.__database_view.get_account(name))
             case 'create', str(name), str(currency):
-                self.__database_view.add_account(name, Account(currency))
+                self.__database_view.add_account(name, Account(name, currency))
             case 'create', :
                 self.__viewer.show_error(f'Wrong command syntax "create"\n'
                                          f'create have syntax:\n'
@@ -30,11 +32,18 @@ class CommandHandler:
             case 'add', *args:
                 match args:
                     case 'income', str(account_name), str(value), str(currency):
-                        transaction = Income(self.__database_view.get_account(account_name),
-                                             Money(int(value), currency), self.__bank)
+                        transaction = Income(0, None, Money(int(value), currency), self.__bank)
+                        self.__transaction_view.add_transaction(transaction)
+                        transaction.connect(self.__database_view.get_account(account_name))
                     case 'expense', str(account_name), str(value), str(currency):
-                        transaction = Expense(self.__database_view.get_account(account_name),
-                                              Money(int(value), currency), self.__bank)
+                        transaction = Expense(0, None, Money(int(value), currency), self.__bank)
+                        self.__transaction_view.add_transaction(transaction)
+                        transaction.connect(self.__database_view.get_account(account_name))
+                    case 'transfer', str(account), str(target_account), str(value), str(currency):
+                        transaction = Transfer(0, None, None, Money(int(value), currency), self.__bank)
+                        self.__transaction_view.add_transaction(transaction)
+                        transaction.connect(self.__database_view.get_account(account),
+                                            self.__database_view.get_account(target_account))
             case 'exit', :
                 return True
             case _:

@@ -8,15 +8,15 @@ class TestAccount:
         self.bank.add_exchange('USD', 'BYN', 2.5)
 
     def test_get_currency(self) -> None:
-        account = Account('BYN')
+        account = Account('', 'BYN')
         assert account.get_balance() == Money.byn(0)
 
     def test_account_sum(self) -> None:
-        account = Account('BYN')
-        account1 = Account('BYN')
-        transaction1 = Income(account1, Money.byn(10), Bank())
-        account2 = Account('BYN')
-        transaction2 = Income(account2, Money.byn(10), Bank())
+        account = Account('', 'BYN')
+        account1 = Account('1', 'BYN')
+        transaction1 = Income(0, account1, Money.byn(10), Bank())
+        account2 = Account('2', 'BYN')
+        transaction2 = Income(1, account2, Money.byn(10), Bank())
         account.add_source(account1)
         account.add_source(account2)
         assert account.get_balance() == Money.byn(20)

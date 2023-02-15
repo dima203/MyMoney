@@ -1,0 +1,12 @@
+{
+  "0": {
+    "type": "Income",
+    "value": 10,
+    "currency": "BYN"
+  },
+  "1": {
+    "type": "Income",
+    "value": 20,
+    "currency": "USD"
+  }
+}

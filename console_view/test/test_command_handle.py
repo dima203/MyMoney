@@ -1,4 +1,4 @@
-from console_view import CommandHandler, DataBaseView
+from console_view import CommandHandler, AccountBaseView, TransactionBaseView
 from database import JSONBase
 from core import Account, Money, Bank
 
@@ -20,9 +20,10 @@ class TestCommandHandle(Viewer):
         self.show_called = 0
         self.showed_name = None
         self.showed_error = None
-        self.database = DataBaseView(JSONBase(''))
-        self.database.add_account('test', Account('BYN'))
-        self.handler = CommandHandler(self.database, self, Bank())
+        self.database = AccountBaseView(JSONBase(''))
+        self.database2 = TransactionBaseView(JSONBase(''))
+        self.database.add_account('test', Account('test', 'BYN'))
+        self.handler = CommandHandler(self.database, self.database2, self, Bank())
 
     def test_get_all_command_handle(self) -> None:
         self.handler.process(('get', 'all'))
@@ -52,7 +53,8 @@ class TestCommandHandle(Viewer):
         assert self.database.get_account('test').get_balance() == Money.byn(10)
 
     def test_add_expense_command_handle(self) -> None:
-        self.database.get_account('test').add(Money.byn(10), Bank())
+        acc = self.database.get_account('test')
+        self.handler.process(('add', 'income', 'test', '10', 'BYN'))
         self.handler.process(('add', 'expense', 'test', '10', 'BYN'))
         assert self.database.get_account('test').get_balance() == Money.byn(0)
 

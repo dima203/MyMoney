@@ -20,10 +20,10 @@ class Viewer(ABC):
 class ConsoleViewer(Viewer):
     def show_accounts(self, accounts: dict[str, Account]) -> None:
         for name, account in accounts.items():
-            print(name, account.value)
+            print(name, account.get_balance())
 
     def show_account(self, name: str, account: Account) -> None:
-        print(name, account.value)
+        print(name, account.get_balance())
 
     def show_error(self, error_message: str) -> None:
         print(error_message)

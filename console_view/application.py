@@ -1,4 +1,4 @@
-from . import CommandHandler, DataBaseView, ConsoleInput, ConsoleViewer
+from console_view import CommandHandler, AccountBaseView, TransactionBaseView, ConsoleInput, ConsoleViewer
 from core import Bank
 
 from database import JSONBase
@@ -7,18 +7,23 @@ from database import JSONBase
 class Application:
     def __init__(self):
         self.database = JSONBase(r'E:\PyCharmProjects\MyMoney\application_data.json')
-        self.database_view = DataBaseView(self.database)
+        self.transaction_database = JSONBase(r'E:\PyCharmProjects\MyMoney\application_transaction_data.json')
+        self.database_view = AccountBaseView(self.database)
+        self.transactions_view = TransactionBaseView(self.transaction_database)
         self.viewer = ConsoleViewer()
         self.input = ConsoleInput()
         self.bank = Bank()
-        self.command_handler = CommandHandler(self.database_view, self.viewer, self.bank)
+        self.command_handler = CommandHandler(self.database_view, self.transactions_view, self.viewer, self.bank)
 
     def run(self) -> None:
         self.database_view.load_accounts()
+        self.transactions_view.load_transactions()
+        self.database_view.load_transactions_to_accounts(self.transactions_view)
         self.__app_cycle()
 
     def stop(self) -> None:
         self.database_view.save_accounts()
+        self.transactions_view.save_transactions()
 
     def __app_cycle(self) -> None:
         while True:
