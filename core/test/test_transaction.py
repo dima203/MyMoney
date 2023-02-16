@@ -5,18 +5,17 @@ class TestTransfer:
     def setup_method(self) -> None:
         self.bank = Bank()
         self.bank.add_exchange('USD', 'BYN', 2.5)
+        self.account = Account('', 'BYN')
+        self.income = Income(0, self.account, Money.byn(10), self.bank)
 
     def test_transfer_create(self) -> None:
-        account = Account('', 'BYN')
         target_account = Account('1', 'BYN')
-        Transfer(0, account, target_account, Money.byn(10), self.bank)
+        Transfer(0, self.account, target_account, Money.byn(10), self.bank)
 
     def test_transfer_accept(self) -> None:
-        account = Account('', 'BYN')
-        income = Income(0, account, Money.byn(10), self.bank)
         target_account = Account('1', 'BYN')
-        transaction = Transfer(1, target_account, account, Money.byn(10), self.bank)
-        assert account.get_balance() == Money.byn(0)
+        transaction = Transfer(1, target_account, self.account, Money.byn(10), self.bank)
+        assert self.account.get_balance() == Money.byn(0)
         assert target_account.get_balance() == Money.byn(10)
 
     def test_transfer_different_currency_accept(self) -> None:
@@ -28,14 +27,12 @@ class TestTransfer:
         assert target_account.get_balance() == Money.byn(10)
 
     def test_transfer_cancel(self) -> None:
-        account = Account('', 'BYN')
-        income = Income(0, account, Money.byn(10), self.bank)
         target_account = Account('1', 'BYN')
-        transaction = Transfer(1, target_account, account, Money.byn(10), self.bank)
-        assert account.get_balance() == Money.byn(0)
+        transaction = Transfer(1, target_account, self.account, Money.byn(10), self.bank)
+        assert self.account.get_balance() == Money.byn(0)
         assert target_account.get_balance() == Money.byn(10)
         del transaction
-        assert account.get_balance() == Money.byn(10)
+        assert self.account.get_balance() == Money.byn(10)
         assert target_account.get_balance() == Money.byn(0)
 
 
