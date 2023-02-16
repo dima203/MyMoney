@@ -18,6 +18,8 @@ class CommandHandler:
         match command:
             case 'get', 'all':
                 self.__viewer.show_accounts(self.__database_view.get_accounts())
+            case 'transactions', :
+                self.__viewer.show_transactions(self.__transaction_view.get_transactions())
             case 'get', str(name):
                 if self.__database_view.get_account(name) is None:
                     self.__viewer.show_error(f'Account with name "{name}" is not exist.')
