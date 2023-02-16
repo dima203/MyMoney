@@ -1,9 +1,9 @@
 class Money:
     __currency_names = {
-        'USD': 'Dollar',
-        'EUR': 'Euro',
-        'RUB': 'Rub',
-        'BYN': 'Byn'
+        'USD': ('Dollar', '$'),
+        'EUR': ('Euro', '€'),
+        'RUB': ('Rub', '₽'),
+        'BYN': ('Byn', 'BYN')
     }
 
     def __init__(self, value: float, currency: str) -> None:
@@ -53,4 +53,7 @@ class Money:
         return Money(-self.value, self.currency)
 
     def __repr__(self) -> str:
-        return f'{self.__currency_names[self.currency]}({self.value})'
+        return f'{self.__currency_names[self.currency][0]}({self.value})'
+
+    def __str__(self) -> str:
+        return f'{self.value} {self.__currency_names[self.currency][1]}'

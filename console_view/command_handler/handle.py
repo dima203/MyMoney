@@ -20,14 +20,22 @@ class CommandHandler:
                 self.__viewer.show_accounts(self.__database_view.get_accounts())
             case 'transactions', :
                 self.__viewer.show_transactions(self.__transaction_view.get_transactions())
+            case 'transactions', *args:
+                self.__viewer.show_error(f'Wrong command syntax "transactions"\n'
+                                         f'transactions have syntax:\n'
+                                         f'transactions')
             case 'get', str(name):
                 if self.__database_view.get_account(name) is None:
                     self.__viewer.show_error(f'Account with name "{name}" is not exist.')
                     return False
                 self.__viewer.show_account(name, self.__database_view.get_account(name))
+            case 'get', *args:
+                self.__viewer.show_error(f'Wrong command syntax "get"\n'
+                                         f'get have syntax:\n'
+                                         f'get <name | all>')
             case 'create', str(name), str(currency):
                 self.__database_view.add_account(name, Account(name, currency))
-            case 'create', :
+            case 'create', *args:
                 self.__viewer.show_error(f'Wrong command syntax "create"\n'
                                          f'create have syntax:\n'
                                          f'create <name> <currency>')
@@ -46,6 +54,10 @@ class CommandHandler:
                         self.__transaction_view.add_transaction(transaction)
                         transaction.connect(self.__database_view.get_account(from_account),
                                             self.__database_view.get_account(to_account))
+                    case _:
+                        self.__viewer.show_error(f'Wrong command syntax "add"\n'
+                                                 f'add have syntax:\n'
+                                                 f'add <type> <account> [account2](for transfer) <value> <currency>')
             case 'exit', :
                 return True
             case _:

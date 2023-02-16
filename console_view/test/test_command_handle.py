@@ -1,6 +1,6 @@
 from console_view import CommandHandler, AccountBaseView, TransactionBaseView
 from database import JSONBase
-from core import Account, Money, Bank
+from core import Account, Money, Bank, Transaction
 
 from console_view.view import Viewer
 
@@ -12,6 +12,9 @@ class TestCommandHandle(Viewer):
     def show_account(self, name: str, account: Account) -> None:
         self.show_called += 1
         self.showed_name = name
+
+    def show_transactions(self, transactions: dict[int, Transaction]) -> None:
+        pass
 
     def show_error(self, error_message: str) -> None:
         self.showed_error = error_message
