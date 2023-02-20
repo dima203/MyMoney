@@ -8,5 +8,16 @@
     "type": "Income",
     "value": 20,
     "currency": "USD"
+  },
+  "2": {
+    "type": "Expense",
+    "value": 30,
+    "currency": "BYN"
+  },
+  "3": {
+    "type": "Transfer",
+    "value": 5,
+    "currency": "BYN",
+    "from": "test"
   }
 }

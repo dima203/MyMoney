@@ -1,5 +1,5 @@
 import pytest
-from core import Account, Money, Bank, Income
+from core import Account, Money, Bank, Income, Transfer
 
 
 class TestAccount:
@@ -12,7 +12,12 @@ class TestAccount:
         assert account.get_balance() == Money.byn(0)
 
     def test_to_json(self) -> None:
-        transactions =
+        test_account = Account('test', 'RUB')
+        acc2 = Account('test2', 'RUB')
+        transaction = Income(0, test_account, Money.rub(100), self.bank)
+        assert transaction.to_json() == {'type': 'Income', 'currency': 'RUB', 'value': 100}
+        transfer = Transfer(1, test_account, acc2, Money.rub(30), self.bank)
+        assert transfer.to_json() == {'type': 'Transfer', 'currency': 'RUB', 'value': 30, 'from': 'test'}
 
     def test_get_empty_sources(self) -> None:
         account = Account('', 'BYN')

@@ -1,10 +1,14 @@
 {
   "test": {
     "currency": "BYN",
-    "sources": []
+    "sources": [
+      0
+    ]
   },
   "loaded": {
-    "currency": "RUB",
-    "sources": []
+    "currency": "BYN",
+    "sources": [
+      3
+    ]
   }
 }

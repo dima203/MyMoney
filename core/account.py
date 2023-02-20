@@ -29,17 +29,9 @@ class Account(Storage):
         return self.__sources
 
     def add_source(self, source: Storage) -> None:
-        self.__sources.append(source.id)
+        if source.id not in self.__sources:
+            self.__sources.append(source.id)
         self.__transactions[source.id] = ref(source)
-
-    def __enter__(self) -> Self:
-        self.__saved_value = self.value
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        if exc_type is not None:
-            self.value = self.__saved_value
-        return True
 
     def to_json(self) -> dict[str, str | int]:
         return {

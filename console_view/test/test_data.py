@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from console_view import AccountBaseView
+from console_view import AccountBaseView, TransactionBaseView
 from core import Account, Money, Bank, Income
 from database import JSONBase
 
@@ -9,11 +9,14 @@ from database import JSONBase
 class TestDataBaseView:
     def setup_method(self) -> None:
         self.data_path = Path.cwd() / 'console_view/test/test_accounts.json'
+        self.transactions_data_path = Path.cwd() / 'console_view/test/test_transactions.json'
         self.accounts_data = json.load(self.data_path.open())
         self.db_view = AccountBaseView(JSONBase(str(self.data_path)))
+        self.transactions_db_view = TransactionBaseView(JSONBase(str(self.transactions_data_path)))
         self.account = Account('test', 'BYN')
-        self.income = Income(0, self.account, Money.byn(10), Bank())
+        self.income = Income(1, self.account, Money.byn(10), Bank())
         self.db_view.add_account('test', self.account)
+        self.transactions_db_view.add_transaction(self.income)
 
     def teardown_method(self) -> None:
         json.dump(self.accounts_data, self.data_path.open('w'), indent=2)
@@ -47,3 +50,28 @@ class TestDataBaseView:
         current_accounts = self.db_view.get_accounts()
         for name in current_accounts:
             assert current_accounts[name] == loaded_accounts[name]
+
+    def test_database_view_get_transactions(self) -> None:
+        assert self.transactions_db_view.get_transactions() == {1: self.income}
+
+    def test_database_view_get_transaction(self) -> None:
+        assert self.transactions_db_view.get_transaction(1) == self.income
+
+    def test_database_view_load_transactions(self) -> None:
+        self.transactions_db_view.load_transactions()
+        assert self.transactions_db_view.get_transaction(1)
+
+    def test_database_view_save_transactions(self) -> None:
+        save_base = TransactionBaseView(JSONBase(str(Path.cwd() / r'console_view/test/saved_data.json')))
+        acc = Account('test', 'BYN')
+        income = Income(1, acc, Money.byn(10), Bank())
+        save_base.add_transaction(income)
+        save_base.save_transactions()
+        save_base.load_transactions()
+        assert save_base.get_transaction(1)
+
+    def test_accounts_load_transactions(self) -> None:
+        self.db_view.load_accounts()
+        self.transactions_db_view.load_transactions()
+        self.db_view.load_transactions_to_accounts(self.transactions_db_view)
+        assert self.db_view.get_account('test')._Account__transactions[0]() == self.transactions_db_view.get_transaction(0)
