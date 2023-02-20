@@ -10,7 +10,7 @@ class Account(Storage):
         self.id = name
         self.currency = currency
         self.__saved_value: Money = Money(0, currency)
-        self.__sources = sources
+        self.__sources = sources if sources is not None else []
         self.__transactions: dict[int | str, ReferenceType] = {}
 
     def get_balance(self) -> Money:
@@ -29,6 +29,7 @@ class Account(Storage):
         return self.__sources
 
     def add_source(self, source: Storage) -> None:
+        self.__sources.append(source.id)
         self.__transactions[source.id] = ref(source)
 
     def __enter__(self) -> Self:
@@ -45,3 +46,6 @@ class Account(Storage):
             'currency': self.currency,
             'sources': list(filter(lambda key: True if isinstance(key, int) else False, self.__transactions.keys()))
         }
+
+    def __eq__(self, other):
+        return self.__sources == other.__sources and self.currency == other.currency

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from console_view import AccountBaseView
@@ -7,10 +8,15 @@ from database import JSONBase
 
 class TestDataBaseView:
     def setup_method(self) -> None:
-        self.db_view = AccountBaseView(JSONBase(str(Path.cwd() / 'console_view/test/test_accounts.json')))
+        self.data_path = Path.cwd() / 'console_view/test/test_accounts.json'
+        self.accounts_data = json.load(self.data_path.open())
+        self.db_view = AccountBaseView(JSONBase(str(self.data_path)))
         self.account = Account('test', 'BYN')
         self.income = Income(0, self.account, Money.byn(10), Bank())
         self.db_view.add_account('test', self.account)
+
+    def teardown_method(self) -> None:
+        json.dump(self.accounts_data, self.data_path.open('w'), indent=2)
 
     def test_database_view_create(self) -> None:
         db_view = AccountBaseView(JSONBase(''))
@@ -31,3 +37,13 @@ class TestDataBaseView:
     def test_database_view_load(self) -> None:
         self.db_view.load_accounts()
         assert self.db_view.get_account('loaded')
+
+    def test_database_view_save(self) -> None:
+        self.db_view.add_account('test2', Account('test2', 'USD'))
+        self.db_view.save_accounts()
+        loaded_db_view = AccountBaseView(JSONBase(str(self.data_path)))
+        loaded_db_view.load_accounts()
+        loaded_accounts = loaded_db_view.get_accounts()
+        current_accounts = self.db_view.get_accounts()
+        for name in current_accounts:
+            assert current_accounts[name] == loaded_accounts[name]
