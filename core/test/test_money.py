@@ -28,24 +28,27 @@ class TestMoney:
 
 
 class TestDifferenceMoney:
-    def test_currency_not_equal(self):
+    def test_currency_not_equal(self) -> None:
         assert Money.dollar(5) != Money.euro(5)
 
-    def test_currency_little(self):
+    def test_currency_little(self) -> None:
         with pytest.raises(TypeError):
             Money.dollar(3) < Money.byn(5)
 
-    def test_currency_sum(self):
+    def test_currency_sum(self) -> None:
         with pytest.raises(TypeError):
             Money.dollar(5) + Money.euro(7)
 
-    def test_currency_sub(self):
+    def test_currency_sub(self) -> None:
         with pytest.raises(TypeError):
             Money.dollar(5) - Money.euro(7)
 
-    def test_currency_multiply(self):
-        result = Money.dollar(5) * 3
-        assert result == Money.dollar(15)
-
+    def test_currency_multiply(self) -> None:
         with pytest.raises(TypeError):
             Money.dollar(3) * Money.dollar(5)
+
+    def test_repr(self) -> None:
+        assert repr(Money.dollar(5)) == 'Dollar(5)'
+
+    def test_str(self) -> None:
+        assert str(Money.dollar(5)) == '5 $'

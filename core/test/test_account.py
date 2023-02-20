@@ -11,6 +11,19 @@ class TestAccount:
         account = Account('', 'BYN')
         assert account.get_balance() == Money.byn(0)
 
+    def test_to_json(self) -> None:
+        transactions =
+
+    def test_get_empty_sources(self) -> None:
+        account = Account('', 'BYN')
+        assert account.get_sources() == []
+
+    def test_get_not_empty_sources(self) -> None:
+        account = Account('', 'BYN')
+        account2 = Account('test', 'BYN')
+        account.add_source(account2)
+        assert account.get_sources() == ['test']
+
     def test_account_sum(self) -> None:
         account = Account('', 'BYN')
         account1 = Account('1', 'BYN')
