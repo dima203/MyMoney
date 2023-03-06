@@ -1,4 +1,5 @@
-from console_view import CommandHandler, AccountBaseView, TransactionBaseView
+from console_view import CommandHandler
+from dataview import AccountBaseView, TransactionBaseView
 from database import JSONBase
 from core import Account, Money, Bank, Transaction
 

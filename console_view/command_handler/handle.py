@@ -1,4 +1,4 @@
-from console_view.data import AccountBaseView, TransactionBaseView
+from dataview import AccountBaseView, TransactionBaseView
 from console_view.view import Viewer
 from core import Account, Money, Bank, Income, Expense, Transfer
 

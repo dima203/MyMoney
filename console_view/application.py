@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from console_view import CommandHandler, AccountBaseView, TransactionBaseView, ConsoleInput, ConsoleViewer
+from console_view import CommandHandler, ConsoleInput, ConsoleViewer
+from dataview import AccountBaseView, TransactionBaseView
 from core import Bank
 from database import JSONBase
 

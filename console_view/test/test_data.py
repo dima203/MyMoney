@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from console_view import AccountBaseView, TransactionBaseView
+from dataview import AccountBaseView, TransactionBaseView
 from core import Account, Money, Bank, Income
 from database import JSONBase
 
