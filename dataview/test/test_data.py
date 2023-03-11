@@ -8,8 +8,8 @@ from database import JSONBase
 
 class TestDataBaseView:
     def setup_method(self) -> None:
-        self.data_path = Path.cwd() / 'console_view/test/test_accounts.json'
-        self.transactions_data_path = Path.cwd() / 'console_view/test/test_transactions.json'
+        self.data_path = Path.cwd() / 'dataview/test/test_accounts.json'
+        self.transactions_data_path = Path.cwd() / 'dataview/test/test_transactions.json'
         self.accounts_data = json.load(self.data_path.open())
         self.db_view = AccountBaseView(JSONBase(str(self.data_path)))
         self.transactions_db_view = TransactionBaseView(JSONBase(str(self.transactions_data_path)))
@@ -62,7 +62,7 @@ class TestDataBaseView:
         assert self.transactions_db_view.get_transaction(1)
 
     def test_database_view_save_transactions(self) -> None:
-        save_base = TransactionBaseView(JSONBase(str(Path.cwd() / r'console_view/test/saved_data.json')))
+        save_base = TransactionBaseView(JSONBase(str(Path.cwd() / r'dataview/test/saved_data.json')))
         acc = Account('test', 'BYN')
         income = Income(1, acc, Money.byn(10), Bank())
         save_base.add_transaction(income)
