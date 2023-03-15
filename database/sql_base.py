@@ -46,7 +46,3 @@ class SQLBase(DataBase):
                 )
             ''', (record_id, *record.values()))
         self.__connection.commit()
-
-
-test = SQLBase(':memory:', 'accounts', 'id', 'CHAR(128)', 'value', 'INT', 'currency', 'CHAR(5)')
-print(test.load())

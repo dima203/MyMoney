@@ -1,0 +1,27 @@
+MDScreen:
+    MDNavigationLayout:
+        MDScreenManager:
+            MDScreen:
+                MDTopAppBar:
+                    title: "Navigation Drawer"
+                    elevation: 4
+                    pos_hint: {"top": 1}
+                    left_action_items:
+                        [['menu', lambda x: nav_drawer.set_state("open")]]
+
+                MDBoxLayout:
+                    orientation: 'vertical'
+                    MDLabel:
+                        text: 'TEST'
+                        size_hint: 1., 1.
+                    MDRectangleFlatButton:
+                        id: menu_button
+                        text: 'TEST'
+                        size_hint: 1., 1.
+
+        MDNavigationDrawer:
+            id: nav_drawer
+            radius: (0, 16, 16, 0)
+
+    MDBoxLayout:
+
