@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 class DataBase(ABC):
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, *args: str) -> None:
         self._path = Path(path)
 
     @abstractmethod

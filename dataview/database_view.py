@@ -1,9 +1,9 @@
 from core import Account, Money, Transaction, Transfer, Income, Expense, Bank
-from database import JSONBase
+from database import DataBase
 
 
 class AccountBaseView:
-    def __init__(self, database: JSONBase) -> None:
+    def __init__(self, database: DataBase) -> None:
         self.__accounts: dict[str, Account] = {}
         self.__database = database
 
@@ -37,7 +37,7 @@ class AccountBaseView:
 
 
 class TransactionBaseView:
-    def __init__(self, database: JSONBase) -> None:
+    def __init__(self, database: DataBase) -> None:
         self.__transactions: dict[int, Transaction] = {}
         self.__database = database
         self.__last_id = 0

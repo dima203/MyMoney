@@ -5,8 +5,8 @@ from .abstract_base import DataBase
 
 
 class JSONBase(DataBase):
-    def __init__(self, path: str) -> None:
-        super().__init__(path)
+    def __init__(self, path: str, *args: str) -> None:
+        super().__init__(path, *args)
 
     def load(self) -> dict:
         try:
