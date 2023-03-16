@@ -1,4 +1,6 @@
 from kivymd.app import MDApp
+from kivymd.uix.toolbar import MDTopAppBar
+from kivymd.uix.navigationdrawer import MDNavigationDrawer
 from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.label import MDLabel
@@ -6,6 +8,14 @@ from pathlib import Path
 
 from dataview import AccountBaseView
 from database import JSONBase
+
+
+class Menu(MDNavigationDrawer):
+    pass
+
+
+class Navigation(MDTopAppBar):
+    pass
 
 
 class AccountsView(MDScrollView):
@@ -42,6 +52,17 @@ class MyMoneyApp(MDApp):
 
     def build(self):
         self.root.ids.main_layout.add_widget(AccountsView())
+
+    def menu_call(self):
+        self.root.ids.nav_drawer.set_state('open')
+
+    def main_button_press(self):
+        print(1)
+        self.root.ids.screen_manager.current = 'main'
+        print('1')
+
+    def add_account_button_press(self):
+        self.root.ids.screen_manager.current = 'add_account'
 
 
 # for tests
