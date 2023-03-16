@@ -1,4 +1,3 @@
-from typing import Self
 from weakref import ref, ReferenceType
 
 from .storage import Storage
@@ -39,5 +38,5 @@ class Account(Storage):
             'sources': list(filter(lambda key: True if isinstance(key, int) else False, self.__transactions.keys()))
         }
 
-    def __eq__(self, other):
+    def __eq__(self, other: 'Account') -> bool:
         return self.__sources == other.__sources and self.currency == other.currency
