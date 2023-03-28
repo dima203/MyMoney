@@ -33,9 +33,13 @@ class SQLBase(DataBase):
     def save(self, data: dict) -> None:
         field_sql = ''
         values_sql = ''
+        duplicate_sql = ''
         for i in range(1, len(self.__fields_names), 2):
             field_sql += f'{self.__fields_names[i]}, '
             values_sql += '?, '
+        for record_id, record in data.items():
+            for i in range(1, len(self.__fields_names), 2):
+                duplicate_sql += f'{self.__fields_names[i]}={self.__fields_names[i]}, '
         for record_id, record in data.items():
             self.__cursor.execute(f'''
                 INSERT INTO {self.__fields_names[0]} (
@@ -44,5 +48,7 @@ class SQLBase(DataBase):
                 VALUES (
                     {values_sql[:-2]}
                 )
+                ON CONFLICT({self.__fields_names[1]}) DO UPDATE SET {duplicate_sql[:-2]}
+                    
             ''', (record_id, *record.values()))
         self.__connection.commit()
