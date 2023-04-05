@@ -6,8 +6,9 @@ from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.label import MDLabel
 from pathlib import Path
 
-from dataview import AccountBaseView
+from dataview import AccountBaseView, TransactionBaseView
 from database import JSONBase
+from core import Income, Expense, Transfer
 
 
 class Menu(MDNavigationDrawer):
@@ -23,7 +24,7 @@ class AccountsView(MDScrollView):
         super().__init__(**kwargs)
 
         self.accounts = MDApp.get_running_app().account_view.get_accounts()
-        self.accounts_list = MDGridLayout(cols=1, spacing=10, size_hint_y=None, padding=20)
+        self.accounts_list = MDGridLayout(cols=1, spacing=3, size_hint_y=None, padding=20)
         self.accounts_list.bind(minimum_height=self.accounts_list.setter('height'))
 
         for account_id, account in self.accounts.items():
@@ -31,11 +32,41 @@ class AccountsView(MDScrollView):
                 MDLabel(
                     text=f'{account_id}: {account.get_balance()}',
                     size_hint_y=None,
-                    height=100
+                    height=50
                 )
             )
 
         self.add_widget(self.accounts_list)
+
+
+class TransactionsView(MDScrollView):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.transactions = MDApp.get_running_app().transactions_view.get_transactions()
+        self.transactions_list = MDGridLayout(cols=1, spacing=3, size_hint_y=None, padding=20)
+        self.transactions_list.bind(minimum_height=self.transactions_list.setter('height'))
+
+        for transaction_id, transaction in self.transactions.items():
+            match transaction:
+                case Income() as income:
+                    label_text = f'+{income.get_balance()}'
+                case Expense() as expense:
+                    label_text = f'-{expense.get_balance()}'
+                case Transfer() as transfer:
+                    label_text = f'{transfer.from_account_name} -> {transfer.get_balance()}'
+                case _:
+                    label_text = 'error load'
+
+            self.transactions_list.add_widget(
+                MDLabel(
+                    text=label_text,
+                    size_hint_y=None,
+                    height=50
+                )
+            )
+
+        self.add_widget(self.transactions_list)
 
 
 class MyMoneyApp(MDApp):
@@ -50,19 +81,25 @@ class MyMoneyApp(MDApp):
         self.account_view = AccountBaseView(JSONBase(str(Path.cwd() / 'application_data.json')))
         self.account_view.load_accounts()
 
+        self.transactions_view = TransactionBaseView(JSONBase(str(Path.cwd() / 'application_transaction_data.json')))
+        self.transactions_view.load_transactions()
+
+        self.account_view.load_transactions_to_accounts(self.transactions_view)
+
     def build(self):
         self.root.ids.main_layout.add_widget(AccountsView())
+        self.root.ids.transactions_layout.add_widget(TransactionsView())
 
     def menu_call(self):
         self.root.ids.nav_drawer.set_state('open')
 
     def main_button_press(self):
-        print(1)
+        self.root.ids.nav_drawer.set_state('close')
         self.root.ids.screen_manager.current = 'main'
-        print('1')
 
-    def add_account_button_press(self):
-        self.root.ids.screen_manager.current = 'add_account'
+    def transactions_button_press(self):
+        self.root.ids.nav_drawer.set_state('close')
+        self.root.ids.screen_manager.current = 'transactions'
 
 
 # for tests
