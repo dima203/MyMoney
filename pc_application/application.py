@@ -4,6 +4,7 @@ from kivymd.uix.navigationdrawer import MDNavigationDrawer
 from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.label import MDLabel
+from kivymd.uix.card import MDCard
 from pathlib import Path
 
 from dataview import AccountBaseView, TransactionBaseView
@@ -28,13 +29,16 @@ class AccountsView(MDScrollView):
         self.accounts_list.bind(minimum_height=self.accounts_list.setter('height'))
 
         for account_id, account in self.accounts.items():
-            self.accounts_list.add_widget(
-                MDLabel(
-                    text=f'{account_id}: {account.get_balance()}',
-                    size_hint_y=None,
-                    height=50
-                )
+            text = MDLabel(
+                text=f'{account_id}: {account.get_balance()}',
             )
+            card = MDCard(
+                size_hint_y=None,
+                height=50,
+                padding=20,
+            )
+            card.add_widget(text)
+            self.accounts_list.add_widget(card)
 
         self.add_widget(self.accounts_list)
 
@@ -58,13 +62,16 @@ class TransactionsView(MDScrollView):
                 case _:
                     label_text = 'error load'
 
-            self.transactions_list.add_widget(
-                MDLabel(
-                    text=label_text,
-                    size_hint_y=None,
-                    height=50
-                )
+            text = MDLabel(
+                text=label_text,
             )
+            card = MDCard(
+                size_hint_y=None,
+                height=50,
+                padding=20,
+            )
+            card.add_widget(text)
+            self.transactions_list.add_widget(card)
 
         self.add_widget(self.transactions_list)
 
