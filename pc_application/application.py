@@ -4,7 +4,7 @@ from kivymd.uix.navigationdrawer import MDNavigationDrawer
 from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.label import MDLabel
-from kivymd.uix.card import MDCard
+from kivymd.uix.card import MDCard, MDCardSwipe
 from pathlib import Path
 
 from dataview import AccountBaseView, TransactionBaseView
@@ -20,12 +20,17 @@ class Navigation(MDTopAppBar):
     pass
 
 
+class CardSwipe(MDCardSwipe):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
 class AccountsView(MDScrollView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self.accounts = MDApp.get_running_app().account_view.get_accounts()
-        self.accounts_list = MDGridLayout(cols=1, spacing=3, size_hint_y=None, padding=20)
+        self.accounts_list = MDGridLayout(cols=1, spacing=7, size_hint_y=None, padding=20)
         self.accounts_list.bind(minimum_height=self.accounts_list.setter('height'))
 
         for account_id, account in self.accounts.items():
@@ -48,7 +53,7 @@ class TransactionsView(MDScrollView):
         super().__init__(**kwargs)
 
         self.transactions = MDApp.get_running_app().transactions_view.get_transactions()
-        self.transactions_list = MDGridLayout(cols=1, spacing=3, size_hint_y=None, padding=20)
+        self.transactions_list = MDGridLayout(cols=1, spacing=7, size_hint_y=None, padding=20)
         self.transactions_list.bind(minimum_height=self.transactions_list.setter('height'))
 
         for transaction_id, transaction in self.transactions.items():
