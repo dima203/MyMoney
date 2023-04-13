@@ -2,11 +2,12 @@ from kivymd.app import MDApp
 from kivymd.uix.toolbar import MDTopAppBar
 from kivymd.uix.navigationdrawer import MDNavigationDrawer
 from kivymd.uix.gridlayout import MDGridLayout
+from kivymd.uix.list import MDList
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.label import MDLabel
-from kivymd.uix.card import MDCard, MDCardSwipe
+from kivymd.uix.card import MDCard, MDCardSwipe, MDCardSwipeFrontBox, MDCardSwipeLayerBox
+from kivy.properties import StringProperty
 from pathlib import Path
-
 from dataview import AccountBaseView, TransactionBaseView
 from database import JSONBase
 from core import Income, Expense, Transfer
@@ -21,8 +22,8 @@ class Navigation(MDTopAppBar):
 
 
 class CardSwipe(MDCardSwipe):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    account_id = StringProperty()
+    text = StringProperty()
 
 
 class AccountsView(MDScrollView):
@@ -30,22 +31,15 @@ class AccountsView(MDScrollView):
         super().__init__(**kwargs)
 
         self.accounts = MDApp.get_running_app().account_view.get_accounts()
-        self.accounts_list = MDGridLayout(cols=1, spacing=7, size_hint_y=None, padding=20)
-        self.accounts_list.bind(minimum_height=self.accounts_list.setter('height'))
 
         for account_id, account in self.accounts.items():
-            text = MDLabel(
+            card = CardSwipe(
+                account_id=account_id,
                 text=f'{account_id}: {account.get_balance()}',
-            )
-            card = MDCard(
                 size_hint_y=None,
                 height=50,
-                padding=20,
             )
-            card.add_widget(text)
-            self.accounts_list.add_widget(card)
-
-        self.add_widget(self.accounts_list)
+            self.ids.accounts_list.add_widget(card)
 
 
 class TransactionsView(MDScrollView):
@@ -99,7 +93,6 @@ class MyMoneyApp(MDApp):
         self.account_view.load_transactions_to_accounts(self.transactions_view)
 
     def build(self):
-        self.root.ids.main_layout.add_widget(AccountsView())
         self.root.ids.transactions_layout.add_widget(TransactionsView())
 
     def menu_call(self):
@@ -112,6 +105,10 @@ class MyMoneyApp(MDApp):
     def transactions_button_press(self):
         self.root.ids.nav_drawer.set_state('close')
         self.root.ids.screen_manager.current = 'transactions'
+
+    def delete_card(self, card: CardSwipe):
+        print(self.account_view.get_account(card.account_id).get_sources())
+        self.root.ids.accounts_list.remove_widget(card)
 
 
 # for tests
