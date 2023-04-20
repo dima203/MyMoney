@@ -11,6 +11,7 @@ MDScreen:
                     size_hint_y: 0.9
 
                     AccountsView:
+                        id: accounts_list
 
                 Navigation:
                     left_action_items:
@@ -59,27 +60,19 @@ MDScreen:
     pos_hint: {"top": 1}
     size_hint_y: 0.1
 
-
-<AccountsView>:
-    MDList:
-        id: accounts_list
-        size_hint_y: None
-        padding: 20
-        bind: {"minimum_height": self.setter('height')}
-
-
 <CardSwipe>:
     size_hint_y: None
     height: content.height
-    type_swipe: "auto"
-    on_swipe_complete: app.delete_card(root)
 
     MDCardSwipeLayerBox:
         padding: "8dp"
 
         MDIconButton:
             icon: "trash-can"
+            theme_icon_color: "Custom"
+            icon_color: app.theme_cls.accent_color
             pos_hint: {"center_y": .5}
+            on_press: app.delete_card(root)
 
     MDCardSwipeFrontBox:
         OneLineListItem:

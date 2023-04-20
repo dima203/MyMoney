@@ -5,9 +5,10 @@ from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.list import MDList
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.label import MDLabel
-from kivymd.uix.card import MDCard, MDCardSwipe, MDCardSwipeFrontBox, MDCardSwipeLayerBox
+from kivymd.uix.card import MDCard, MDCardSwipe
 from kivy.properties import StringProperty
 from pathlib import Path
+
 from dataview import AccountBaseView, TransactionBaseView
 from database import JSONBase
 from core import Income, Expense, Transfer
@@ -27,19 +28,26 @@ class CardSwipe(MDCardSwipe):
 
 
 class AccountsView(MDScrollView):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-
         self.accounts = MDApp.get_running_app().account_view.get_accounts()
+        self.accounts_list = MDGridLayout(
+            id='accounts_list',
+            cols=1,
+            size_hint_y=None,
+            padding=20,
+            spacing=7
+        )
+        self.accounts_list.bind(minimum_height=self.accounts_list.setter('height'))
 
         for account_id, account in self.accounts.items():
             card = CardSwipe(
                 account_id=account_id,
                 text=f'{account_id}: {account.get_balance()}',
-                size_hint_y=None,
-                height=50,
             )
-            self.ids.accounts_list.add_widget(card)
+            self.accounts_list.add_widget(card)
+
+        self.add_widget(self.accounts_list)
 
 
 class TransactionsView(MDScrollView):
@@ -77,12 +85,16 @@ class TransactionsView(MDScrollView):
 
 class MyMoneyApp(MDApp):
     kv_directory = './kv'
+    error_text_color = StringProperty()
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Teal"
+        self.theme_cls.accent_palette = "Red"
+        self.theme_cls.accent_hue = '900'
+        self.error_text_color = "#FF0000"
 
         self.account_view = AccountBaseView(JSONBase(str(Path.cwd() / 'application_data.json')))
         self.account_view.load_accounts()
@@ -108,7 +120,7 @@ class MyMoneyApp(MDApp):
 
     def delete_card(self, card: CardSwipe):
         print(self.account_view.get_account(card.account_id).get_sources())
-        self.root.ids.accounts_list.remove_widget(card)
+        self.root.ids.accounts_list.accounts_list.remove_widget(card)
 
 
 # for tests
