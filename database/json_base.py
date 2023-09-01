@@ -5,6 +5,8 @@ from .abstract_base import DataBase
 
 
 class JSONBase(DataBase):
+    """Class for connect to JSON file as database"""
+
     def __init__(self, path: str, *args: str) -> None:
         super().__init__(path, *args)
 

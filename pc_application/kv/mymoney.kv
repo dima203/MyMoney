@@ -25,9 +25,18 @@ MDScreen:
                     orientation: 'vertical'
                     size_hint_y: 0.9
 
+                MDFloatingActionButtonSpeedDial:
+                    id: transactions_menu
+                    anchor_x: 'right'
+                    data: app.data
+                    hint_animation: True
+                    bg_hint_color: app.theme_cls.primary_dark
+                    root_button_anim: True
+
                 Navigation:
                     left_action_items:
                         [['menu', lambda x: nav_drawer.set_state("open")]]
+
         Menu:
             id: nav_drawer
 
@@ -48,7 +57,7 @@ MDScreen:
             on_press: app.main_button_press()
         MDRectangleFlatButton:
             id: add_account_button
-            text: 'Транзак*ии'
+            text: 'Транзакции'
             size_hint: 1, None
             size: 0, 100
             on_press: app.transactions_button_press()

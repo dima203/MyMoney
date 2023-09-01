@@ -4,6 +4,8 @@ from .abstract_base import DataBase
 
 
 class SQLBase(DataBase):
+    """Class for connect to sqlite3 database"""
+
     def __init__(self, path: str, *args: str) -> None:
         super().__init__(path, *args)
         self.__fields_names = args

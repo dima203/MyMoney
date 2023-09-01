@@ -6,7 +6,7 @@ from kivymd.uix.list import MDList
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.label import MDLabel
 from kivymd.uix.card import MDCard, MDCardSwipe
-from kivy.properties import StringProperty
+from kivy.properties import StringProperty, DictProperty
 from pathlib import Path
 
 from dataview import AccountBaseView, TransactionBaseView
@@ -86,6 +86,7 @@ class TransactionsView(MDScrollView):
 class MyMoneyApp(MDApp):
     kv_directory = './kv'
     error_text_color = StringProperty()
+    data = DictProperty()
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -104,6 +105,13 @@ class MyMoneyApp(MDApp):
 
         self.account_view.load_transactions_to_accounts(self.transactions_view)
 
+        self.data = {
+            'Income': [
+                'plus',
+                'on_press', self.add_income,
+            ]
+        }
+
     def build(self):
         self.root.ids.transactions_layout.add_widget(TransactionsView())
 
@@ -121,6 +129,9 @@ class MyMoneyApp(MDApp):
     def delete_card(self, card: CardSwipe):
         print(self.account_view.get_account(card.account_id).get_sources())
         self.root.ids.accounts_list.accounts_list.remove_widget(card)
+
+    def add_income(self, callback):
+        print('added')
 
 
 # for tests
