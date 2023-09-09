@@ -1,4 +1,3 @@
-import pytest
 from core import Account, Money, Bank, Income, Transfer
 
 

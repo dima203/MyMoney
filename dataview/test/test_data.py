@@ -22,7 +22,7 @@ class TestDataBaseView:
         json.dump(self.accounts_data, self.data_path.open('w'), indent=2)
 
     def test_database_view_create(self) -> None:
-        db_view = AccountBaseView(JSONBase(''))
+        AccountBaseView(JSONBase(''))
 
     def test_database_view_get_account(self) -> None:
         account = self.db_view.get_account('test')
@@ -74,4 +74,5 @@ class TestDataBaseView:
         self.db_view.load_accounts()
         self.transactions_db_view.load_transactions()
         self.db_view.load_transactions_to_accounts(self.transactions_db_view)
-        assert self.db_view.get_account('test')._Account__transactions[0]() == self.transactions_db_view.get_transaction(0)
+        assert (self.db_view.get_account('test')._Account__transactions[0]()
+                == self.transactions_db_view.get_transaction(0))

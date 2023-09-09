@@ -65,14 +65,11 @@ class TestCommandHandle(Viewer):
         assert self.database.get_account('test').get_balance() == Money.byn(10)
 
     def test_add_expense_command_handle(self) -> None:
-        acc = self.database.get_account('test')
         self.handler.process(('add', 'income', 'test', '10', 'BYN'))
         self.handler.process(('add', 'expense', 'test', '10', 'BYN'))
         assert self.database.get_account('test').get_balance() == Money.byn(0)
 
     def test_add_transfer_command_handle(self) -> None:
-        acc = self.database.get_account('test')
-        acc2 = self.database.get_account('test2')
         self.handler.process(('add', 'income', 'test', '10', 'BYN'))
         self.handler.process(('add', 'transfer', 'test', 'test2', '10', 'BYN'))
         assert self.database.get_account('test').get_balance() == Money.byn(0)
