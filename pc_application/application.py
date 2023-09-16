@@ -108,6 +108,10 @@ class MyMoneyApp(MDApp):
             'Income': [
                 'plus',
                 'on_press', self.add_income,
+            ],
+            'Expense': [
+                'minus',
+                'on_press', self.add_income,
             ]
         }
 
