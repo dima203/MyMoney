@@ -14,15 +14,15 @@ class TestTransfer:
 
     def test_transfer_accept(self) -> None:
         target_account = Account('1', 'BYN')
-        Transfer(1, target_account, self.account, Money.byn(10), self.bank)
+        _ = Transfer(1, target_account, self.account, Money.byn(10), self.bank)
         assert self.account.get_balance() == Money.byn(0)
         assert target_account.get_balance() == Money.byn(10)
 
     def test_transfer_different_currency_accept(self) -> None:
         account = Account('', 'USD')
-        Income(0, account, Money.dollar(10), self.bank)
+        income = Income(0, account, Money.dollar(10), self.bank)
         target_account = Account('1', 'BYN')
-        Transfer(1, target_account, account, Money.dollar(4), self.bank)
+        transfer = Transfer(1, target_account, account, Money.dollar(4), self.bank)
         assert account.get_balance() == Money.dollar(6)
         assert target_account.get_balance() == Money.byn(10)
 
@@ -47,12 +47,12 @@ class TestIncome:
 
     def test_income_accept(self) -> None:
         account = Account('', 'BYN')
-        Income(0, account, Money.byn(10), self.bank)
+        _ = Income(0, account, Money.byn(10), self.bank)
         assert account.get_balance() == Money.byn(10)
 
     def test_income_different_currency_accept(self) -> None:
         account = Account('', 'BYN')
-        Income(0, account, Money.dollar(4), self.bank)
+        _ = Income(0, account, Money.dollar(4), self.bank)
         assert account.get_balance() == Money.byn(10)
 
     def test_income_cancel(self) -> None:
@@ -87,13 +87,13 @@ class TestExpense:
 
     def test_expense_different_currency_accept(self) -> None:
         account = Account('', 'BYN')
-        Income(0, account, Money.byn(10), self.bank)
-        Expense(1, account, Money.dollar(2), self.bank)
+        income = Income(0, account, Money.byn(10), self.bank)
+        expense = Expense(1, account, Money.dollar(2), self.bank)
         assert account.get_balance() == Money.byn(5)
 
     def test_unavailable_expense(self) -> None:
         account = Account('', 'BYN')
-        Expense(0, account, Money.byn(10), self.bank)
+        expence = Expense(0, account, Money.byn(10), self.bank)
         assert account.get_balance() == -Money.byn(10)
 
     def test_expense_cancel(self) -> None:
@@ -105,7 +105,7 @@ class TestExpense:
 
     def test_expense_different_currency_cancel(self) -> None:
         account = Account('', 'BYN')
-        Income(0, account, Money.byn(10), self.bank)
+        income = Income(0, account, Money.byn(10), self.bank)
         transaction = Expense(1, account, Money.dollar(2), self.bank)
         assert account.get_balance() == Money.byn(5)
         del transaction

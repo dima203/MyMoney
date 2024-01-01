@@ -54,3 +54,7 @@ class SQLBase(DataBase):
                     
             ''', (record_id, *record.values()))
         self.__connection.commit()
+
+    def __del__(self) -> None:
+        self.__cursor.close()
+        self.__connection.close()

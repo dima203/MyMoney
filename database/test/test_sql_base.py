@@ -25,6 +25,7 @@ class TestSQLBase:
         empty_base = SQLBase(str(self.empty_file_path), 'accounts', 'id', 'CHAR(128)',
                              'value', 'INT', 'currency', 'CHAR(5)')
         assert empty_base.load() == {}
+        del empty_base
         assert os.path.exists(self.empty_file_path)
 
     def test_database_save_data(self) -> None:
