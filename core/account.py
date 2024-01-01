@@ -22,8 +22,6 @@ class Account(Storage):
                 result += transaction().get_balance()
         for deleted in deleted_transactions:
             del self.__transactions[deleted]
-        print(deleted_transactions)
-        print(result)
         return result
 
     def get_sources(self) -> list[int | str]:
