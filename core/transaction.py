@@ -1,26 +1,20 @@
-from .storage import Storage
 from .account import Account
 from .exchange import Bank
 from .money import Money
 
 
-class Transaction(Storage):
-    def __init__(self, transaction_id: int, currency: Money) -> None:
-        self.id = transaction_id
+class Transaction:
+    def __init__(self, storage: Account, currency: Money) -> None:
+        self.storage = storage
         self._value = currency
-        self._type = 'None'
 
-    def get_balance(self) -> Money:
+    def get_value(self) -> Money:
         return self._value
-
-    def connect(self) -> None:
-        ...
 
     def to_json(self) -> dict[str, str | int]:
         return {
-            'value': self._value.value,
-            'currency': self._value.currency,
-            'type': self._type
+            'resource_count': self._value.value,
+            'resource_type': self._value.currency,
         }
 
 
@@ -66,10 +60,6 @@ class Income(Transaction):
             super().__init__(transaction_id, currency)
         self._type = 'Income'
         self.__bank = bank
-
-    def connect(self, account: Account) -> None:
-        account.add_source(self)
-        self._value = self.__bank.exchange(self._value, account.currency)
 
 
 class Expense(Transaction):

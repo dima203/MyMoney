@@ -2,13 +2,29 @@ from core import Account, Money, Transaction, Transfer, Income, Expense, Bank
 from database import DataBase
 
 
+class ResourceBaseView:
+    def __init__(self, database: DataBase) -> None:
+        self.__resources: dict[str, str] = {}
+        self.__database = database
+
+    def get_resource(self, id: str) -> str:
+        return self.__resources[id]
+
+    def get_resources(self) -> dict[str, str]:
+        return self.__resources
+
+    def load_resources(self) -> None:
+        for resource_data in self.__database.load():
+            self.__resources[resource_data['pk']] = resource_data['name']
+
+
 class AccountBaseView:
     def __init__(self, database: DataBase) -> None:
         self.__accounts: dict[str, Account] = {}
         self.__database = database
 
-    def get_account(self, name: str) -> Account | None:
-        return self.__accounts.get(name)
+    def get_account(self, pk: str) -> Account | None:
+        return self.__accounts.get(pk)
 
     def get_accounts(self) -> dict[str, Account]:
         return self.__accounts
@@ -16,18 +32,10 @@ class AccountBaseView:
     def add_account(self, name: str, account: Account) -> None:
         self.__accounts[name] = account
 
-    def load_transactions_to_accounts(self, transactions_base: 'TransactionBaseView') -> None:
-        for account in self.__accounts.values():
-            for transaction_id in account.get_sources():
-                transaction = transactions_base.get_transaction(transaction_id)
-                account.add_source(transaction)
-                if isinstance(transaction, Transfer):
-                    transaction.connect(self.get_account(transaction.from_account_name), account)
-
-    def load_accounts(self) -> None:
-        for key, account_data in self.__database.load().items():
-            account = Account(key, account_data['currency'], account_data['sources'])
-            self.__accounts[key] = account
+    def load_accounts(self, resource_view: ResourceBaseView) -> None:
+        for account_data in self.__database.load():
+            account = Account(account_data['name'], resource_view.get_resource(account_data['resource_type']), account_data['resource_count'])
+            self.__accounts[account_data['pk']] = account
 
     def save_accounts(self) -> None:
         accounts_dict = {}
@@ -53,21 +61,12 @@ class TransactionBaseView:
         self.__transactions[self.__last_id] = transaction
         transaction.id = self.__last_id
 
-    def load_transactions(self) -> None:
-        for key, transaction_data in self.__database.load().items():
-            key = int(key)
-            transaction = None
-            if transaction_data['type'] == 'Transfer':
-                transaction = Transfer(key, None, None,
-                                       Money(transaction_data['value'], transaction_data['currency']),
-                                       Bank())
-                transaction.from_account_name = transaction_data['from']
-            elif transaction_data['type'] == 'Income':
-                transaction = Income(key, None, Money(transaction_data['value'], transaction_data['currency']), Bank())
-            elif transaction_data['type'] == 'Expense':
-                transaction = Expense(key, None, Money(transaction_data['value'], transaction_data['currency']), Bank())
-            self.__transactions[key] = transaction
-        self.__last_id = max(self.__transactions.keys()) if self.__transactions.keys() else 0
+    def load_transactions(self, account_view: AccountBaseView) -> None:
+        for transaction_data in self.__database.load():
+            storage = account_view.get_account(transaction_data['storage_id'])
+            self.__transactions[transaction_data['pk']] = Transaction(storage,
+                                                                      Money(transaction_data['resource_count'],
+                                                                            storage.value.currency))
 
     def save_transactions(self) -> None:
         transaction_dict = {}

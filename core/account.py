@@ -5,38 +5,20 @@ from .money import Money
 
 
 class Account(Storage):
-    def __init__(self, name: str, currency: str, sources: list[int | str] = None) -> None:
+    def __init__(self, name: str, currency: str, value: float = None) -> None:
         self.id = name
-        self.currency = currency
+        self.value: Money = Money(value, currency)
         self.__saved_value: Money = Money(0, currency)
-        self.__sources = sources if sources is not None else []
         self.__transactions: dict[int | str, ReferenceType] = {}
 
     def get_balance(self) -> Money:
-        result = Money(0, self.currency)
-        deleted_transactions = []
-        for key, transaction in self.__transactions.items():
-            if transaction() is None:
-                deleted_transactions.append(key)
-            else:
-                result += transaction().get_balance()
-        for deleted in deleted_transactions:
-            del self.__transactions[deleted]
-        return result
-
-    def get_sources(self) -> list[int | str]:
-        return self.__sources
-
-    def add_source(self, source: Storage) -> None:
-        if source.id not in self.__sources:
-            self.__sources.append(source.id)
-        self.__transactions[source.id] = ref(source)
+        return self.value
 
     def to_json(self) -> dict[str, str | int]:
         return {
-            'currency': self.currency,
-            'sources': list(filter(lambda key: True if isinstance(key, int) else False, self.__transactions.keys()))
+            'resource_type': self.currency,
+            'resource_count': list(filter(lambda key: True if isinstance(key, int) else False, self.__transactions.keys()))
         }
 
     def __eq__(self, other: 'Account') -> bool:
-        return self.__sources == other.__sources and self.currency == other.currency
+        return self.__value == other.__value and self.currency == other.currency
