@@ -29,8 +29,8 @@ class AccountBaseView:
     def get_accounts(self) -> dict[str, Account]:
         return self.__accounts
 
-    def add_account(self, name: str, account: Account) -> None:
-        self.__accounts[name] = account
+    def add_account(self, pk: str, account: Account) -> None:
+        self.__accounts[pk] = account
 
     def load_accounts(self, resource_view: ResourceBaseView) -> None:
         for account_data in self.__database.load():

@@ -44,7 +44,6 @@ class CommandHandler:
                     case 'income', str(account_name), str(value), str(currency):
                         transaction = Income(0, None, Money(int(value), currency), self.__bank)
                         self.__transaction_view.add_transaction(transaction)
-                        transaction.connect(self.__database_view.get_account(account_name))
                     case 'expense', str(account_name), str(value), str(currency):
                         transaction = Expense(0, None, Money(int(value), currency), self.__bank)
                         self.__transaction_view.add_transaction(transaction)

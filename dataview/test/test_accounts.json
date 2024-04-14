@@ -1,14 +1,14 @@
-{
-  "test": {
-    "currency": "BYN",
-    "sources": [
-      0
-    ]
+[
+  {
+    "pk": "0",
+    "name": "test",
+    "resource_type": "0",
+    "resource_count": 10
   },
-  "loaded": {
-    "currency": "BYN",
-    "sources": [
-      3
-    ]
+  {
+    "pk": "1",
+    "name": "loaded",
+    "resource_type": "0",
+    "resource_count": 10
   }
-}
+]
