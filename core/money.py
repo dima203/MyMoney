@@ -33,7 +33,7 @@ class Money:
 
     def __gt__(self, other: 'Money') -> bool:
         if isinstance(other, int | float):
-            return self.value < other
+            return self.value > other
         if self.currency != other.currency:
             raise TypeError('Cannot compare different currency')
         return self.value < other.value

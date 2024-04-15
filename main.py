@@ -1,4 +1,4 @@
-from console_view import Application
+from pc_application import Application
 
 
 application = Application()

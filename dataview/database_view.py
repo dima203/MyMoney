@@ -20,17 +20,21 @@ class ResourceBaseView:
 
 class AccountBaseView:
     def __init__(self, database: DataBase) -> None:
-        self.__accounts: dict[str, Account] = {}
+        self.__accounts: dict[int, Account] = {}
         self.__database = database
 
-    def get_account(self, pk: str) -> Account | None:
+    def get_account(self, pk: int) -> Account | None:
         return self.__accounts.get(pk)
 
-    def get_accounts(self) -> dict[str, Account]:
+    def get_accounts(self) -> dict[int, Account]:
         return self.__accounts
 
-    def add_account(self, pk: str, account: Account) -> None:
+    def add_account(self, pk: int, account: Account) -> None:
         self.__accounts[pk] = account
+
+    def delete_account(self, pk: int) -> None:
+        del self.__accounts[pk]
+        self.__database.delete(pk)
 
     def load_accounts(self, resource_view: ResourceBaseView) -> None:
         for account_data in self.__database.load():

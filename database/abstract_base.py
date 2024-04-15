@@ -17,3 +17,8 @@ class DataBase(ABC):
     def save(self, data: dict) -> None:
         """Save data to database connection"""
         pass
+
+    @abstractmethod
+    def delete(self, pk: str | int) -> None:
+        """Delete record from database"""
+        pass

@@ -40,7 +40,7 @@ class Transfer(Transaction):
             'value': self._value.value,
             'currency': self._value.currency,
             'type': self._type,
-            'from': self.__from.id
+            'from': self.__from.name
         }
 
 

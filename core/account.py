@@ -6,7 +6,7 @@ from .money import Money
 
 class Account(Storage):
     def __init__(self, name: str, currency: str, value: float = 0) -> None:
-        self.id = name
+        self.name = name
         self.value: Money = Money(value, currency)
         self.__saved_value: Money = Money(0, currency)
         self.__transactions: dict[int | str, ReferenceType] = {}
