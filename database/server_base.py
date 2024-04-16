@@ -22,4 +22,4 @@ class ServerBase(DataBase):
         pass
 
     def delete(self, pk: str | int) -> None:
-        self.__session.delete(f'{self._path}/{pk}/')
+        self.__session.delete(f'{self._path}/{pk}')

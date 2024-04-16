@@ -1,73 +1,104 @@
+from abc import ABC, abstractmethod
+
 from core import Account, Money, Transaction, Transfer, Income, Expense, Bank
 from database import DataBase
 
 
-class ResourceBaseView:
+class BaseView(ABC):
     def __init__(self, database: DataBase) -> None:
+        self._database = database
+
+    @abstractmethod
+    def get(self, pk: str | int) -> ...: ...
+    @abstractmethod
+    def get_all(self) -> dict[str | int, ...]: ...
+    @abstractmethod
+    def add(self, pk: str | int, item: ...) -> None: ...
+    @abstractmethod
+    def delete(self, pk: str | int) -> None: ...
+    @abstractmethod
+    def load(self) -> None: ...
+
+
+class ResourceBaseView(BaseView):
+    def __init__(self, database: DataBase) -> None:
+        super().__init__(database)
         self.__resources: dict[str, str] = {}
-        self.__database = database
 
-    def get_resource(self, id: str) -> str:
-        return self.__resources[id]
+    def get(self, pk: str) -> str:
+        return self.__resources[pk]
 
-    def get_resources(self) -> dict[str, str]:
+    def get_all(self) -> dict[str, str]:
         return self.__resources
 
-    def load_resources(self) -> None:
-        for resource_data in self.__database.load():
+    def add(self, pk: str | int, item: ...) -> None:
+        pass
+
+    def delete(self, pk: str | int) -> None:
+        pass
+
+    def load(self) -> None:
+        for resource_data in self._database.load():
             self.__resources[resource_data['pk']] = resource_data['name']
 
 
-class AccountBaseView:
-    def __init__(self, database: DataBase) -> None:
+class AccountBaseView(BaseView):
+    def __init__(self, database: DataBase, resource_view: ResourceBaseView) -> None:
+        super().__init__(database)
         self.__accounts: dict[int, Account] = {}
-        self.__database = database
+        self.__resource_view = resource_view
 
-    def get_account(self, pk: int) -> Account | None:
+    def get(self, pk: int) -> Account | None:
         return self.__accounts.get(pk)
 
-    def get_accounts(self) -> dict[int, Account]:
+    def get_all(self) -> dict[int, Account]:
         return self.__accounts
 
-    def add_account(self, pk: int, account: Account) -> None:
-        self.__accounts[pk] = account
+    def add(self, pk: int, item: Account) -> None:
+        self.__accounts[pk] = item
 
-    def delete_account(self, pk: int) -> None:
+    def delete(self, pk: int) -> None:
         del self.__accounts[pk]
-        self.__database.delete(pk)
+        self._database.delete(pk)
 
-    def load_accounts(self, resource_view: ResourceBaseView) -> None:
-        for account_data in self.__database.load():
-            account = Account(account_data['name'], resource_view.get_resource(account_data['resource_type']), account_data['resource_count'])
+    def load(self) -> None:
+        for account_data in self._database.load():
+            account = Account(
+                account_data['name'],
+                self.__resource_view.get(account_data['resource_type']),
+                account_data['resource_count']
+            )
             self.__accounts[account_data['pk']] = account
 
     def save_accounts(self) -> None:
         accounts_dict = {}
         for key, account in self.__accounts.items():
             accounts_dict[key] = account.to_json()
-        self.__database.save(accounts_dict)
+        self._database.save(accounts_dict)
 
 
-class TransactionBaseView:
-    def __init__(self, database: DataBase) -> None:
+class TransactionBaseView(BaseView):
+    def __init__(self, database: DataBase, account_view: AccountBaseView) -> None:
+        super().__init__(database)
         self.__transactions: dict[int, Transaction] = {}
-        self.__database = database
-        self.__last_id = 0
+        self.__account_view = account_view
 
-    def get_transaction(self, transaction_id: int) -> Transaction | None:
-        return self.__transactions.get(transaction_id)
+    def get(self, pk: int) -> Transaction | None:
+        return self.__transactions.get(pk)
 
-    def get_transactions(self) -> dict[int, Transaction]:
+    def get_all(self) -> dict[int, Transaction]:
         return self.__transactions
 
-    def add_transaction(self, transaction: Transaction) -> None:
-        self.__last_id += 1
-        self.__transactions[self.__last_id] = transaction
-        transaction.id = self.__last_id
+    def add(self, pk: int, item: Transaction) -> None:
+        self.__transactions[pk] = item
 
-    def load_transactions(self, account_view: AccountBaseView) -> None:
-        for transaction_data in self.__database.load():
-            storage = account_view.get_account(transaction_data['storage_id'])
+    def delete(self, pk: str | int) -> None:
+        del self.__transactions[pk]
+        self._database.delete(pk)
+
+    def load(self) -> None:
+        for transaction_data in self._database.load():
+            storage = self.__account_view.get(transaction_data['storage_id'])
             self.__transactions[transaction_data['pk']] = Transaction(storage,
                                                                       Money(transaction_data['resource_count'],
                                                                             storage.value.currency))
@@ -76,4 +107,4 @@ class TransactionBaseView:
         transaction_dict = {}
         for key, transaction in self.__transactions.items():
             transaction_dict[key] = transaction.to_json()
-        self.__database.save(transaction_dict)
+        self._database.save(transaction_dict)
