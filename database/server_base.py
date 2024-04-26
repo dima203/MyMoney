@@ -18,8 +18,8 @@ class ServerBase(DataBase):
         data = self.__session.get(self._path)
         return data.json()['results']
 
-    def save(self, data: dict) -> None:
-        pass
+    def save(self, pk: str | int, data: dict) -> None:
+        response = self.__session.patch(f'{self._path}/{pk}', data=data)
 
     def delete(self, pk: str | int) -> None:
         self.__session.delete(f'{self._path}/{pk}')

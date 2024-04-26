@@ -1,9 +1,10 @@
 from .storage import Storage
 from .money import Money
+from .resource import Resource
 
 
 class Account(Storage):
-    def __init__(self, name: str, currency: str, value: float = 0) -> None:
+    def __init__(self, name: str, currency: Resource, value: float = 0) -> None:
         self.name = name
         self.value: Money = Money(value, currency)
         self.__saved_value: Money = Money(0, currency)
@@ -13,8 +14,9 @@ class Account(Storage):
 
     def to_json(self) -> dict[str, str | int]:
         return {
-            'resource_type': self.value.currency,
-            'resource_count': list(filter(lambda key: True if isinstance(key, int) else False, self.__transactions.keys()))
+            'name': self.name,
+            'resource_type': self.value.currency.pk,
+            'resource_count': self.value.value,
         }
 
     def __eq__(self, other: 'Account') -> bool:

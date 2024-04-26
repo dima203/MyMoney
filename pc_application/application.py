@@ -1,5 +1,4 @@
 import flet
-
 import requests
 
 from dataview import AccountBaseView, TransactionBaseView, ResourceBaseView
@@ -43,7 +42,7 @@ class Application:
 
         self.page.remove(progress_ring)
 
-        storages_screen = StoragesScreen(self.account_view)
+        storages_screen = StoragesScreen(self.account_view, self.resource_view)
         transactions_screen = TransactionsScreen(self.transactions_view)
 
         self.screens = (storages_screen, transactions_screen)

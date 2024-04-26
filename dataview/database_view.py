@@ -1,7 +1,7 @@
 import datetime
 from abc import ABC, abstractmethod
 
-from core import Account, Money, Transaction
+from core import Account, Money, Transaction, Resource
 from database import DataBase
 
 
@@ -18,21 +18,26 @@ class BaseView(ABC):
     @abstractmethod
     def delete(self, pk: str | int) -> None: ...
     @abstractmethod
+    def update(self, pk: str | int) -> None: ...
+    @abstractmethod
     def load(self) -> None: ...
 
 
 class ResourceBaseView(BaseView):
     def __init__(self, database: DataBase) -> None:
         super().__init__(database)
-        self.__resources: dict[str, str] = {}
+        self.__resources: dict[int, Resource] = {}
 
-    def get(self, pk: str) -> str:
+    def get(self, pk: int) -> Resource:
         return self.__resources[pk]
 
-    def get_all(self) -> dict[str, str]:
+    def get_all(self) -> dict[int, Resource]:
         return self.__resources
 
     def add(self, pk: str | int, item: ...) -> None:
+        pass
+
+    def update(self, pk: str | int) -> None:
         pass
 
     def delete(self, pk: str | int) -> None:
@@ -40,7 +45,7 @@ class ResourceBaseView(BaseView):
 
     def load(self) -> None:
         for resource_data in self._database.load():
-            self.__resources[resource_data['pk']] = resource_data['name']
+            self.__resources[resource_data['pk']] = Resource(resource_data['pk'], resource_data['name'])
 
 
 class AccountBaseView(BaseView):
@@ -61,6 +66,9 @@ class AccountBaseView(BaseView):
     def delete(self, pk: int) -> None:
         del self.__accounts[pk]
         self._database.delete(pk)
+
+    def update(self, pk: int) -> None:
+        self._database.save(pk, self.__accounts[pk].to_json())
 
     def load(self) -> None:
         for account_data in self._database.load():
@@ -93,9 +101,12 @@ class TransactionBaseView(BaseView):
     def add(self, pk: int, item: Transaction) -> None:
         self.__transactions[pk] = item
 
-    def delete(self, pk: str | int) -> None:
+    def delete(self, pk: int) -> None:
         del self.__transactions[pk]
         self._database.delete(pk)
+
+    def update(self, pk: int) -> None:
+        pass
 
     def load(self) -> None:
         for transaction_data in self._database.load():

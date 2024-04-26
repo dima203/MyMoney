@@ -1,5 +1,7 @@
 from typing import Self
 
+from .resource import Resource
+
 
 class Money:
     __currency_names = {
@@ -9,7 +11,7 @@ class Money:
         'BYN': ('Byn', 'BYN')
     }
 
-    def __init__(self, value: float, currency: str) -> None:
+    def __init__(self, value: float, currency: Resource) -> None:
         self.value = value
         self.currency = currency
 
@@ -73,4 +75,4 @@ class Money:
         return f'{self.__currency_names[self.currency][0]}({self.value})'
 
     def __str__(self) -> str:
-        return f'{self.value} {self.__currency_names[self.currency][1]}'
+        return f'{self.value} {self.currency.name}'
