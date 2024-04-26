@@ -1,6 +1,7 @@
+import datetime
 from abc import ABC, abstractmethod
 
-from core import Account, Money, Transaction, Transfer, Income, Expense, Bank
+from core import Account, Money, Transaction
 from database import DataBase
 
 
@@ -99,9 +100,11 @@ class TransactionBaseView(BaseView):
     def load(self) -> None:
         for transaction_data in self._database.load():
             storage = self.__account_view.get(transaction_data['storage_id'])
+            time_stamp = datetime.datetime.fromisoformat(transaction_data['time_stamp'])
             self.__transactions[transaction_data['pk']] = Transaction(storage,
                                                                       Money(transaction_data['resource_count'],
-                                                                            storage.value.currency))
+                                                                            storage.value.currency),
+                                                                      time_stamp)
 
     def save_transactions(self) -> None:
         transaction_dict = {}

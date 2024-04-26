@@ -1,5 +1,3 @@
-from weakref import ref, ReferenceType
-
 from .storage import Storage
 from .money import Money
 
@@ -9,7 +7,6 @@ class Account(Storage):
         self.name = name
         self.value: Money = Money(value, currency)
         self.__saved_value: Money = Money(0, currency)
-        self.__transactions: dict[int | str, ReferenceType] = {}
 
     def get_balance(self) -> Money:
         return self.value

@@ -1,3 +1,6 @@
+from typing import Self
+
+
 class Money:
     __currency_names = {
         'USD': ('Dollar', '$'),
@@ -26,31 +29,31 @@ class Money:
     def byn(value: float) -> 'Money':
         return Money(value, 'BYN')
 
-    def __eq__(self, other: 'Money') -> bool:
+    def __eq__(self, other: Self | int | float) -> bool:
         if isinstance(other, int | float):
             return self.value == other
         return (self.currency == other.currency) and (self.value == other.value)
 
-    def __gt__(self, other: 'Money') -> bool:
+    def __gt__(self, other: Self | int | float) -> bool:
         if isinstance(other, int | float):
             return self.value > other
         if self.currency != other.currency:
             raise TypeError('Cannot compare different currency')
         return self.value < other.value
 
-    def __lt__(self, other: 'Money') -> bool:
+    def __lt__(self, other: Self | int | float) -> bool:
         if isinstance(other, int | float):
             return self.value < other
         if self.currency != other.currency:
             raise TypeError('Cannot compare different currency')
         return self.value < other.value
 
-    def __add__(self, other: 'Money') -> 'Money':
+    def __add__(self, other: Self | int | float) -> 'Money':
         if self.currency != other.currency:
             raise TypeError('Cannot sum two different currency')
         return Money(self.value + other.value, self.currency)
 
-    def __sub__(self, other: 'Money') -> 'Money':
+    def __sub__(self, other: Self | int | float) -> 'Money':
         if self.currency != other.currency:
             raise TypeError('Cannot sub two different currency')
         return Money(self.value - other.value, self.currency)
@@ -60,10 +63,10 @@ class Money:
             raise TypeError(f'Cannot multiply currency on {type(other)}')
         return Money(self.value * other, self.currency)
 
-    def __neg__(self) -> 'Money':
+    def __neg__(self) -> Self:
         return Money(-self.value, self.currency)
 
-    def __abs__(self) -> 'Money':
+    def __abs__(self) -> Self:
         return self if self > 0 else -self
 
     def __repr__(self) -> str:

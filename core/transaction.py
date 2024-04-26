@@ -1,12 +1,15 @@
+import datetime
+
 from .account import Account
 from .exchange import Bank
 from .money import Money
 
 
 class Transaction:
-    def __init__(self, storage: Account, currency: Money) -> None:
+    def __init__(self, storage: Account, currency: Money, time_stamp: datetime.datetime) -> None:
         self.storage = storage
         self._value = currency
+        self.time_stamp = time_stamp
 
     def get_value(self) -> Money:
         return self._value
@@ -15,6 +18,7 @@ class Transaction:
         return {
             'resource_count': self._value.value,
             'resource_type': self._value.currency,
+            'time_stamp': self.time_stamp.isoformat()
         }
 
 

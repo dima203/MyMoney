@@ -1,4 +1,15 @@
-from flet import Container, Row, ListView, ListTile, PopupMenuButton, PopupMenuItem, Text, MainAxisAlignment, icons
+from flet import (
+    Container,
+    Row,
+    ListView,
+    ListTile,
+    PopupMenuButton,
+    PopupMenuItem,
+    Text,
+    TextStyle,
+    MainAxisAlignment,
+    icons
+)
 
 from dataview import TransactionBaseView
 
@@ -34,6 +45,8 @@ class TransactionsScreen(Screen):
                     ],
                         alignment=MainAxisAlignment.SPACE_BETWEEN
                     ),
+                    subtitle=Text(transaction.time_stamp.strftime('%d.%m.%Y %H:%M'),
+                                  style=TextStyle(size=10, italic=True)),
                 )
             )
         self.transaction_list.update()
