@@ -1,10 +1,13 @@
+from datetime import datetime
+
 from .storage import Storage
 from .money import Money
 from .resource import Resource
 
 
 class Account(Storage):
-    def __init__(self, name: str, currency: Resource, value: float = 0) -> None:
+    def __init__(self, pk: int, name: str, currency: Resource, value: float = 0) -> None:
+        self.pk = pk
         self.name = name
         self.value: Money = Money(value, currency)
         self.__saved_value: Money = Money(0, currency)
@@ -17,6 +20,7 @@ class Account(Storage):
             'name': self.name,
             'resource_type': self.value.currency.pk,
             'resource_count': self.value.value,
+            'last_update': datetime.now().isoformat()
         }
 
     def __eq__(self, other: 'Account') -> bool:

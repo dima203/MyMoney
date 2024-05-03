@@ -9,7 +9,7 @@ class DataBase(ABC):
         self._path = Path(path)
 
     @abstractmethod
-    def load(self) -> dict:
+    def load(self) -> list:
         """Load data from database connection"""
         pass
 

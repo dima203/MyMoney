@@ -16,9 +16,11 @@ class Transaction:
 
     def to_json(self) -> dict[str, str | int]:
         return {
+            'storage_id': self.storage.pk,
             'resource_count': self._value.value,
-            'resource_type': self._value.currency,
-            'time_stamp': self.time_stamp.isoformat()
+            'resource_type': self._value.currency.pk,
+            'time_stamp': self.time_stamp.isoformat(),
+            'last_update': datetime.datetime.now().isoformat()
         }
 
 
