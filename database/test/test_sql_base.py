@@ -35,6 +35,6 @@ class TestSQLBase:
                 'currency': 'USD'
             }
         }
-        self.save_database.save(data)
+        self.save_database.update(data)
         accounts = self.save_database.load()
         assert accounts == data

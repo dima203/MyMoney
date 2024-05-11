@@ -14,7 +14,7 @@ class DataBase(ABC):
         pass
 
     @abstractmethod
-    def save(self, pk: str | int, data: dict) -> None:
+    def update(self, pk: str | int, data: dict) -> None:
         """Save data to database connection"""
         pass
 

@@ -62,8 +62,8 @@ class ResourceBaseView(BaseView):
 
     def save(self) -> None:
         for pk, resource in self.__resources.items():
-            self._database.save(pk, resource.to_json())
-            self._reserve_database.save(pk, resource.to_json())
+            self._database.update(pk, resource.to_json())
+            self._reserve_database.update(pk, resource.to_json())
 
 
 class AccountBaseView(BaseView):
@@ -87,7 +87,7 @@ class AccountBaseView(BaseView):
         self._reserve_database.delete(pk)
 
     def update(self, pk: int) -> None:
-        self._database.save(pk, self.__accounts[pk].to_json())
+        self._database.update(pk, self.__accounts[pk].to_json())
 
     def load(self) -> None:
         storages_updates = {}
@@ -118,8 +118,8 @@ class AccountBaseView(BaseView):
 
     def save(self) -> None:
         for pk, storage in self.__accounts.items():
-            self._database.save(pk, storage.to_json())
-            self._reserve_database.save(pk, storage.to_json())
+            self._database.update(pk, storage.to_json())
+            self._reserve_database.update(pk, storage.to_json())
 
 
 class TransactionBaseView(BaseView):
@@ -134,7 +134,8 @@ class TransactionBaseView(BaseView):
     def get_all(self) -> dict[int, Transaction]:
         return self.__transactions
 
-    def add(self, pk: int, item: Transaction) -> None:
+    def add(self, item: Transaction) -> None:
+        pk = self._database.add(item.to_json())
         self.__transactions[pk] = item
 
     def delete(self, pk: int) -> None:
@@ -174,6 +175,6 @@ class TransactionBaseView(BaseView):
 
     def save(self) -> None:
         for pk, transaction in self.__transactions.items():
-            self._database.save(pk, transaction.to_json())
-            self._reserve_database.save(pk, transaction.to_json())
+            self._database.update(pk, transaction.to_json())
+            self._reserve_database.update(pk, transaction.to_json())
 

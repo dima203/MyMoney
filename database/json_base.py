@@ -16,7 +16,7 @@ class JSONBase(DataBase):
             json.dump([], self._path.open('w'))
             return json.load(self._path.open())
 
-    def save(self, pk: str | int, data: dict) -> None:
+    def update(self, pk: str | int, data: dict) -> None:
         loaded = json.load(self._path.open())
         data['pk'] = pk
         for obj in loaded:

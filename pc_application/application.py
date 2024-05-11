@@ -61,7 +61,7 @@ class Application:
         self.page.remove(progress_ring)
 
         storages_screen = StoragesScreen(self.account_view, self.resource_view)
-        transactions_screen = TransactionsScreen(self.transactions_view)
+        transactions_screen = TransactionsScreen(self.transactions_view, self.account_view)
 
         self.screens = (storages_screen, transactions_screen)
 

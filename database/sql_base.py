@@ -32,7 +32,7 @@ class SQLBase(DataBase):
                 current_field += 2
         return result
 
-    def save(self, data: dict) -> None:
+    def update(self, data: dict) -> None:
         field_sql = ''
         values_sql = ''
         duplicate_sql = ''

@@ -29,7 +29,14 @@ class ServerBase(DataBase):
         data = self.__session.get(self._path)
         return data.json()['results']
 
-    def save(self, pk: str | int, data: dict) -> None:
+    def add(self, data: dict) -> int | None:
+        if self.__session is None:
+            return
+
+        response = self.__session.post(self._path, data=data)
+        return response.json()['pk']
+
+    def update(self, pk: str | int, data: dict) -> None:
         if self.__session is None:
             return
 

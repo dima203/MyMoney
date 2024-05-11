@@ -32,7 +32,7 @@ class TestJSONBase:
                 'currency': 'USD'
             }
         }
-        self.save_database.save(data)
+        self.save_database.update(data)
         accounts = json.load((Path.cwd() / 'database/test/new_test_data.json').open())
         assert accounts['test']
         assert accounts['test'] == data['test']
