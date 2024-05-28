@@ -1,5 +1,4 @@
 from flet import (
-    Page,
     Container,
     AlertDialog,
     TextField,
@@ -26,6 +25,7 @@ from datetime import datetime
 
 from dataview import TransactionBaseView, AccountBaseView
 from core import Transaction, Money
+from core.utils import make_function_call
 
 from .screen import Screen
 
@@ -80,16 +80,17 @@ class TransactionsScreen(Screen):
             self.transaction_list.controls.append(
                 ListTile(
                     leading=PopupMenuButton(
-                        icon=icons.ADD if transaction.get_value() > 0 else icons.REMOVE,
+                        icon=icons.ADD if transaction.value > 0 else icons.REMOVE,
                         items=[
-                            PopupMenuItem(icon=icons.CHANGE_CIRCLE, text='update'),
+                            PopupMenuItem(icon=icons.CHANGE_CIRCLE, text='update',
+                                          on_click=make_function_call(self._open_update, pk)),
                             PopupMenuItem(icon=icons.REMOVE_CIRCLE, text='delete',
-                                          on_click=lambda e: self._delete_transaction(pk)),
+                                          on_click=make_function_call(self._delete_transaction, pk)),
                         ]
                     ),
                     title=Row([
                         Text(transaction.storage.name),
-                        Text(str(abs(transaction.get_value())))
+                        Text(str(abs(transaction.value)))
                     ],
                         alignment=MainAxisAlignment.SPACE_BETWEEN
                     ),
@@ -150,12 +151,72 @@ class TransactionsScreen(Screen):
             float(self.transaction_value_field.value),
             storage.value.currency
         )
+
+        time_stamp = datetime.combine(self.transaction_date_picker.value.date(), self.transaction_time_picker.value)
         transaction = Transaction(
             storage=storage,
             currency=currency,
-            time_stamp=datetime.now()
+            time_stamp=time_stamp
         )
         self.__view.add(transaction)
+        self.modal_dialog.open = False
+        self.page.update()
+        self.update()
+
+    def _open_update(self, pk: int) -> None:
+        transaction = self.__view.get(pk)
+        self.transaction_storage_field.value = str(transaction.storage.pk)
+        self.transaction_value_field.value = str(transaction.value.value)
+        self.transaction_time_picker.value = transaction.time_stamp.time()
+        self.transaction_date_picker.value = transaction.time_stamp
+
+        self.modal_dialog = AlertDialog(
+            modal=True,
+            title=Text("Изменение транзакции"),
+            content=Container(
+                Column([
+                    self.transaction_storage_field,
+                    self.transaction_value_field,
+                    Row([
+                        self.time_button,
+                        self.date_button
+                    ])
+                ],
+                    scroll=ScrollMode.ALWAYS,
+                ),
+                width=self.page.width * 0.7,
+                height=self.page.height * 0.7,
+                expand=True,
+            ),
+            actions=[
+                TextButton("Подтвердить", on_click=lambda e: self._update_transaction(pk)),
+                TextButton("Отмена", on_click=lambda e: self._close_update()),
+            ],
+            adaptive=True
+        )
+
+        self.page.dialog = self.modal_dialog
+        self.modal_dialog.open = True
+        self.page.update()
+        self._change_time(None)
+        self._change_date(None)
+
+    def _close_update(self):
+        self.modal_dialog.open = False
+        self.page.update()
+
+    def _update_transaction(self, pk: int) -> None:
+        transaction = self.__view.get(pk)
+        storage = self.__storage_view.get(int(self.transaction_storage_field.value))
+        transaction.storage = storage
+        transaction.value = Money(
+            float(self.transaction_value_field.value),
+            storage.value.currency
+        )
+        time_stamp = datetime.combine(self.transaction_date_picker.value.date(), self.transaction_time_picker.value)
+        transaction.time_stamp = time_stamp
+
+        self.__view.update(pk)
         self.modal_dialog.open = False
         self.page.update()
         self.update()

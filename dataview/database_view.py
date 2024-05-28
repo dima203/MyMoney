@@ -15,7 +15,7 @@ class BaseView(ABC):
     @abstractmethod
     def get_all(self) -> dict[str | int, ...]: ...
     @abstractmethod
-    def add(self, pk: str | int, item: ...) -> None: ...
+    def add(self, item: ...) -> None: ...
     @abstractmethod
     def delete(self, pk: str | int) -> None: ...
     @abstractmethod
@@ -37,7 +37,7 @@ class ResourceBaseView(BaseView):
     def get_all(self) -> dict[int, Resource]:
         return self.__resources
 
-    def add(self, pk: str | int, item: ...) -> None:
+    def add(self, item: ...) -> None:
         pass
 
     def update(self, pk: str | int) -> None:
@@ -78,7 +78,9 @@ class AccountBaseView(BaseView):
     def get_all(self) -> dict[int, Account]:
         return self.__accounts
 
-    def add(self, pk: int, item: Account) -> None:
+    def add(self, item: Account) -> None:
+        pk = self._database.add(item.to_json())
+        item.pk = pk
         self.__accounts[pk] = item
 
     def delete(self, pk: int) -> None:
@@ -144,7 +146,7 @@ class TransactionBaseView(BaseView):
         self._reserve_database.delete(pk)
 
     def update(self, pk: int) -> None:
-        pass
+        self._database.update(pk, self.__transactions[pk].to_json())
 
     def load(self) -> None:
         transactions_updates = {}

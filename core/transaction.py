@@ -8,17 +8,14 @@ from .money import Money
 class Transaction:
     def __init__(self, storage: Account, currency: Money, time_stamp: datetime.datetime) -> None:
         self.storage = storage
-        self._value = currency
+        self.value = currency
         self.time_stamp = time_stamp
-
-    def get_value(self) -> Money:
-        return self._value
 
     def to_json(self) -> dict[str, str | int]:
         return {
             'storage_id': self.storage.pk,
-            'resource_count': self._value.value,
-            'resource_type': self._value.currency.pk,
+            'resource_count': self.value.value,
+            'resource_type': self.value.currency.pk,
             'time_stamp': self.time_stamp.isoformat(),
             'last_update': datetime.datetime.now().isoformat()
         }
