@@ -13,8 +13,10 @@ from flet import (
     TextButton,
     Text,
     MainAxisAlignment,
+    CrossAxisAlignment,
     ScrollMode,
-    icons
+    Icons,
+    View
 )
 
 from dataview import AccountBaseView, ResourceBaseView
@@ -24,15 +26,19 @@ from core.utils import make_function_call
 from .screen import Screen
 
 
-class StoragesScreen(Screen):
-    def __init__(self, view: AccountBaseView, resource_view: ResourceBaseView) -> None:
-        super().__init__()
+class StoragesView(View):
+    def __init__(self, route: str, view: AccountBaseView, resource_view: ResourceBaseView, *args, **kwargs) -> None:
+        super().__init__(route, *args, **kwargs)
         self.__view = view
         self.__resource_view = resource_view
 
+    def did_mount(self):
+        self.update()
+
     def build(self) -> Container:
+        self.vertical_alignment = MainAxisAlignment.CENTER
+        self.horizontal_alignment = CrossAxisAlignment.CENTER
         self.storage_list = ListView(spacing=10, width=500)
-        self.container = Container(self.storage_list)
         self.storage_name_field = TextField(label='Название')
         self.storage_value_field = TextField(label='Текущий баланс')
         self.storage_currency_field = Dropdown(
@@ -42,24 +48,25 @@ class StoragesScreen(Screen):
             ]
         )
         self.modal_dialog: AlertDialog | None = None
-        return self.container
+        self.controls = [self.storage_list]
+        return self
 
     def update(self) -> None:
         self.storage_list.controls.clear()
         self.storage_list.controls.append(
             ListTile(
-                title=TextButton('Добавить', icons.ADD, on_click=lambda e: self._open_add()),
+                title=TextButton('Добавить', Icons.ADD, on_click=lambda e: self._open_add()),
             )
         )
         for pk, storage in self.__view.get_all().items():
             self.storage_list.controls.append(
                 ListTile(
                     leading=PopupMenuButton(
-                        icon=icons.WALLET,
+                        icon=Icons.WALLET,
                         items=[
-                            PopupMenuItem(icon=icons.CHANGE_CIRCLE, text='update',
+                            PopupMenuItem(icon=Icons.CHANGE_CIRCLE, text='update',
                                           on_click=make_function_call(self._open_update, pk)),
-                            PopupMenuItem(icon=icons.REMOVE_CIRCLE, text='delete',
+                            PopupMenuItem(icon=Icons.REMOVE_CIRCLE, text='delete',
                                           on_click=make_function_call(self._delete_storage, pk)),
                         ]
                     ),

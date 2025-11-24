@@ -8,7 +8,7 @@ class Resource:
         self.pk = pk
         self.name = name
 
-    def __eq__(self, other: Self) -> bool:
+    def __eq__(self, other: "Resource") -> bool:
         return self.pk == other.pk
 
     def to_json(self) -> dict[str, str | int]:

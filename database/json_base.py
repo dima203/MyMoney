@@ -8,6 +8,7 @@ class JSONBase(DataBase):
 
     def __init__(self, path: str, *args: str) -> None:
         super().__init__(path, *args)
+        self.__last_pk = self.__get_last_pk()
 
     def load(self) -> list:
         try:
@@ -35,3 +36,15 @@ class JSONBase(DataBase):
                 del obj
                 break
         json.dump(data, self._path.open('w'), indent=2)
+
+    def add(self, data: dict) -> int | str:
+        loaded = json.load(self._path.open())
+        data['pk'] = self.__last_pk + 1
+        self.__last_pk += 1
+        json.dump(loaded, self._path.open('w'), indent=2)
+        return self.__last_pk
+
+    def __get_last_pk(self) -> int | str:
+        loaded = json.load(self._path.open())
+        return max(loaded, key=lambda obj: obj['pk'])
+

@@ -6,8 +6,9 @@ from pathlib import Path
 from dataview import AccountBaseView, TransactionBaseView, ResourceBaseView
 from database import ServerBase, JSONBase
 
-from .storages_screen import StoragesScreen
-from .transactions_screen import TransactionsScreen
+from .storages_view import StoragesView
+from .transactions_view import TransactionsView
+from .navigation_bar import MainNavigationBar
 
 
 class Application:
@@ -60,29 +61,41 @@ class Application:
 
         self.page.remove(progress_ring)
 
-        storages_screen = StoragesScreen(self.account_view, self.resource_view)
-        transactions_screen = TransactionsScreen(self.transactions_view, self.account_view)
+        self.navigation_bar = MainNavigationBar(self.page, on_change=lambda e: self._navigate(e))
+        self.storages_screen = StoragesView('/storages', self.account_view, self.resource_view, navigation_bar=self.navigation_bar)
+        self.transactions_screen = TransactionsView('/transactions', self.transactions_view, self.account_view, navigation_bar=self.navigation_bar)
 
-        self.screens = (storages_screen, transactions_screen)
-
-        self.page.navigation_bar = flet.NavigationBar(
-            destinations=[
-                flet.NavigationDestination(icon=flet.icons.WALLET, label='Счета'),
-                flet.NavigationDestination(icon=flet.icons.MONEY, label='Транзакции'),
-            ],
-            on_change=self._navigate
-        )
-        self.page.add(storages_screen)
+        self.page.on_route_change = self._change_route
+        self.page.go(self.page.route)
 
     def _stop(self) -> None:
         self.resource_view.save()
         self.account_view.save()
         self.transactions_view.save()
 
+    def _change_route(self, e) -> None:
+        self.page.views.clear()
+        self.page.views.append(
+            flet.View(
+                "/",
+                navigation_bar=self.navigation_bar
+            )
+        )
+
+        if self.page.route == '/storages':
+            self.page.views.append(self.storages_screen)
+
+        if self.page.route == '/transactions':
+            self.page.views.append(self.transactions_screen)
+
+        self.page.update()
+
     def _navigate(self, e) -> None:
-        index = self.page.navigation_bar.selected_index
-        self.page.clean()
-        self.page.add(self.screens[index])
+        match self.page.views[-1].navigation_bar.selected_index:
+            case 0:
+                self.page.go('/storages')
+            case 1:
+                self.page.go('/transactions')
 
     def __get_server_url(self) -> str:
         result = ''

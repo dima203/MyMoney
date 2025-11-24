@@ -17,8 +17,10 @@ from flet import (
     Text,
     TextStyle,
     MainAxisAlignment,
+    CrossAxisAlignment,
     ScrollMode,
-    icons
+    Icons,
+    View
 )
 
 from datetime import datetime
@@ -30,15 +32,19 @@ from core.utils import make_function_call
 from .screen import Screen
 
 
-class TransactionsScreen(Screen):
-    def __init__(self, view: TransactionBaseView, storage_view: AccountBaseView) -> None:
-        super().__init__()
+class TransactionsView(View):
+    def __init__(self, route: str, view: TransactionBaseView, storage_view: AccountBaseView, *args, **kwargs) -> None:
+        super().__init__(route, *args, **kwargs)
         self.__view = view
         self.__storage_view = storage_view
 
+    def did_mount(self):
+        self.update()
+
     def build(self) -> Container:
+        self.vertical_alignment = MainAxisAlignment.CENTER
+        self.horizontal_alignment = CrossAxisAlignment.CENTER
         self.transaction_list = ListView(spacing=10, width=500)
-        self.container = Container(self.transaction_list)
         self.transaction_storage_field = Dropdown(
             label='Счет',
             options=[
@@ -55,36 +61,37 @@ class TransactionsScreen(Screen):
         )
         self.time_button = ElevatedButton(
             text=' ',
-            icon=icons.TIMER,
+            icon=Icons.TIMER,
             on_click=lambda _: self.transaction_time_picker.pick_time()
         )
         self.date_button = ElevatedButton(
             text=' ',
-            icon=icons.CALENDAR_MONTH,
+            icon=Icons.CALENDAR_MONTH,
             on_click=lambda _: self.transaction_date_picker.pick_date()
         )
         self.transaction_value_field = TextField(label='Сумма')
         self.page.overlay.append(self.transaction_time_picker)
         self.page.overlay.append(self.transaction_date_picker)
         self.modal_dialog: AlertDialog | None = None
-        return self.container
+        self.controls = [self.transaction_list]
+        return self
 
     def update(self) -> None:
         self.transaction_list.controls.clear()
         self.transaction_list.controls.append(
             ListTile(
-                title=TextButton('Добавить', icons.ADD, on_click=lambda e: self._open_add()),
+                title=TextButton('Добавить', Icons.ADD, on_click=lambda e: self._open_add()),
             )
         )
         for pk, transaction in self.__view.get_all().items():
             self.transaction_list.controls.append(
                 ListTile(
                     leading=PopupMenuButton(
-                        icon=icons.ADD if transaction.value > 0 else icons.REMOVE,
+                        icon=Icons.ADD if transaction.value > 0 else Icons.REMOVE,
                         items=[
-                            PopupMenuItem(icon=icons.CHANGE_CIRCLE, text='update',
+                            PopupMenuItem(icon=Icons.CHANGE_CIRCLE, text='update',
                                           on_click=make_function_call(self._open_update, pk)),
-                            PopupMenuItem(icon=icons.REMOVE_CIRCLE, text='delete',
+                            PopupMenuItem(icon=Icons.REMOVE_CIRCLE, text='delete',
                                           on_click=make_function_call(self._delete_transaction, pk)),
                         ]
                     ),
@@ -135,9 +142,9 @@ class TransactionsScreen(Screen):
             adaptive=True
         )
 
-        self.page.dialog = self.modal_dialog
+        self.dialog = self.modal_dialog
         self.modal_dialog.open = True
-        self.page.update()
+        self.update()
         self._change_time(None)
         self._change_date(None)
 
