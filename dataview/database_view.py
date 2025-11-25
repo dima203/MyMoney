@@ -1,5 +1,6 @@
 import datetime
 from abc import ABC, abstractmethod
+from typing import Any
 
 from core import Account, Money, Transaction, Resource
 from database import DataBase
@@ -15,7 +16,7 @@ class BaseView(ABC):
     @abstractmethod
     def get_all(self) -> dict[str | int, ...]: ...
     @abstractmethod
-    def add(self, item: ...) -> None: ...
+    def add(self, item: Any) -> None: ...
     @abstractmethod
     def delete(self, pk: str | int) -> None: ...
     @abstractmethod
@@ -37,7 +38,7 @@ class ResourceBaseView(BaseView):
     def get_all(self) -> dict[int, Resource]:
         return self.__resources
 
-    def add(self, item: ...) -> None:
+    def add(self, item: Resource) -> None:
         pass
 
     def update(self, pk: str | int) -> None:
@@ -81,6 +82,11 @@ class AccountBaseView(BaseView):
     def add(self, item: Account) -> None:
         pk = self._database.add(item.to_json())
         item.pk = pk
+        if pk is None:
+            pk = self._reserve_database.add(item.to_json())
+        else:
+            self._reserve_database.add(item.to_json())
+        item.pk = pk
         self.__accounts[pk] = item
 
     def delete(self, pk: int) -> None:
@@ -90,6 +96,7 @@ class AccountBaseView(BaseView):
 
     def update(self, pk: int) -> None:
         self._database.update(pk, self.__accounts[pk].to_json())
+        self._reserve_database.update(pk, self.__accounts[pk].to_json())
 
     def load(self) -> None:
         storages_updates = {}
@@ -138,6 +145,12 @@ class TransactionBaseView(BaseView):
 
     def add(self, item: Transaction) -> None:
         pk = self._database.add(item.to_json())
+        item.pk = pk
+        if pk is None:
+            pk = self._reserve_database.add(item.to_json())
+        else:
+            self._reserve_database.add(item.to_json())
+        item.pk = pk
         self.__transactions[pk] = item
 
     def delete(self, pk: int) -> None:
@@ -154,26 +167,35 @@ class TransactionBaseView(BaseView):
             transactions_updates[transaction_data['pk']] = transaction_data['last_update']
             storage = self.__account_view.get(transaction_data['storage_id'])
             time_stamp = datetime.datetime.fromisoformat(transaction_data['time_stamp'])
-            self.__transactions[transaction_data['pk']] = Transaction(storage,
-                                                                      Money(transaction_data['resource_count'],
-                                                                            storage.value.currency),
-                                                                      time_stamp)
+            self.__transactions[transaction_data['pk']] = Transaction(
+                transaction_data['pk'],
+                storage,
+                Money(transaction_data['resource_count'],
+                    storage.value.currency),
+                time_stamp
+            )
         for transaction_data in self._database.load():
             if transaction_data['pk'] in transactions_updates:
                 if transactions_updates[transaction_data['pk']] < transaction_data['last_update']:
                     storage = self.__account_view.get(transaction_data['storage_id'])
                     time_stamp = datetime.datetime.fromisoformat(transaction_data['time_stamp'])
-                    self.__transactions[transaction_data['pk']] = Transaction(storage,
-                                                                              Money(transaction_data['resource_count'],
-                                                                                    storage.value.currency),
-                                                                              time_stamp)
+                    self.__transactions[transaction_data['pk']] = Transaction(
+                        transaction_data['pk'],
+                        storage,
+                        Money(transaction_data['resource_count'],
+                            storage.value.currency),
+                        time_stamp
+                    )
             else:
                 storage = self.__account_view.get(transaction_data['storage_id'])
                 time_stamp = datetime.datetime.fromisoformat(transaction_data['time_stamp'])
-                self.__transactions[transaction_data['pk']] = Transaction(storage,
-                                                                          Money(transaction_data['resource_count'],
-                                                                                storage.value.currency),
-                                                                          time_stamp)
+                self.__transactions[transaction_data['pk']] = Transaction(
+                    transaction_data['pk'],
+                    storage,
+                    Money(transaction_data['resource_count'],
+                        storage.value.currency),
+                    time_stamp
+                )
 
     def save(self) -> None:
         for pk, transaction in self.__transactions.items():

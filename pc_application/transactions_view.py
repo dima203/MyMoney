@@ -80,7 +80,7 @@ class TransactionsView(View):
         self.transaction_list.controls.clear()
         self.transaction_list.controls.append(
             ListTile(
-                title=TextButton('Добавить', Icons.ADD, on_click=lambda e: self._open_add()),
+                title=TextButton('Добавить', Icons.ADD, on_click=lambda e: self._open_add_dialog()),
             )
         )
         for pk, transaction in self.__view.get_all().items():
@@ -111,7 +111,7 @@ class TransactionsView(View):
         self.__view.delete(pk)
         self.update()
 
-    def _open_add(self) -> None:
+    def _open_add_dialog(self) -> None:
         current_time = datetime.now()
         self.transaction_storage_field.value = ''
         self.transaction_value_field.value = ''
@@ -142,14 +142,13 @@ class TransactionsView(View):
             adaptive=True
         )
 
-        self.dialog = self.modal_dialog
-        self.modal_dialog.open = True
+        self.page.open(self.modal_dialog)
         self.update()
         self._change_time(None)
         self._change_date(None)
 
     def _close_add(self):
-        self.modal_dialog.open = False
+        self.page.close(self.modal_dialog)
         self.page.update()
 
     def _add_transaction(self) -> None:
@@ -161,12 +160,13 @@ class TransactionsView(View):
 
         time_stamp = datetime.combine(self.transaction_date_picker.value.date(), self.transaction_time_picker.value)
         transaction = Transaction(
+            None,
             storage=storage,
             currency=currency,
             time_stamp=time_stamp
         )
         self.__view.add(transaction)
-        self.modal_dialog.open = False
+        self.page.close(self.modal_dialog)
         self.page.update()
         self.update()
 
@@ -202,14 +202,13 @@ class TransactionsView(View):
             adaptive=True
         )
 
-        self.page.dialog = self.modal_dialog
-        self.modal_dialog.open = True
+        self.page.open(self.modal_dialog)
         self.page.update()
         self._change_time(None)
         self._change_date(None)
 
     def _close_update(self):
-        self.modal_dialog.open = False
+        self.page.close(self.modal_dialog)
         self.page.update()
 
     def _update_transaction(self, pk: int) -> None:
@@ -224,7 +223,7 @@ class TransactionsView(View):
         transaction.time_stamp = time_stamp
 
         self.__view.update(pk)
-        self.modal_dialog.open = False
+        self.page.close(self.modal_dialog)
         self.page.update()
         self.update()
 

@@ -30,21 +30,30 @@ class JSONBase(DataBase):
         json.dump(loaded, self._path.open('w'), indent=2)
 
     def delete(self, pk: str | int) -> None:
-        data = json.load(self._path.open())
+        data: list[dict] = json.load(self._path.open())
+        print(data)
         for obj in data:
             if obj['pk'] == pk:
-                del obj
+                data.remove(obj)
                 break
+        print(data)
         json.dump(data, self._path.open('w'), indent=2)
 
     def add(self, data: dict) -> int | str:
         loaded = json.load(self._path.open())
-        data['pk'] = self.__last_pk + 1
-        self.__last_pk += 1
+
+        if data['pk'] is not None:
+            self.__last_pk = data['pk'] if data['pk'] > self.__last_pk else self.__last_pk
+        else:
+            self.__last_pk += 1
+            data['pk'] = self.__last_pk
+
+        loaded.append(data)
         json.dump(loaded, self._path.open('w'), indent=2)
         return self.__last_pk
 
     def __get_last_pk(self) -> int | str:
         loaded = json.load(self._path.open())
-        return max(loaded, key=lambda obj: obj['pk'])
+        loaded.append({'pk': 0})
+        return max(loaded, key=lambda obj: obj['pk'])['pk']
 

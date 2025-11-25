@@ -17,6 +17,7 @@ class Account(Storage):
 
     def to_json(self) -> dict[str, str | int]:
         return {
+            'pk': self.pk,
             'name': self.name,
             'resource_type': self.value.currency.pk,
             'resource_count': self.value.value,

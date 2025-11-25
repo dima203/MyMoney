@@ -31,7 +31,7 @@ class ServerBase(DataBase):
 
     def add(self, data: dict) -> int | None:
         if self.__session is None:
-            return
+            return None
 
         response = self.__session.post(self._path, data=data)
         return response.json()['pk']

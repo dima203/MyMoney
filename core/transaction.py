@@ -6,13 +6,15 @@ from .money import Money
 
 
 class Transaction:
-    def __init__(self, storage: Account, currency: Money, time_stamp: datetime.datetime) -> None:
+    def __init__(self, pk: int, storage: Account, currency: Money, time_stamp: datetime.datetime) -> None:
+        self.pk = pk
         self.storage = storage
         self.value = currency
         self.time_stamp = time_stamp
 
     def to_json(self) -> dict[str, str | int]:
         return {
+            'pk': self.pk,
             'storage_id': self.storage.pk,
             'resource_count': self.value.value,
             'resource_type': self.value.currency.pk,

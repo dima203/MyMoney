@@ -24,7 +24,7 @@ class Application:
         self.transactions_view: TransactionBaseView = None
 
     def run(self) -> None:
-        flet.app(target=self._start, view=flet.FLET_APP_WEB)
+        flet.app(target=self._start, view=flet.AppView.FLET_APP)
         self._stop()
 
     def _start(self, page: flet.Page):

@@ -106,12 +106,11 @@ class StoragesView(View):
             adaptive=True
         )
 
-        self.page.dialog = self.modal_dialog
-        self.modal_dialog.open = True
-        self.page.update()
+        self.page.open(self.modal_dialog)
+        self.update()
 
     def _close_add(self):
-        self.modal_dialog.open = False
+        self.page.close(self.modal_dialog)
         self.page.update()
 
     def _add_storage(self) -> None:
@@ -122,7 +121,7 @@ class StoragesView(View):
             float(self.storage_value_field.value)
         )
         self.__view.add(storage)
-        self.modal_dialog.open = False
+        self.page.close(self.modal_dialog)
         self.page.update()
         self.update()
 
@@ -153,12 +152,11 @@ class StoragesView(View):
             adaptive=True
         )
 
-        self.page.dialog = self.modal_dialog
-        self.modal_dialog.open = True
+        self.page.open(self.modal_dialog)
         self.page.update()
 
     def _close_update(self):
-        self.modal_dialog.open = False
+        self.page.close(self.modal_dialog)
         self.page.update()
 
     def _update_storage(self, pk: int) -> None:
@@ -169,7 +167,7 @@ class StoragesView(View):
             self.__resource_view.get(int(self.storage_currency_field.value))
         )
         self.__view.update(pk)
-        self.modal_dialog.open = False
+        self.page.close(self.modal_dialog)
         self.page.update()
         self.update()
 
