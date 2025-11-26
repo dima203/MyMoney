@@ -152,14 +152,17 @@ class TransactionBaseView(BaseView):
             self._reserve_database.add(item.to_json())
         item.pk = pk
         self.__transactions[pk] = item
+        self.__transactions[pk].execute()
 
     def delete(self, pk: int) -> None:
-        del self.__transactions[pk]
         self._database.delete(pk)
         self._reserve_database.delete(pk)
+        del self.__transactions[pk]
 
     def update(self, pk: int) -> None:
         self._database.update(pk, self.__transactions[pk].to_json())
+        self._reserve_database.update(pk, self.__transactions[pk].to_json())
+        self.__transactions[pk].execute()
 
     def load(self) -> None:
         transactions_updates = {}

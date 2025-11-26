@@ -12,6 +12,12 @@ class Transaction:
         self.value = currency
         self.time_stamp = time_stamp
 
+    def execute(self) -> None:
+        self.storage.value += self.value
+
+    def cancel(self) -> None:
+        self.storage.value -= self.value
+
     def to_json(self) -> dict[str, str | int]:
         return {
             'pk': self.pk,
@@ -21,6 +27,9 @@ class Transaction:
             'time_stamp': self.time_stamp.isoformat(),
             'last_update': datetime.datetime.now().isoformat()
         }
+
+    def __del__(self) -> None:
+        self.cancel()
 
 
 class Transfer(Transaction):

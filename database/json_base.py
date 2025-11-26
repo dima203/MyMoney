@@ -31,12 +31,10 @@ class JSONBase(DataBase):
 
     def delete(self, pk: str | int) -> None:
         data: list[dict] = json.load(self._path.open())
-        print(data)
         for obj in data:
             if obj['pk'] == pk:
                 data.remove(obj)
                 break
-        print(data)
         json.dump(data, self._path.open('w'), indent=2)
 
     def add(self, data: dict) -> int | str:

@@ -23,8 +23,6 @@ from dataview import AccountBaseView, ResourceBaseView
 from core import Money, Account
 from core.utils import make_function_call
 
-from .screen import Screen
-
 
 class StoragesView(View):
     def __init__(self, route: str, view: AccountBaseView, resource_view: ResourceBaseView, *args, **kwargs) -> None:
@@ -47,8 +45,30 @@ class StoragesView(View):
                 dropdown.Option(str(pk), resource.name) for pk, resource in self.__resource_view.get_all().items()
             ]
         )
-        self.modal_dialog: AlertDialog | None = None
+        self.add_accept_button = TextButton("Подтвердить", on_click=lambda e: self._add_storage())
+        self.update_accept_button = TextButton("Подтвердить")
+        self.cancel_button = TextButton("Отмена", on_click=lambda e: self._close_modal())
+
+        self.modal_dialog = AlertDialog(
+            modal=True,
+            title=Text("Добавление счета"),
+            content=Container(
+                Column([
+                    self.storage_name_field,
+                    self.storage_value_field,
+                    self.storage_currency_field,
+                ],
+                    scroll=ScrollMode.ALWAYS,
+                ),
+                width=self.page.width * 0.7,
+                height=self.page.height * 0.7,
+                expand=True,
+            ),
+            adaptive=True
+        )
+
         self.controls = [self.storage_list]
+        self.scroll = 'always'
         return self
 
     def update(self) -> None:
@@ -84,32 +104,15 @@ class StoragesView(View):
         self.storage_name_field.value = ''
         self.storage_value_field.value = ''
         self.storage_currency_field.value = ''
-        self.modal_dialog = AlertDialog(
-            modal=True,
-            title=Text("Добавление счета"),
-            content=Container(
-                Column([
-                    self.storage_name_field,
-                    self.storage_value_field,
-                    self.storage_currency_field,
-                ],
-                    scroll=ScrollMode.ALWAYS,
-                ),
-                width=self.page.width * 0.7,
-                height=self.page.height * 0.7,
-                expand=True,
-            ),
-            actions=[
-                TextButton("Подтвердить", on_click=lambda e: self._add_storage()),
-                TextButton("Отмена", on_click=lambda e: self._close_add()),
-            ],
-            adaptive=True
-        )
 
+        self.modal_dialog.actions = [
+            self.add_accept_button,
+            self.cancel_button
+        ]
         self.page.open(self.modal_dialog)
         self.update()
 
-    def _close_add(self):
+    def _close_modal(self):
         self.page.close(self.modal_dialog)
         self.page.update()
 
@@ -130,33 +133,13 @@ class StoragesView(View):
         self.storage_name_field.value = storage.name
         self.storage_value_field.value = str(storage.value.value)
         self.storage_currency_field.value = str(storage.value.currency.pk)
-        self.modal_dialog = AlertDialog(
-            modal=True,
-            title=Text("Изменение счета"),
-            content=Container(
-                Column([
-                    self.storage_name_field,
-                    self.storage_value_field,
-                    self.storage_currency_field
-                ],
-                    scroll=ScrollMode.ALWAYS,
-                ),
-                width=self.page.width * 0.7,
-                height=self.page.height * 0.7,
-                expand=True,
-            ),
-            actions=[
-                TextButton("Подтвердить", on_click=lambda e: self._update_storage(pk)),
-                TextButton("Отмена", on_click=lambda e: self._close_update()),
-            ],
-            adaptive=True
-        )
 
+        self.update_accept_button.on_click = make_function_call(self._update_storage, pk)
+        self.modal_dialog.actions = [
+            self.update_accept_button,
+            self.cancel_button
+        ]
         self.page.open(self.modal_dialog)
-        self.page.update()
-
-    def _close_update(self):
-        self.page.close(self.modal_dialog)
         self.page.update()
 
     def _update_storage(self, pk: int) -> None:

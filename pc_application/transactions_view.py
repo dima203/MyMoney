@@ -72,8 +72,34 @@ class TransactionsView(View):
         self.transaction_value_field = TextField(label='Сумма')
         self.page.overlay.append(self.transaction_time_picker)
         self.page.overlay.append(self.transaction_date_picker)
-        self.modal_dialog: AlertDialog | None = None
+
+        self.add_accept_button = TextButton("Подтвердить", on_click=lambda e: self._add_transaction())
+        self.update_accept_button = TextButton("Подтвердить")
+        self.cancel_button = TextButton("Отмена", on_click=lambda e: self._close_modal())
+
+        self.modal_dialog: AlertDialog = AlertDialog(
+            modal=True,
+            title=Text("Добавление транзакции"),
+            content=Container(
+                Column([
+                    self.transaction_storage_field,
+                    self.transaction_value_field,
+                    Row([
+                        self.time_button,
+                        self.date_button
+                    ])
+                ],
+                    scroll=ScrollMode.ALWAYS,
+                ),
+                width=self.page.width * 0.7,
+                height=self.page.height * 0.7,
+                expand=True,
+            ),
+            adaptive=True
+        )
+
         self.controls = [self.transaction_list]
+        self.scroll = 'always'
         return self
 
     def update(self) -> None:
@@ -117,37 +143,17 @@ class TransactionsView(View):
         self.transaction_value_field.value = ''
         self.transaction_time_picker.value = current_time.time()
         self.transaction_date_picker.value = current_time.date()
-        self.modal_dialog = AlertDialog(
-            modal=True,
-            title=Text("Добавление транзакции"),
-            content=Container(
-                Column([
-                    self.transaction_storage_field,
-                    self.transaction_value_field,
-                    Row([
-                        self.time_button,
-                        self.date_button
-                    ])
-                ],
-                    scroll=ScrollMode.ALWAYS,
-                ),
-                width=self.page.width * 0.7,
-                height=self.page.height * 0.7,
-                expand=True,
-            ),
-            actions=[
-                TextButton("Подтвердить", on_click=lambda e: self._add_transaction()),
-                TextButton("Отмена", on_click=lambda e: self._close_add()),
-            ],
-            adaptive=True
-        )
 
+        self.modal_dialog.actions = [
+            self.add_accept_button,
+            self.cancel_button
+        ]
         self.page.open(self.modal_dialog)
         self.update()
         self._change_time(None)
         self._change_date(None)
 
-    def _close_add(self):
+    def _close_modal(self):
         self.page.close(self.modal_dialog)
         self.page.update()
 
@@ -177,42 +183,19 @@ class TransactionsView(View):
         self.transaction_time_picker.value = transaction.time_stamp.time()
         self.transaction_date_picker.value = transaction.time_stamp
 
-        self.modal_dialog = AlertDialog(
-            modal=True,
-            title=Text("Изменение транзакции"),
-            content=Container(
-                Column([
-                    self.transaction_storage_field,
-                    self.transaction_value_field,
-                    Row([
-                        self.time_button,
-                        self.date_button
-                    ])
-                ],
-                    scroll=ScrollMode.ALWAYS,
-                ),
-                width=self.page.width * 0.7,
-                height=self.page.height * 0.7,
-                expand=True,
-            ),
-            actions=[
-                TextButton("Подтвердить", on_click=lambda e: self._update_transaction(pk)),
-                TextButton("Отмена", on_click=lambda e: self._close_update()),
-            ],
-            adaptive=True
-        )
-
+        self.update_accept_button.on_click = make_function_call(self._update_transaction, pk)
+        self.modal_dialog.actions = [
+            self.update_accept_button,
+            self.cancel_button
+        ]
         self.page.open(self.modal_dialog)
         self.page.update()
         self._change_time(None)
         self._change_date(None)
 
-    def _close_update(self):
-        self.page.close(self.modal_dialog)
-        self.page.update()
-
     def _update_transaction(self, pk: int) -> None:
         transaction = self.__view.get(pk)
+        transaction.cancel()
         storage = self.__storage_view.get(int(self.transaction_storage_field.value))
         transaction.storage = storage
         transaction.value = Money(
