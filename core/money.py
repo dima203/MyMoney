@@ -31,6 +31,9 @@ class Money:
     def byn(value: float) -> 'Money':
         return Money(value, 'BYN')
 
+    def copy(self) -> 'Money':
+        return Money(self.value, self.currency)
+
     def __eq__(self, other: Self | int | float) -> bool:
         if isinstance(other, int | float):
             return self.value == other
@@ -72,7 +75,7 @@ class Money:
         return self if self > 0 else -self
 
     def __repr__(self) -> str:
-        return f'{self.__currency_names[self.currency][0]}({self.value})'
+        return f'{self.__currency_names[self.currency.name][0]}({self.value})'
 
     def __str__(self) -> str:
         return f'{self.value} {self.currency.name}'

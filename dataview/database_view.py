@@ -88,15 +88,16 @@ class AccountBaseView(BaseView):
             self._reserve_database.add(item.to_json())
         item.pk = pk
         self.__accounts[pk] = item
+        self.__accounts[pk].subscribe(self._on_account_update)
 
     def delete(self, pk: int) -> None:
         del self.__accounts[pk]
         self._database.delete(pk)
         self._reserve_database.delete(pk)
 
-    def update(self, pk: int) -> None:
-        self._database.update(pk, self.__accounts[pk].to_json())
-        self._reserve_database.update(pk, self.__accounts[pk].to_json())
+    def update(self, pk: int, data: dict) -> None:
+        self._database.update(pk, data)
+        self._reserve_database.update(pk, data)
 
     def load(self) -> None:
         storages_updates = {}
@@ -125,10 +126,16 @@ class AccountBaseView(BaseView):
                     account_data['resource_count']
                 )
 
+        for account in self.__accounts.values():
+            account.subscribe(self._on_account_update)
+
     def save(self) -> None:
         for pk, storage in self.__accounts.items():
             self._database.update(pk, storage.to_json())
             self._reserve_database.update(pk, storage.to_json())
+
+    def _on_account_update(self, pk: str | int, data: dict) -> None:
+        self.update(pk, data)
 
 
 class TransactionBaseView(BaseView):
@@ -152,6 +159,7 @@ class TransactionBaseView(BaseView):
             self._reserve_database.add(item.to_json())
         item.pk = pk
         self.__transactions[pk] = item
+        self.__transactions[pk].subscribe(self._on_transaction_update)
         self.__transactions[pk].execute()
 
     def delete(self, pk: int) -> None:
@@ -159,10 +167,9 @@ class TransactionBaseView(BaseView):
         self._reserve_database.delete(pk)
         del self.__transactions[pk]
 
-    def update(self, pk: int) -> None:
-        self._database.update(pk, self.__transactions[pk].to_json())
-        self._reserve_database.update(pk, self.__transactions[pk].to_json())
-        self.__transactions[pk].execute()
+    def update(self, pk: int, data: dict) -> None:
+        self._database.update(pk, data)
+        self._reserve_database.update(pk, data)
 
     def load(self) -> None:
         transactions_updates = {}
@@ -200,8 +207,13 @@ class TransactionBaseView(BaseView):
                     time_stamp
                 )
 
+        for transaction in self.__transactions.values():
+            transaction.subscribe(self._on_transaction_update)
+
     def save(self) -> None:
         for pk, transaction in self.__transactions.items():
             self._database.update(pk, transaction.to_json())
             self._reserve_database.update(pk, transaction.to_json())
 
+    def _on_transaction_update(self, pk: str | int, data: dict) -> None:
+        self.update(pk, data)

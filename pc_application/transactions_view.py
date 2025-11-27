@@ -163,14 +163,15 @@ class TransactionsView(View):
             float(self.transaction_value_field.value),
             storage.value.currency
         )
-
         time_stamp = datetime.combine(self.transaction_date_picker.value.date(), self.transaction_time_picker.value)
+
         transaction = Transaction(
             None,
             storage=storage,
             currency=currency,
             time_stamp=time_stamp
         )
+
         self.__view.add(transaction)
         self.page.close(self.modal_dialog)
         self.page.update()
@@ -195,7 +196,6 @@ class TransactionsView(View):
 
     def _update_transaction(self, pk: int) -> None:
         transaction = self.__view.get(pk)
-        transaction.cancel()
         storage = self.__storage_view.get(int(self.transaction_storage_field.value))
         transaction.storage = storage
         transaction.value = Money(
@@ -205,7 +205,6 @@ class TransactionsView(View):
         time_stamp = datetime.combine(self.transaction_date_picker.value.date(), self.transaction_time_picker.value)
         transaction.time_stamp = time_stamp
 
-        self.__view.update(pk)
         self.page.close(self.modal_dialog)
         self.page.update()
         self.update()

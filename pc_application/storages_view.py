@@ -41,6 +41,7 @@ class StoragesView(View):
         self.storage_value_field = TextField(label='Текущий баланс')
         self.storage_currency_field = Dropdown(
             label='Валюта',
+            width=200,
             options=[
                 dropdown.Option(str(pk), resource.name) for pk, resource in self.__resource_view.get_all().items()
             ]
@@ -72,6 +73,7 @@ class StoragesView(View):
         return self
 
     def update(self) -> None:
+        self.__view.load()
         self.storage_list.controls.clear()
         self.storage_list.controls.append(
             ListTile(
@@ -123,6 +125,7 @@ class StoragesView(View):
             self.__resource_view.get(int(self.storage_currency_field.value)),
             float(self.storage_value_field.value)
         )
+
         self.__view.add(storage)
         self.page.close(self.modal_dialog)
         self.page.update()
@@ -149,7 +152,7 @@ class StoragesView(View):
             float(self.storage_value_field.value),
             self.__resource_view.get(int(self.storage_currency_field.value))
         )
-        self.__view.update(pk)
+
         self.page.close(self.modal_dialog)
         self.page.update()
         self.update()
