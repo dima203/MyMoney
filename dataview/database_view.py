@@ -76,7 +76,9 @@ class ResourceBaseView(BaseView):
 
 
 class AccountBaseView(BaseView):
-    def __init__(self, database: DataBase, resource_view: ResourceBaseView, *, reserve_database: DataBase = None) -> None:
+    def __init__(
+        self, database: DataBase, resource_view: ResourceBaseView, *, reserve_database: DataBase = None
+    ) -> None:
         super().__init__(database, reserve_database=reserve_database)
         self.__accounts: dict[int, Account] = {}
         self.__resource_view = resource_view

@@ -25,9 +25,45 @@ class TestCommandHandle(Viewer):
         self.show_transactions_called = 0
         self.showed_name = None
         self.showed_error = None
-        self.resources = ResourceBaseView(SQLBase(":memory:", "resources", "pk", "CHAR(128)", "name", "CHAR(256)", "last_update", "DATETIME"))
-        self.database = AccountBaseView(SQLBase(":memory:", "accounts", "pk", "CHAR(128)", "name", "CHAR(256)", "resource_type", "CHAR(128)", "resource_count", "INTEGER", "last_update", "DATETIME"), self.resources)
-        self.database2 = TransactionBaseView(SQLBase(":memory:", "transactions", "pk", "CHAR(128)", "storage_id", "CHAR(128)", "resource_count", "REAL", "resource_type", "CHAR(128)", "time_stamp", "DATETIME", "last_update", "DATETIME"), self.database)
+        self.resources = ResourceBaseView(
+            SQLBase(":memory:", "resources", "pk", "CHAR(128)", "name", "CHAR(256)", "last_update", "DATETIME")
+        )
+        self.database = AccountBaseView(
+            SQLBase(
+                ":memory:",
+                "accounts",
+                "pk",
+                "CHAR(128)",
+                "name",
+                "CHAR(256)",
+                "resource_type",
+                "CHAR(128)",
+                "resource_count",
+                "INTEGER",
+                "last_update",
+                "DATETIME",
+            ),
+            self.resources,
+        )
+        self.database2 = TransactionBaseView(
+            SQLBase(
+                ":memory:",
+                "transactions",
+                "pk",
+                "CHAR(128)",
+                "storage_id",
+                "CHAR(128)",
+                "resource_count",
+                "REAL",
+                "resource_type",
+                "CHAR(128)",
+                "time_stamp",
+                "DATETIME",
+                "last_update",
+                "DATETIME",
+            ),
+            self.database,
+        )
         self.resources.add(Resource("BYN", "BYN"))
         self.database.add(Account("test", "BYN", self.resources.get("BYN")))
         self.database.add_account("test2", Account("test2", "BYN"))
