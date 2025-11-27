@@ -7,7 +7,7 @@ from .resource import Resource
 
 
 class Account(Storage):
-    def __init__(self, pk: int, name: str, currency: Resource, value: float = 0) -> None:
+    def __init__(self, pk: int | str, name: str, currency: Resource, value: float = 0) -> None:
         self.pk = pk
         self.name = name
         self.__subscribers = []
@@ -27,11 +27,11 @@ class Account(Storage):
 
     def to_json(self) -> dict[str, str | int]:
         return {
-            'pk': self.pk,
-            'name': self.name,
-            'resource_type': self.value.currency.pk,
-            'resource_count': self.value.value,
-            'last_update': datetime.now().isoformat()
+            "pk": self.pk,
+            "name": self.name,
+            "resource_type": self.value.currency.pk,
+            "resource_count": self.value.value,
+            "last_update": datetime.now().isoformat(),
         }
 
     def __changed(self) -> None:
@@ -49,5 +49,5 @@ class Account(Storage):
         object.__setattr__(self, key, value)
         self.__changed()
 
-    def __eq__(self, other: 'Account') -> bool:
+    def __eq__(self, other: "Account") -> bool:
         return self.value == other.value

@@ -1,15 +1,15 @@
-from flet import NavigationBar, NavigationBarDestination, Container, Icons, Page
+from flet import NavigationBar, NavigationBarDestination, Icons, Page
 
 
 class MainNavigationBar(NavigationBar):
     def __init__(self, page: Page, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.page = page
-        
+
     def build(self):
         self.destinations = [
-            NavigationBarDestination(icon=Icons.WALLET, label='Счета'),
-            NavigationBarDestination(icon=Icons.MONEY, label='Транзакции'),
+            NavigationBarDestination(icon=Icons.WALLET, label="Счета"),
+            NavigationBarDestination(icon=Icons.MONEY, label="Транзакции"),
         ]
         return self
 
@@ -17,6 +17,6 @@ class MainNavigationBar(NavigationBar):
         print(self.page)
         match self.selected_index:
             case 0:
-                self.page.go('/storages')
+                self.page.go("/storages")
             case 1:
-                self.page.go('/transactions')
+                self.page.go("/transactions")

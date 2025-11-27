@@ -16,7 +16,7 @@ from flet import (
     CrossAxisAlignment,
     ScrollMode,
     Icons,
-    View
+    View,
 )
 
 from dataview import AccountBaseView, ResourceBaseView
@@ -37,14 +37,14 @@ class StoragesView(View):
         self.vertical_alignment = MainAxisAlignment.CENTER
         self.horizontal_alignment = CrossAxisAlignment.CENTER
         self.storage_list = ListView(spacing=10, width=500)
-        self.storage_name_field = TextField(label='Название')
-        self.storage_value_field = TextField(label='Текущий баланс')
+        self.storage_name_field = TextField(label="Название")
+        self.storage_value_field = TextField(label="Текущий баланс")
         self.storage_currency_field = Dropdown(
-            label='Валюта',
+            label="Валюта",
             width=200,
             options=[
                 dropdown.Option(str(pk), resource.name) for pk, resource in self.__resource_view.get_all().items()
-            ]
+            ],
         )
         self.add_accept_button = TextButton("Подтвердить", on_click=lambda e: self._add_storage())
         self.update_accept_button = TextButton("Подтвердить")
@@ -54,22 +54,23 @@ class StoragesView(View):
             modal=True,
             title=Text("Добавление счета"),
             content=Container(
-                Column([
-                    self.storage_name_field,
-                    self.storage_value_field,
-                    self.storage_currency_field,
-                ],
+                Column(
+                    [
+                        self.storage_name_field,
+                        self.storage_value_field,
+                        self.storage_currency_field,
+                    ],
                     scroll=ScrollMode.ALWAYS,
                 ),
                 width=self.page.width * 0.7,
                 height=self.page.height * 0.7,
                 expand=True,
             ),
-            adaptive=True
+            adaptive=True,
         )
 
         self.controls = [self.storage_list]
-        self.scroll = 'always'
+        self.scroll = "always"
         return self
 
     def update(self) -> None:
@@ -77,7 +78,7 @@ class StoragesView(View):
         self.storage_list.controls.clear()
         self.storage_list.controls.append(
             ListTile(
-                title=TextButton('Добавить', Icons.ADD, on_click=lambda e: self._open_add()),
+                title=TextButton("Добавить", Icons.ADD, on_click=lambda e: self._open_add()),
             )
         )
         for pk, storage in self.__view.get_all().items():
@@ -86,31 +87,31 @@ class StoragesView(View):
                     leading=PopupMenuButton(
                         icon=Icons.WALLET,
                         items=[
-                            PopupMenuItem(icon=Icons.CHANGE_CIRCLE, text='update',
-                                          on_click=make_function_call(self._open_update, pk)),
-                            PopupMenuItem(icon=Icons.REMOVE_CIRCLE, text='delete',
-                                          on_click=make_function_call(self._delete_storage, pk)),
-                        ]
+                            PopupMenuItem(
+                                icon=Icons.CHANGE_CIRCLE,
+                                text="update",
+                                on_click=make_function_call(self._open_update, pk),
+                            ),
+                            PopupMenuItem(
+                                icon=Icons.REMOVE_CIRCLE,
+                                text="delete",
+                                on_click=make_function_call(self._delete_storage, pk),
+                            ),
+                        ],
                     ),
-                    title=Row([
-                        Text(storage.name),
-                        Text(str(storage.value))
-                    ],
-                        alignment=MainAxisAlignment.SPACE_BETWEEN
+                    title=Row(
+                        [Text(storage.name), Text(str(storage.value))], alignment=MainAxisAlignment.SPACE_BETWEEN
                     ),
                 )
             )
         self.storage_list.update()
 
     def _open_add(self) -> None:
-        self.storage_name_field.value = ''
-        self.storage_value_field.value = ''
-        self.storage_currency_field.value = ''
+        self.storage_name_field.value = ""
+        self.storage_value_field.value = ""
+        self.storage_currency_field.value = ""
 
-        self.modal_dialog.actions = [
-            self.add_accept_button,
-            self.cancel_button
-        ]
+        self.modal_dialog.actions = [self.add_accept_button, self.cancel_button]
         self.page.open(self.modal_dialog)
         self.update()
 
@@ -123,7 +124,7 @@ class StoragesView(View):
             None,
             self.storage_name_field.value,
             self.__resource_view.get(int(self.storage_currency_field.value)),
-            float(self.storage_value_field.value)
+            float(self.storage_value_field.value),
         )
 
         self.__view.add(storage)
@@ -138,10 +139,7 @@ class StoragesView(View):
         self.storage_currency_field.value = str(storage.value.currency.pk)
 
         self.update_accept_button.on_click = make_function_call(self._update_storage, pk)
-        self.modal_dialog.actions = [
-            self.update_accept_button,
-            self.cancel_button
-        ]
+        self.modal_dialog.actions = [self.update_accept_button, self.cancel_button]
         self.page.open(self.modal_dialog)
         self.page.update()
 
@@ -149,8 +147,7 @@ class StoragesView(View):
         storage = self.__view.get(pk)
         storage.name = self.storage_name_field.value
         storage.value = Money(
-            float(self.storage_value_field.value),
-            self.__resource_view.get(int(self.storage_currency_field.value))
+            float(self.storage_value_field.value), self.__resource_view.get(int(self.storage_currency_field.value))
         )
 
         self.page.close(self.modal_dialog)

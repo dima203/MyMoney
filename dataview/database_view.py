@@ -7,12 +7,12 @@ from database import DataBase
 
 
 class BaseView(ABC):
-    def __init__(self, database: DataBase, *, reserve_database: DataBase) -> None:
+    def __init__(self, database: DataBase, *, reserve_database: DataBase = None) -> None:
         self._database = database
         self._reserve_database = reserve_database
 
     @abstractmethod
-    def get(self, pk: str | int) -> ...: ...
+    def get(self, pk: str | int) -> Any: ...
     @abstractmethod
     def get_all(self) -> dict[str | int, ...]: ...
     @abstractmethod
@@ -20,7 +20,7 @@ class BaseView(ABC):
     @abstractmethod
     def delete(self, pk: str | int) -> None: ...
     @abstractmethod
-    def update(self, pk: str | int) -> None: ...
+    def update(self, pk: str | int, data: dict) -> None: ...
     @abstractmethod
     def load(self) -> None: ...
     @abstractmethod
@@ -28,20 +28,28 @@ class BaseView(ABC):
 
 
 class ResourceBaseView(BaseView):
-    def __init__(self, database: DataBase, *, reserve_database: DataBase) -> None:
+    def __init__(self, database: DataBase, *, reserve_database: DataBase = None) -> None:
         super().__init__(database, reserve_database=reserve_database)
         self.__resources: dict[int, Resource] = {}
 
-    def get(self, pk: int) -> Resource:
+    def get(self, pk: int | str) -> Resource:
         return self.__resources[pk]
 
-    def get_all(self) -> dict[int, Resource]:
+    def get_all(self) -> dict[int | str, Resource]:
         return self.__resources
 
     def add(self, item: Resource) -> None:
-        pass
+        pk = self._database.add(item.to_json())
+        item.pk = pk
+        if self._reserve_database is not None:
+            if pk is None:
+                pk = self._reserve_database.add(item.to_json())
+            else:
+                self._reserve_database.add(item.to_json())
+        item.pk = pk
+        self.__resources[pk] = item
 
-    def update(self, pk: str | int) -> None:
+    def update(self, pk: str | int, data: dict) -> None:
         pass
 
     def delete(self, pk: str | int) -> None:
@@ -52,14 +60,14 @@ class ResourceBaseView(BaseView):
     def load(self) -> None:
         resources_updates = {}
         for resource_data in self._reserve_database.load():
-            resources_updates[resource_data['pk']] = resource_data['last_update']
-            self.__resources[resource_data['pk']] = Resource(resource_data['pk'], resource_data['name'])
+            resources_updates[resource_data["pk"]] = resource_data["last_update"]
+            self.__resources[resource_data["pk"]] = Resource(resource_data["pk"], resource_data["name"])
         for resource_data in self._database.load():
-            if resource_data['pk'] in resources_updates:
-                if resources_updates[resource_data['pk']] < resource_data['last_update']:
-                    self.__resources[resource_data['pk']] = Resource(resource_data['pk'], resource_data['name'])
+            if resource_data["pk"] in resources_updates:
+                if resources_updates[resource_data["pk"]] < resource_data["last_update"]:
+                    self.__resources[resource_data["pk"]] = Resource(resource_data["pk"], resource_data["name"])
             else:
-                self.__resources[resource_data['pk']] = Resource(resource_data['pk'], resource_data['name'])
+                self.__resources[resource_data["pk"]] = Resource(resource_data["pk"], resource_data["name"])
 
     def save(self) -> None:
         for pk, resource in self.__resources.items():
@@ -68,7 +76,7 @@ class ResourceBaseView(BaseView):
 
 
 class AccountBaseView(BaseView):
-    def __init__(self, database: DataBase, resource_view: ResourceBaseView, *, reserve_database: DataBase) -> None:
+    def __init__(self, database: DataBase, resource_view: ResourceBaseView, *, reserve_database: DataBase = None) -> None:
         super().__init__(database, reserve_database=reserve_database)
         self.__accounts: dict[int, Account] = {}
         self.__resource_view = resource_view
@@ -95,35 +103,35 @@ class AccountBaseView(BaseView):
         self._database.delete(pk)
         self._reserve_database.delete(pk)
 
-    def update(self, pk: int, data: dict) -> None:
+    def update(self, pk: int | str, data: dict) -> None:
         self._database.update(pk, data)
         self._reserve_database.update(pk, data)
 
     def load(self) -> None:
         storages_updates = {}
         for account_data in self._reserve_database.load():
-            storages_updates[account_data['pk']] = account_data['last_update']
-            self.__accounts[account_data['pk']] = Account(
-                account_data['pk'],
-                account_data['name'],
-                self.__resource_view.get(account_data['resource_type']),
-                account_data['resource_count']
+            storages_updates[account_data["pk"]] = account_data["last_update"]
+            self.__accounts[account_data["pk"]] = Account(
+                account_data["pk"],
+                account_data["name"],
+                self.__resource_view.get(account_data["resource_type"]),
+                account_data["resource_count"],
             )
         for account_data in self._database.load():
-            if account_data['pk'] in storages_updates:
-                if storages_updates[account_data['pk']] < account_data['last_update']:
-                    self.__accounts[account_data['pk']] = Account(
-                        account_data['pk'],
-                        account_data['name'],
-                        self.__resource_view.get(account_data['resource_type']),
-                        account_data['resource_count']
+            if account_data["pk"] in storages_updates:
+                if storages_updates[account_data["pk"]] < account_data["last_update"]:
+                    self.__accounts[account_data["pk"]] = Account(
+                        account_data["pk"],
+                        account_data["name"],
+                        self.__resource_view.get(account_data["resource_type"]),
+                        account_data["resource_count"],
                     )
             else:
-                self.__accounts[account_data['pk']] = Account(
-                    account_data['pk'],
-                    account_data['name'],
-                    self.__resource_view.get(account_data['resource_type']),
-                    account_data['resource_count']
+                self.__accounts[account_data["pk"]] = Account(
+                    account_data["pk"],
+                    account_data["name"],
+                    self.__resource_view.get(account_data["resource_type"]),
+                    account_data["resource_count"],
                 )
 
         for account in self.__accounts.values():
@@ -139,7 +147,7 @@ class AccountBaseView(BaseView):
 
 
 class TransactionBaseView(BaseView):
-    def __init__(self, database: DataBase, account_view: AccountBaseView, *, reserve_database: DataBase) -> None:
+    def __init__(self, database: DataBase, account_view: AccountBaseView, *, reserve_database: DataBase = None) -> None:
         super().__init__(database, reserve_database=reserve_database)
         self.__transactions: dict[int, Transaction] = {}
         self.__account_view = account_view
@@ -174,37 +182,34 @@ class TransactionBaseView(BaseView):
     def load(self) -> None:
         transactions_updates = {}
         for transaction_data in self._reserve_database.load():
-            transactions_updates[transaction_data['pk']] = transaction_data['last_update']
-            storage = self.__account_view.get(transaction_data['storage_id'])
-            time_stamp = datetime.datetime.fromisoformat(transaction_data['time_stamp'])
-            self.__transactions[transaction_data['pk']] = Transaction(
-                transaction_data['pk'],
+            transactions_updates[transaction_data["pk"]] = transaction_data["last_update"]
+            storage = self.__account_view.get(transaction_data["storage_id"])
+            time_stamp = datetime.datetime.fromisoformat(transaction_data["time_stamp"])
+            self.__transactions[transaction_data["pk"]] = Transaction(
+                transaction_data["pk"],
                 storage,
-                Money(transaction_data['resource_count'],
-                    storage.value.currency),
-                time_stamp
+                Money(transaction_data["resource_count"], storage.value.currency),
+                time_stamp,
             )
         for transaction_data in self._database.load():
-            if transaction_data['pk'] in transactions_updates:
-                if transactions_updates[transaction_data['pk']] < transaction_data['last_update']:
-                    storage = self.__account_view.get(transaction_data['storage_id'])
-                    time_stamp = datetime.datetime.fromisoformat(transaction_data['time_stamp'])
-                    self.__transactions[transaction_data['pk']] = Transaction(
-                        transaction_data['pk'],
+            if transaction_data["pk"] in transactions_updates:
+                if transactions_updates[transaction_data["pk"]] < transaction_data["last_update"]:
+                    storage = self.__account_view.get(transaction_data["storage_id"])
+                    time_stamp = datetime.datetime.fromisoformat(transaction_data["time_stamp"])
+                    self.__transactions[transaction_data["pk"]] = Transaction(
+                        transaction_data["pk"],
                         storage,
-                        Money(transaction_data['resource_count'],
-                            storage.value.currency),
-                        time_stamp
+                        Money(transaction_data["resource_count"], storage.value.currency),
+                        time_stamp,
                     )
             else:
-                storage = self.__account_view.get(transaction_data['storage_id'])
-                time_stamp = datetime.datetime.fromisoformat(transaction_data['time_stamp'])
-                self.__transactions[transaction_data['pk']] = Transaction(
-                    transaction_data['pk'],
+                storage = self.__account_view.get(transaction_data["storage_id"])
+                time_stamp = datetime.datetime.fromisoformat(transaction_data["time_stamp"])
+                self.__transactions[transaction_data["pk"]] = Transaction(
+                    transaction_data["pk"],
                     storage,
-                    Money(transaction_data['resource_count'],
-                        storage.value.currency),
-                    time_stamp
+                    Money(transaction_data["resource_count"], storage.value.currency),
+                    time_stamp,
                 )
 
         for transaction in self.__transactions.values():

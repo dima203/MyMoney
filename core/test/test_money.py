@@ -48,7 +48,7 @@ class TestDifferenceMoney:
             Money.dollar(3) * Money.dollar(5)
 
     def test_repr(self) -> None:
-        assert repr(Money.dollar(5)) == 'Dollar(5)'
+        assert repr(Money.dollar(5)) == "Dollar(5)"
 
     def test_str(self) -> None:
-        assert str(Money.dollar(5)) == '5 $'
+        assert str(Money.dollar(5)) == "5 $"

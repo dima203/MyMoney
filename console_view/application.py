@@ -8,8 +8,8 @@ from database import JSONBase
 
 class Application:
     def __init__(self):
-        self.database = JSONBase(str(Path.cwd() / r'application_data.json'))
-        self.transaction_database = JSONBase(str(Path.cwd() / r'application_transaction_data.json'))
+        self.database = JSONBase(str(Path.cwd() / r"application_data.json"))
+        self.transaction_database = JSONBase(str(Path.cwd() / r"application_transaction_data.json"))
         self.database_view = AccountBaseView(self.database)
         self.transactions_view = TransactionBaseView(self.transaction_database)
         self.viewer = ConsoleViewer()
@@ -30,7 +30,7 @@ class Application:
     def __app_cycle(self) -> None:
         while True:
             command = self.input.get_input()
-            command = tuple(command.split(' '))
+            command = tuple(command.split(" "))
             if self.command_handler.process(command):
                 self.stop()
                 break
