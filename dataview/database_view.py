@@ -59,9 +59,10 @@ class ResourceBaseView(BaseView):
 
     def load(self) -> None:
         resources_updates = {}
-        for resource_data in self._reserve_database.load():
-            resources_updates[resource_data["pk"]] = resource_data["last_update"]
-            self.__resources[resource_data["pk"]] = Resource(resource_data["pk"], resource_data["name"])
+        if self._reserve_database is not None:
+            for resource_data in self._reserve_database.load():
+                resources_updates[resource_data["pk"]] = resource_data["last_update"]
+                self.__resources[resource_data["pk"]] = Resource(resource_data["pk"], resource_data["name"])
         for resource_data in self._database.load():
             if resource_data["pk"] in resources_updates:
                 if resources_updates[resource_data["pk"]] < resource_data["last_update"]:
@@ -113,14 +114,15 @@ class AccountBaseView(BaseView):
 
     def load(self) -> None:
         storages_updates = {}
-        for account_data in self._reserve_database.load():
-            storages_updates[account_data["pk"]] = account_data["last_update"]
-            self.__accounts[account_data["pk"]] = Account(
-                account_data["pk"],
-                account_data["name"],
-                self.__resource_view.get(account_data["resource_type"]),
-                account_data["resource_count"],
-            )
+        if self._reserve_database is not None:
+            for account_data in self._reserve_database.load():
+                storages_updates[account_data["pk"]] = account_data["last_update"]
+                self.__accounts[account_data["pk"]] = Account(
+                    account_data["pk"],
+                    account_data["name"],
+                    self.__resource_view.get(account_data["resource_type"]),
+                    account_data["resource_count"],
+                )
         for account_data in self._database.load():
             if account_data["pk"] in storages_updates:
                 if storages_updates[account_data["pk"]] < account_data["last_update"]:
@@ -144,7 +146,8 @@ class AccountBaseView(BaseView):
     def save(self) -> None:
         for pk, storage in self.__accounts.items():
             self._database.update(pk, storage.to_json())
-            self._reserve_database.update(pk, storage.to_json())
+            if self._reserve_database is not None:
+                self._reserve_database.update(pk, storage.to_json())
 
     def _on_account_update(self, pk: str | int, data: dict) -> None:
         self.update(pk, data)
@@ -186,16 +189,17 @@ class TransactionBaseView(BaseView):
 
     def load(self) -> None:
         transactions_updates = {}
-        for transaction_data in self._reserve_database.load():
-            transactions_updates[transaction_data["pk"]] = transaction_data["last_update"]
-            storage = self.__account_view.get(transaction_data["storage_id"])
-            time_stamp = datetime.datetime.fromisoformat(transaction_data["time_stamp"])
-            self.__transactions[transaction_data["pk"]] = Transaction(
-                transaction_data["pk"],
-                storage,
-                Money(transaction_data["resource_count"], storage.value.currency),
-                time_stamp,
-            )
+        if self._reserve_database is not None:
+            for transaction_data in self._reserve_database.load():
+                transactions_updates[transaction_data["pk"]] = transaction_data["last_update"]
+                storage = self.__account_view.get(transaction_data["storage_id"])
+                time_stamp = datetime.datetime.fromisoformat(transaction_data["time_stamp"])
+                self.__transactions[transaction_data["pk"]] = Transaction(
+                    transaction_data["pk"],
+                    storage,
+                    Money(transaction_data["resource_count"], storage.value.currency),
+                    time_stamp,
+                )
         for transaction_data in self._database.load():
             if transaction_data["pk"] in transactions_updates:
                 if transactions_updates[transaction_data["pk"]] < transaction_data["last_update"]:
@@ -209,6 +213,7 @@ class TransactionBaseView(BaseView):
                     )
             else:
                 storage = self.__account_view.get(transaction_data["storage_id"])
+                print(storage)
                 time_stamp = datetime.datetime.fromisoformat(transaction_data["time_stamp"])
                 self.__transactions[transaction_data["pk"]] = Transaction(
                     transaction_data["pk"],
@@ -223,7 +228,8 @@ class TransactionBaseView(BaseView):
     def save(self) -> None:
         for pk, transaction in self.__transactions.items():
             self._database.update(pk, transaction.to_json())
-            self._reserve_database.update(pk, transaction.to_json())
+            if self._reserve_database is not None:
+                self._reserve_database.update(pk, transaction.to_json())
 
     def _on_transaction_update(self, pk: str | int, data: dict) -> None:
         self.update(pk, data)

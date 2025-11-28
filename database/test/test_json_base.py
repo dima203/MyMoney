@@ -16,18 +16,18 @@ class TestJSONBase:
 
     def test_database_load_data(self) -> None:
         data = self.load_database.load()
-        assert data["loaded"]["value"] == 25
-        assert data["loaded"]["currency"] == "BYN"
+        assert data[0]["resource_count"] == 15
+        assert data[0]["resource_type"] == 1
 
     def test_database_load_non_exist_file(self) -> None:
         assert not os.path.exists(self.empty_file_path)
         empty_base = JSONBase(str(self.empty_file_path))
-        assert empty_base.load() == {}
+        assert empty_base.load() == []
         assert os.path.exists(self.empty_file_path)
 
     def test_database_save_data(self) -> None:
-        data = {"test": {"value": 50, "currency": "USD"}}
-        self.save_database.update(data)
+        data = {"pk": 1, "resource_count": 50, "resource_type": 2}
+        self.save_database.update(1, data)
         accounts = json.load((Path.cwd() / "database/test/new_test_data.json").open())
-        assert accounts["test"]
-        assert accounts["test"] == data["test"]
+        assert accounts[0]
+        assert accounts[0] == data

@@ -10,7 +10,7 @@ class TestSQLBase:
         self.load_database = SQLBase(
             str(Path.cwd() / "database/test/test_database.db"),
             "accounts",
-            "id",
+            "pk",
             "CHAR(128)",
             "value",
             "INT",
@@ -20,7 +20,7 @@ class TestSQLBase:
         self.save_database = SQLBase(
             str(Path.cwd() / "database/test/save_database.db"),
             "accounts",
-            "id",
+            "pk",
             "CHAR(128)",
             "value",
             "INT",
@@ -33,20 +33,20 @@ class TestSQLBase:
 
     def test_database_load_data(self) -> None:
         data = self.load_database.load()
-        assert data["loaded"]["value"] == 25
-        assert data["loaded"]["currency"] == "BYN"
+        assert data[0]["value"] == 25
+        assert data[0]["currency"] == "BYN"
 
     def test_database_load_non_exist_file(self) -> None:
         assert not os.path.exists(self.empty_file_path)
         empty_base = SQLBase(
-            str(self.empty_file_path), "accounts", "id", "CHAR(128)", "value", "INT", "currency", "CHAR(5)"
+            str(self.empty_file_path), "accounts", "pk", "CHAR(128)", "value", "INT", "currency", "CHAR(5)"
         )
-        assert empty_base.load() == {}
+        assert empty_base.load() == []
         del empty_base
         assert os.path.exists(self.empty_file_path)
 
     def test_database_save_data(self) -> None:
-        data = {"test": {"value": 50, "currency": "USD"}}
-        self.save_database.update(data)
+        data = {"pk": "test", "value": 50, "currency": "USD"}
+        self.save_database.update("test", data)
         accounts = self.save_database.load()
-        assert accounts == data
+        assert accounts == [data]

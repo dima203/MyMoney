@@ -1,23 +1,26 @@
-{
-  "0": {
-    "type": "Income",
-    "value": 10,
-    "currency": "BYN"
+[
+  {
+    "pk": 0,
+    "storage_id": 0,
+    "resource_count": 10,
+    "resource_type": 0,
+    "time_stamp": "2025-11-27T12:05:29.400817",
+    "last_update": "2025-11-27T12:05:29.400817"
   },
-  "1": {
-    "type": "Income",
-    "value": 20,
-    "currency": "USD"
+  {
+    "pk": 1,
+    "storage_id": 1,
+    "resource_count": 20,
+    "resource_type": 1,
+    "time_stamp": "2025-11-27T12:05:29.400817",
+    "last_update": "2025-11-27T12:05:29.400817"
   },
-  "2": {
-    "type": "Expense",
-    "value": 30,
-    "currency": "BYN"
-  },
-  "3": {
-    "type": "Transfer",
-    "value": 5,
-    "currency": "BYN",
-    "from": "test"
+  {
+    "pk": 2,
+    "storage_id": 0,
+    "resource_count": -30,
+    "resource_type": 0,
+    "time_stamp": "2025-11-27T12:05:29.400817",
+    "last_update": "2025-11-27T12:05:29.400817"
   }
-}
+]

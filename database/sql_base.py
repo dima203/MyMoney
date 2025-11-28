@@ -49,15 +49,16 @@ class SQLBase(DataBase):
             """
         )
 
-    def load(self) -> dict:
+    def load(self) -> list:
         self.__cursor.execute(f"""SELECT * FROM {self.__fields_names[0]}""")
-        result = {}
+        result = []
         for record in self.__cursor.fetchall():
-            result[record[0]] = {}
-            current_field = 3
-            for field in record[1:]:
-                result[record[0]][self.__fields_names[current_field]] = field
+            record_dict = {}
+            current_field = 1
+            for field in record:
+                record_dict[self.__fields_names[current_field]] = field
                 current_field += 2
+            result.append(record_dict)
         return result
 
     def update(self, pk: str | int, data: dict) -> None:

@@ -8,14 +8,14 @@ class JSONBase(DataBase):
 
     def __init__(self, path: str, *args: str) -> None:
         super().__init__(path, *args)
-        self.__last_pk = self.__get_last_pk()
-
-    def load(self) -> list:
         try:
-            return json.load(self._path.open())
+            self.__last_pk = self.__get_last_pk()
         except FileNotFoundError:
             json.dump([], self._path.open("w"))
-            return json.load(self._path.open())
+            self.__last_pk = 0
+
+    def load(self) -> list:
+        return json.load(self._path.open())
 
     def update(self, pk: str | int, data: dict) -> None:
         loaded = json.load(self._path.open())
