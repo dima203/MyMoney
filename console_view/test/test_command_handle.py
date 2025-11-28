@@ -104,11 +104,7 @@ class TestCommandHandle(Viewer):
 
     def test_add_command_false_handle(self) -> None:
         self.handler.process(("add",))
-        assert (
-            self.showed_error == 'Wrong command syntax "add"\n'
-            "add have syntax:\n"
-            "add <account> <value> <currency>"
-        )
+        assert self.showed_error == 'Wrong command syntax "add"\nadd have syntax:\nadd <account> <value> <currency>'
 
     def test_transactions_command_handle(self) -> None:
         self.handler.process(("transactions",))

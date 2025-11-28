@@ -16,6 +16,12 @@ class TestAccount:
         transaction = Transaction(0, test_account, Money(100, rub), now_time_stamp)
         json = transaction.to_json()
         del json["last_update"]
-        assert json == {"pk": 0, "resource_type": "RUB", "resource_count": 100, "storage_id": "test", "time_stamp": now_time_stamp.isoformat()}
+        assert json == {
+            "pk": 0,
+            "resource_type": "RUB",
+            "resource_count": 100,
+            "storage_id": "test",
+            "time_stamp": now_time_stamp.isoformat(),
+        }
 
     # TODO: add sum of few accounts

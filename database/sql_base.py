@@ -17,14 +17,15 @@ class SQLBase(DataBase):
             field_sql += f"{self.__fields_names[i]}, "
             values_sql += "?, "
 
-        self.__cursor.execute(f"""
+        self.__cursor.execute(
+            f"""
             INSERT INTO {self.__fields_names[0]} (
                 {field_sql[:-2]}
             )
             VALUES (
                 {values_sql[:-2]}
             )
-        """,
+            """,
             tuple(data.values()),
         )
 
@@ -39,12 +40,14 @@ class SQLBase(DataBase):
         fields_sql = ""
         for i in range(3, len(args), 2):
             fields_sql += f"{args[i]} {args[i + 1]}, "
-        self.__cursor.execute(f"""
+        self.__cursor.execute(
+            f"""
             CREATE TABLE IF NOT EXISTS {args[0]} (
                 {args[1]} {args[2]} PRIMARY KEY,
                 {fields_sql[:-2]}
             )
-        """)
+            """
+        )
 
     def load(self) -> dict:
         self.__cursor.execute(f"""SELECT * FROM {self.__fields_names[0]}""")

@@ -7,7 +7,12 @@ from core import Account, Money, Bank, Transaction
 
 class CommandHandler:
     def __init__(
-        self, resources_view: ResourceBaseView, database_view: AccountBaseView, transaction_view: TransactionBaseView, viewer: Viewer, bank: Bank
+        self,
+        resources_view: ResourceBaseView,
+        database_view: AccountBaseView,
+        transaction_view: TransactionBaseView,
+        viewer: Viewer,
+        bank: Bank,
     ) -> None:
         self.__resources_view = resources_view
         self.__database_view = database_view
@@ -38,13 +43,16 @@ class CommandHandler:
             case "create", *_:
                 self.__viewer.show_error('Wrong command syntax "create"\ncreate have syntax:\ncreate <name> <currency>')
             case "add", str(name), str(value), str(currency):
-                transaction = Transaction(1, self.__database_view.get(name), Money(float(value), self.__resources_view.get(currency)), datetime.datetime.now())
+                transaction = Transaction(
+                    1,
+                    self.__database_view.get(name),
+                    Money(float(value), self.__resources_view.get(currency)),
+                    datetime.datetime.now(),
+                )
                 self.__transaction_view.add(transaction)
             case "add", *_:
                 self.__viewer.show_error(
-                    'Wrong command syntax "add"\n'
-                    "add have syntax:\n"
-                    "add <account> <value> <currency>"
+                    'Wrong command syntax "add"\nadd have syntax:\nadd <account> <value> <currency>'
                 )
             case ("exit",):
                 return True
