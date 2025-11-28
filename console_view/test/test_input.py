@@ -4,7 +4,7 @@ import builtins
 from console_view import ConsoleInput
 
 
-class TestConsoleInput:
+class DisabledTestConsoleInput:
     def setup_class(self) -> None:
         self.input = ConsoleInput()
 

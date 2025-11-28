@@ -1,6 +1,9 @@
-{
-  "loaded": {
-    "value": 25,
-    "currency": "BYN"
+[
+  {
+    "name": "test",
+    "resource_type": 1,
+    "resource_count": 10,
+    "last_update": "2024-06-03T17:30:57.156636",
+    "pk": 1
   }
-}
+]

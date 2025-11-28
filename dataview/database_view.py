@@ -1,7 +1,7 @@
 import datetime
 from abc import ABC, abstractmethod
 
-from core import Account, Money, Transaction, Resource
+from core import Account, Money, Transaction, Resource, PlannedTransaction
 from database import DataBase
 
 
@@ -38,7 +38,9 @@ class ResourceBaseView(BaseView):
         return self.__resources
 
     def add(self, item: ...) -> None:
-        pass
+        pk = self._database.add(item.to_json())
+        item.pk = pk
+        self.__resources[pk] = item
 
     def update(self, pk: str | int) -> None:
         pass
@@ -180,3 +182,42 @@ class TransactionBaseView(BaseView):
             self._database.update(pk, transaction.to_json())
             self._reserve_database.update(pk, transaction.to_json())
 
+
+class PlannedTransactionBaseView(BaseView):
+    def __init__(self, database: DataBase, account_view: AccountBaseView, *, reserve_database: DataBase) -> None:
+        super().__init__(database, reserve_database=reserve_database)
+        self.__transactions: dict[int, PlannedTransaction] = {}
+        self.__account_view = account_view
+
+    def get(self, pk: int) -> PlannedTransaction | None:
+        return self.__transactions.get(pk)
+
+    def get_all(self) -> dict[int, PlannedTransaction]:
+        return self.__transactions
+
+    def add(self, item: PlannedTransaction) -> None:
+        pk = self._database.add(item.to_json())
+        self.__transactions[pk] = item
+
+    def delete(self, pk: int) -> None:
+        del self.__transactions[pk]
+        self._database.delete(pk)
+
+    def update(self, pk: int) -> None:
+        self._database.update(pk, self.__transactions[pk].to_json())
+
+    def load(self) -> None:
+        for transaction_data in self._database.load():
+            storage = self.__account_view.get(transaction_data['storage_id'])
+            planned_time = datetime.datetime.fromisoformat(transaction_data['planned_time'])
+            self.__transactions[transaction_data['pk']] = PlannedTransaction(
+                storage,
+                Money(transaction_data['resource_count'], storage.value.currency),
+                planned_time,
+                transaction_data['repeatability']
+            )
+
+    def save(self) -> None:
+        for pk, transaction in self.__transactions.items():
+            self._database.update(pk, transaction.to_json())
+            self._reserve_database.update(pk, transaction.to_json())

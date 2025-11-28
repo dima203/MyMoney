@@ -1,69 +1,86 @@
+import datetime
 import json
 from pathlib import Path
 
 from dataview import ResourceBaseView, AccountBaseView, TransactionBaseView
-from core import Account, Money, Bank, Income
+from core import Account, Money, Resource, Transaction
 from database import JSONBase
 
 
-class TestDataBaseView:
+class TestResourceBaseView:
+    def setup_class(self) -> None:
+        self.data_path = Path.cwd() / 'dataview/test/test_resources.json'
+        self.db = JSONBase(str(self.data_path))
+        self.db_view = ResourceBaseView(self.db, reserve_database=self.db)
+        self.db_view.load()
+
     def setup_method(self) -> None:
-        self.resources_path = Path.cwd() / 'dataview/test/test_resources.json'
-        self.data_path = Path.cwd() / 'dataview/test/test_accounts.json'
-        self.transactions_data_path = Path.cwd() / 'dataview/test/test_transactions.json'
-        self.accounts_data = json.load(self.data_path.open())
-        self.resources_db_view = ResourceBaseView(JSONBase(str(self.resources_path)))
-        self.resources_db_view.load_resources()
-        self.db_view = AccountBaseView(JSONBase(str(self.data_path)))
-        self.db_view.load_accounts(self.resources_db_view)
-        self.transactions_db_view = TransactionBaseView(JSONBase(str(self.transactions_data_path)))
+        self.file_data = json.load(self.data_path.open())
 
     def teardown_method(self) -> None:
-        json.dump(self.accounts_data, self.data_path.open('w'), indent=2)
+        json.dump(self.file_data, self.data_path.open('w'), indent=2)
 
-    def test_database_view_create(self) -> None:
-        AccountBaseView(JSONBase(''))
+    def test_get(self) -> None:
+        data = self.db_view.get(1)
 
-    def test_database_view_get_account(self) -> None:
-        account = self.db_view.get_account('0')
-        assert isinstance(account, Account)
-        assert account.get_balance() == Money.byn(10)
+    def test_add(self) -> None:
+        resource = Resource(2, 'USD')
+        self.db_view.add(resource)
+        assert resource == self.db_view.get(2)
 
-    def test_database_view_add_account(self) -> None:
-        account = Account('', 'BYN')
-        self.db_view.add_account('test2', account)
-        assert account == self.db_view.get_account('test2')
 
-    def test_database_view_load(self) -> None:
-        self.db_view.load_accounts(self.resources_db_view)
-        assert self.db_view.get_account('1')
+class TestAccountBaseView:
+    def setup_class(self) -> None:
+        self.data_path = Path.cwd() / 'dataview/test/test_accounts.json'
+        self.resource_path = Path.cwd() / 'dataview/test/test_resources.json'
+        self.db = JSONBase(str(self.data_path))
+        self.resource_db = JSONBase(str(self.resource_path))
+        self.resource_db_view = ResourceBaseView(self.resource_db, reserve_database=self.resource_db)
+        self.db_view = AccountBaseView(self.db, self.resource_db_view, reserve_database=self.db)
+        self.resource_db_view.load()
+        self.db_view.load()
 
-    def test_database_view_save(self) -> None:
-        self.db_view.add_account('test2', Account('test2', 'USD'))
-        self.db_view.save_accounts()
-        loaded_db_view = AccountBaseView(JSONBase(str(self.data_path)))
-        loaded_db_view.load_accounts(self.resources_db_view)
-        loaded_accounts = loaded_db_view.get_accounts()
-        current_accounts = self.db_view.get_accounts()
-        for name in current_accounts:
-            assert current_accounts[name] == loaded_accounts[name]
+    def setup_method(self) -> None:
+        self.file_data = json.load(self.data_path.open())
 
-    def test_database_view_load_transactions(self) -> None:
-        self.transactions_db_view.load_transactions(self.db_view)
-        assert self.transactions_db_view.get_transaction(1)
+    def teardown_method(self) -> None:
+        json.dump(self.file_data, self.data_path.open('w'), indent=2)
 
-    def test_database_view_save_transactions(self) -> None:
-        save_base = TransactionBaseView(JSONBase(str(Path.cwd() / r'dataview/test/saved_data.json')))
-        acc = Account('test', 'BYN')
-        income = Income(1, acc, Money.byn(10), Bank())
-        save_base.add_transaction(income)
-        save_base.save_transactions()
-        save_base.load_transactions()
-        assert save_base.get_transaction(1)
+    def test_get(self) -> None:
+        data = self.db_view.get(1)
 
-    def test_accounts_load_transactions(self) -> None:
-        self.db_view.load_accounts()
-        self.transactions_db_view.load_transactions()
-        self.db_view.load_transactions_to_accounts(self.transactions_db_view)
-        assert (self.db_view.get_account('test')._Account__transactions[0]()
-                == self.transactions_db_view.get_transaction(0))
+    def test_add(self) -> None:
+        account = Account(2, 'test2', Resource(1, 'BYN'), 15)
+        self.db_view.add(account)
+        assert account == self.db_view.get(2)
+
+
+class TestTransactionBaseView:
+    def setup_class(self) -> None:
+        self.data_path = Path.cwd() / 'dataview/test/test_transactions.json'
+        self.resource_path = Path.cwd() / 'dataview/test/test_resources.json'
+        self.account_path = Path.cwd() / 'dataview/test/test_accounts.json'
+        self.resource_db = JSONBase(str(self.resource_path))
+        self.account_db = JSONBase(str(self.account_path))
+        self.db = JSONBase(str(self.data_path))
+        self.resource_db_view = ResourceBaseView(self.resource_db, reserve_database=self.resource_db)
+        self.account_db_view = AccountBaseView(self.account_db, self.resource_db_view, reserve_database=self.account_db)
+        self.db_view = TransactionBaseView(self.db, self.account_db_view, reserve_database=self.db)
+        self.resource_db_view.load()
+        self.account_db_view.load()
+        self.db_view.load()
+
+    def setup_method(self) -> None:
+        self.file_data = json.load(self.data_path.open())
+
+    def teardown_method(self) -> None:
+        json.dump(self.file_data, self.data_path.open('w'), indent=2)
+
+    def test_get(self) -> None:
+        data = self.db_view.get(1)
+
+    def test_add(self) -> None:
+        transaction = Transaction(self.account_db_view.get(1), Money(5, self.resource_db_view.get(1)),
+                                  time_stamp=datetime.datetime.now())
+        self.db_view.add(transaction)
+        assert transaction == self.db_view.get(2)

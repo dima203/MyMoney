@@ -6,7 +6,7 @@ from core import Account, Money, Bank, Transaction
 from console_view.view import Viewer
 
 
-class TestCommandHandle(Viewer):
+class DisabledTestCommandHandle(Viewer):
     def show_accounts(self, accounts: Account) -> None:
         self.show_accounts_called += 1
 

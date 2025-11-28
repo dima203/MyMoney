@@ -1,14 +1,9 @@
 [
   {
-    "pk": "0",
+    "pk": 1,
     "name": "test",
-    "resource_type": "0",
-    "resource_count": 10
-  },
-  {
-    "pk": "1",
-    "name": "loaded",
-    "resource_type": "0",
-    "resource_count": 10
+    "resource_type": 1,
+    "resource_count": 10,
+    "last_update": "2024-06-03T17:30:56.798505"
   }
 ]

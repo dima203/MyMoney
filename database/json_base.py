@@ -9,6 +9,14 @@ class JSONBase(DataBase):
     def __init__(self, path: str, *args: str) -> None:
         super().__init__(path, *args)
 
+    def add(self, data: dict) -> int | None:
+        loaded = json.load(self._path.open())
+        new_pk = max(loaded, key=lambda item: item['pk'])['pk'] + 1
+        data['pk'] = new_pk
+        loaded.append(data)
+        json.dump(loaded, self._path.open('w'), indent=2)
+        return new_pk
+
     def load(self) -> list:
         try:
             return json.load(self._path.open())

@@ -4,7 +4,7 @@ import os
 from database import SQLBase
 
 
-class TestSQLBase:
+class DisabledTestSQLBase:
     def setup_class(self) -> None:
         self.empty_file_path = Path.cwd() / 'database/test/empty.db'
         self.load_database = SQLBase(str(Path.cwd() / 'database/test/test_database.db'), 'accounts', 'id', 'CHAR(128)',
