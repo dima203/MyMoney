@@ -10,26 +10,10 @@ class Money:
         self.value = value
         self.currency = currency
 
-    @staticmethod
-    def dollar(value: float) -> "Money":
-        return Money(value, "USD")
-
-    @staticmethod
-    def euro(value: float) -> "Money":
-        return Money(value, "EUR")
-
-    @staticmethod
-    def rub(value: float) -> "Money":
-        return Money(value, "RUB")
-
-    @staticmethod
-    def byn(value: float) -> "Money":
-        return Money(value, "BYN")
-
     def copy(self) -> "Money":
         return Money(self.value, self.currency)
 
-    def __eq__(self, other: Self | int | float) -> bool:
+    def __eq__(self, other: "Money | int | float") -> bool:
         if isinstance(other, int | float):
             return self.value == other
         return (self.currency == other.currency) and (self.value == other.value)
@@ -73,4 +57,4 @@ class Money:
         return f"{self.__currency_names[self.currency.name][0]}({self.value})"
 
     def __str__(self) -> str:
-        return f"{self.value} {self.currency.name}"
+        return f"{self.value} {self.__currency_names[self.currency.name][1]}"

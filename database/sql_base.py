@@ -10,7 +10,26 @@ class SQLBase(DataBase):
         pass
 
     def add(self, data: dict) -> int | str:
-        pass
+        field_sql = ""
+        values_sql = ""
+
+        for i in range(1, len(self.__fields_names), 2):
+            field_sql += f"{self.__fields_names[i]}, "
+            values_sql += "?, "
+
+        self.__cursor.execute(f"""
+            INSERT INTO {self.__fields_names[0]} (
+                {field_sql[:-2]}
+            )
+            VALUES (
+                {values_sql[:-2]}
+            )
+        """,
+            tuple(data.values()),
+        )
+
+        self.__connection.commit()
+        return data["pk"]
 
     def __init__(self, path: str, *args: str) -> None:
         super().__init__(path, *args)
@@ -45,23 +64,21 @@ class SQLBase(DataBase):
         for i in range(1, len(self.__fields_names), 2):
             field_sql += f"{self.__fields_names[i]}, "
             values_sql += "?, "
-        for record_id, record in data.items():
-            for i in range(1, len(self.__fields_names), 2):
-                duplicate_sql += f"{self.__fields_names[i]}={self.__fields_names[i]}, "
-        for record_id, record in data.items():
-            self.__cursor.execute(
-                f"""
-                INSERT INTO {self.__fields_names[0]} (
-                    {field_sql[:-2]}
-                )
-                VALUES (
-                    {values_sql[:-2]}
-                )
-                ON CONFLICT({self.__fields_names[1]}) DO UPDATE SET {duplicate_sql[:-2]}
-                    
-            """,
-                (record_id, *record.values()),
+        for i in range(1, len(self.__fields_names), 2):
+            duplicate_sql += f"{self.__fields_names[i]}={self.__fields_names[i]}, "
+        self.__cursor.execute(
+            f"""
+            INSERT INTO {self.__fields_names[0]} (
+                {field_sql[:-2]}
             )
+            VALUES (
+                {values_sql[:-2]}
+            )
+            ON CONFLICT({self.__fields_names[1]}) DO UPDATE SET {duplicate_sql[:-2]}
+                
+        """,
+            tuple(data.values()),
+        )
         self.__connection.commit()
 
     def __del__(self) -> None:

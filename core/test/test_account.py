@@ -1,21 +1,21 @@
-from core import Account, Money, Bank, Income, Transfer
+import datetime
+
+from core import Account, Money, Transaction, Resource
 
 
 class TestAccount:
-    def setup_method(self) -> None:
-        self.bank = Bank()
-        self.bank.add_exchange("USD", "BYN", 2.5)
-
     def test_get_currency(self) -> None:
-        account = Account("", "BYN")
-        assert account.get_balance() == Money.byn(0)
+        byn = Resource("", "BYN")
+        account = Account("", "BYN", byn)
+        assert account.get_balance() == Money(0, byn)
 
     def test_to_json(self) -> None:
-        test_account = Account("test", "RUB")
-        acc2 = Account("test2", "RUB")
-        transaction = Income(0, test_account, Money.rub(100), self.bank)
-        assert transaction.to_json() == {"resource_type": "RUB", "resource_count": 100}
-        transfer = Transfer(1, test_account, acc2, Money.rub(30), self.bank)
-        assert transfer.to_json() == {"type": "Transfer", "currency": "RUB", "value": 30, "from": "test"}
+        rub = Resource("RUB", "RUB")
+        test_account = Account("test", "RUB", rub)
+        now_time_stamp = datetime.datetime.now()
+        transaction = Transaction(0, test_account, Money(100, rub), now_time_stamp)
+        json = transaction.to_json()
+        del json["last_update"]
+        assert json == {"pk": 0, "resource_type": "RUB", "resource_count": 100, "storage_id": "test", "time_stamp": now_time_stamp.isoformat()}
 
     # TODO: add sum of few accounts

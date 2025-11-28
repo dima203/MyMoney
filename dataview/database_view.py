@@ -83,31 +83,33 @@ class AccountBaseView(BaseView):
         self.__accounts: dict[int, Account] = {}
         self.__resource_view = resource_view
 
-    def get(self, pk: int) -> Account | None:
+    def get(self, pk: str | int) -> Account | None:
         return self.__accounts.get(pk)
 
-    def get_all(self) -> dict[int, Account]:
+    def get_all(self) -> dict[str | int, Account]:
         return self.__accounts
 
     def add(self, item: Account) -> None:
         pk = self._database.add(item.to_json())
         item.pk = pk
-        if pk is None:
-            pk = self._reserve_database.add(item.to_json())
-        else:
-            self._reserve_database.add(item.to_json())
+        if self._reserve_database is not None:
+            if pk is None:
+                pk = self._reserve_database.add(item.to_json())
+            else:
+                self._reserve_database.add(item.to_json())
         item.pk = pk
         self.__accounts[pk] = item
         self.__accounts[pk].subscribe(self._on_account_update)
 
-    def delete(self, pk: int) -> None:
+    def delete(self, pk: str | int) -> None:
         del self.__accounts[pk]
         self._database.delete(pk)
         self._reserve_database.delete(pk)
 
     def update(self, pk: int | str, data: dict) -> None:
         self._database.update(pk, data)
-        self._reserve_database.update(pk, data)
+        if self._reserve_database is not None:
+            self._reserve_database.update(pk, data)
 
     def load(self) -> None:
         storages_updates = {}
@@ -163,10 +165,11 @@ class TransactionBaseView(BaseView):
     def add(self, item: Transaction) -> None:
         pk = self._database.add(item.to_json())
         item.pk = pk
-        if pk is None:
-            pk = self._reserve_database.add(item.to_json())
-        else:
-            self._reserve_database.add(item.to_json())
+        if self._reserve_database is not None:
+            if pk is None:
+                pk = self._reserve_database.add(item.to_json())
+            else:
+                self._reserve_database.add(item.to_json())
         item.pk = pk
         self.__transactions[pk] = item
         self.__transactions[pk].subscribe(self._on_transaction_update)

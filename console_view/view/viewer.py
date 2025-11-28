@@ -12,7 +12,7 @@ class Color:
 
 class Viewer(ABC):
     @abstractmethod
-    def show_accounts(self, accounts: dict[str, Account]) -> None:
+    def show_accounts(self, accounts: dict[str | int, Account]) -> None:
         pass
 
     @abstractmethod
@@ -20,7 +20,7 @@ class Viewer(ABC):
         pass
 
     @abstractmethod
-    def show_transactions(self, transactions: dict[int, Transaction]) -> None:
+    def show_transactions(self, transactions: dict[str | int, Transaction]) -> None:
         pass
 
     @abstractmethod
@@ -29,7 +29,7 @@ class Viewer(ABC):
 
 
 class ConsoleViewer(Viewer):
-    def show_accounts(self, accounts: dict[str, Account]) -> None:
+    def show_accounts(self, accounts: dict[str | int, Account]) -> None:
         print(f"+{'-' * 32}+{'-' * 32}+")
         print(
             f"|{Color.HEADER}{Color.BOLD}{'Name': ^32}{Color.DEFAULT}|"
@@ -43,7 +43,7 @@ class ConsoleViewer(Viewer):
     def show_account(self, name: str, account: Account) -> None:
         print(name, account.get_balance())
 
-    def show_transactions(self, transactions: dict[int, Transaction]) -> None:
+    def show_transactions(self, transactions: dict[str | int, Transaction]) -> None:
         for transaction_id, transaction in transactions.items():
             print(transaction_id, transaction.get_balance())
 
