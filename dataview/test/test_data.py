@@ -1,10 +1,11 @@
 import datetime
 import json
+import os
 from pathlib import Path
 
 from dataview import ResourceBaseView, AccountBaseView, TransactionBaseView
-from core import Account, Money, Resource, Transaction
-from database import JSONBase
+from core import Account, Money, Transaction
+from database import JSONBase, NoneBase
 
 
 class TestResourceBaseView:

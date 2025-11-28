@@ -1,16 +1,14 @@
-from core import Account, Money, Bank, Income, Transfer, Resource
+import datetime
+
+from core import Account, Money, Resource
 
 
 class TestAccount:
     def setup_class(self) -> None:
-        self.BYN = Resource(0, 'BYN')
-
-    def setup_method(self) -> None:
-        self.bank = Bank()
-        self.bank.add_exchange('USD', 'BYN', 2.5)
+        self.BYN = Resource(0, "BYN")
 
     def test_get_currency(self) -> None:
-        account = Account(0, 'BYN', self.BYN)
+        account = Account(0, "BYN", self.BYN)
         assert account.get_balance() == Money(0, self.BYN)
 
     def test_to_json(self) -> None:

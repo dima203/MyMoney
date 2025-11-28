@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="All checks" type="CompoundRunConfigurationType">
+    <toRun name="pytest" type="tests" />
+    <toRun name="Format" type="ShConfigurationType" />
+    <toRun name="Lint" type="ShConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>

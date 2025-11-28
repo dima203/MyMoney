@@ -22,3 +22,7 @@ class DataBase(ABC):
     def delete(self, pk: str | int) -> None:
         """Delete record from database"""
         pass
+
+    @abstractmethod
+    def add(self, data: dict) -> int | str:
+        """Add new record to database"""

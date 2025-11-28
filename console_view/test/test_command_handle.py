@@ -1,7 +1,7 @@
 from console_view import CommandHandler
-from dataview import AccountBaseView, TransactionBaseView
-from database import JSONBase
-from core import Account, Money, Bank, Transaction
+from dataview import AccountBaseView, TransactionBaseView, ResourceBaseView
+from database import SQLBase
+from core import Account, Money, Bank, Transaction, Resource
 
 from console_view.view import Viewer
 
@@ -25,75 +25,98 @@ class DisabledTestCommandHandle(Viewer):
         self.show_transactions_called = 0
         self.showed_name = None
         self.showed_error = None
-        self.database = AccountBaseView(JSONBase(''))
-        self.database2 = TransactionBaseView(JSONBase(''))
-        self.database.add_account('test', Account('test', 'BYN'))
-        self.database.add_account('test2', Account('test2', 'BYN'))
-        self.handler = CommandHandler(self.database, self.database2, self, Bank())
+        self.resources = ResourceBaseView(
+            SQLBase(":memory:", "resources", "pk", "CHAR(128)", "name", "CHAR(256)", "last_update", "DATETIME")
+        )
+        self.database = AccountBaseView(
+            SQLBase(
+                ":memory:",
+                "accounts",
+                "pk",
+                "CHAR(128)",
+                "name",
+                "CHAR(256)",
+                "resource_type",
+                "CHAR(128)",
+                "resource_count",
+                "INTEGER",
+                "last_update",
+                "DATETIME",
+            ),
+            self.resources,
+        )
+        self.database2 = TransactionBaseView(
+            SQLBase(
+                ":memory:",
+                "transactions",
+                "pk",
+                "CHAR(128)",
+                "storage_id",
+                "CHAR(128)",
+                "resource_count",
+                "REAL",
+                "resource_type",
+                "CHAR(128)",
+                "time_stamp",
+                "DATETIME",
+                "last_update",
+                "DATETIME",
+            ),
+            self.database,
+        )
+        self.resources.add(Resource("BYN", "BYN"))
+        self.database.add(Account("test", "BYN", self.resources.get("BYN")))
+        self.database.add(Account("test2", "BYN2", self.resources.get("BYN")))
+        self.handler = CommandHandler(self.resources, self.database, self.database2, self, Bank())
 
     def test_get_all_command_handle(self) -> None:
-        self.handler.process(('get', 'all'))
+        self.handler.process(("get", "all"))
         assert self.show_accounts_called == 1
 
     def test_get_test_command_handle(self) -> None:
-        self.handler.process(('get', 'test'))
+        self.handler.process(("get", "test"))
         assert self.show_accounts_called == 1
-        assert self.showed_name == 'test'
+        assert self.showed_name == "test"
 
     def test_get_none_account_command_handle(self) -> None:
-        self.handler.process(('get', 'none'))
+        self.handler.process(("get", "none"))
         assert self.showed_error == 'Account with name "none" is not exist.'
 
     def test_get_command_false_handle(self) -> None:
-        self.handler.process(('get', ))
-        assert self.showed_error == 'Wrong command syntax "get"\n' \
-                                    'get have syntax:\n' \
-                                    'get <name | all>'
+        self.handler.process(("get",))
+        assert self.showed_error == 'Wrong command syntax "get"\nget have syntax:\nget <name | all>'
 
     def test_create_account_command_handle(self) -> None:
-        self.handler.process(('create', 'test2', 'BYN'))
-        assert self.database.get_account('test2')
+        self.handler.process(("create", "test3", "BYN"))
+        assert self.database.get("test3")
 
     def test_create_command_handle(self) -> None:
-        self.handler.process(('create', ))
-        assert self.showed_error == 'Wrong command syntax "create"\n' \
-                                    'create have syntax:\n' \
-                                    'create <name> <currency>'
+        self.handler.process(("create",))
+        assert self.showed_error == 'Wrong command syntax "create"\ncreate have syntax:\ncreate <name> <currency>'
 
     def test_add_income_command_handle(self) -> None:
-        self.handler.process(('add', 'income', 'test', '10', 'BYN'))
-        assert self.database.get_account('test').get_balance() == Money.byn(10)
+        self.handler.process(("add", "test", "10", "BYN"))
+        assert self.database.get("test").get_balance() == Money(10, self.resources.get("BYN"))
 
     def test_add_expense_command_handle(self) -> None:
-        self.handler.process(('add', 'income', 'test', '10', 'BYN'))
-        self.handler.process(('add', 'expense', 'test', '10', 'BYN'))
-        assert self.database.get_account('test').get_balance() == Money.byn(0)
-
-    def test_add_transfer_command_handle(self) -> None:
-        self.handler.process(('add', 'income', 'test', '10', 'BYN'))
-        self.handler.process(('add', 'transfer', 'test', 'test2', '10', 'BYN'))
-        assert self.database.get_account('test').get_balance() == Money.byn(0)
-        assert self.database.get_account('test2').get_balance() == Money.byn(10)
+        self.handler.process(("add", "test", "-10", "BYN"))
+        assert self.database.get("test").get_balance() == Money(-10, self.resources.get("BYN"))
 
     def test_add_command_false_handle(self) -> None:
-        self.handler.process(('add', ))
-        assert self.showed_error == 'Wrong command syntax "add"\n' \
-                                    'add have syntax:\n' \
-                                    'add <type> <account> [account2](for transfer) <value> <currency>'
+        self.handler.process(("add",))
+        assert self.showed_error == 'Wrong command syntax "add"\nadd have syntax:\nadd <account> <value> <currency>'
 
     def test_transactions_command_handle(self) -> None:
-        self.handler.process(('transactions', ))
+        self.handler.process(("transactions",))
         assert self.show_transactions_called == 1
 
     def test_transactions_command_false_handle(self) -> None:
-        self.handler.process(('transactions', ''))
-        assert self.showed_error == 'Wrong command syntax "transactions"\n' \
-                                    'transactions have syntax:\n' \
-                                    'transactions'
+        self.handler.process(("transactions", ""))
+        assert self.showed_error == 'Wrong command syntax "transactions"\ntransactions have syntax:\ntransactions'
 
     def test_not_command_handle(self) -> None:
-        self.handler.process(('not_command', ))
+        self.handler.process(("not_command",))
         assert self.showed_error == 'Command "not_command" is not exist.'
 
     def test_exit_command_handle(self) -> None:
-        assert self.handler.process(('exit', ))
+        assert self.handler.process(("exit",))

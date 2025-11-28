@@ -1,10 +1,26 @@
 [
   {
+    "pk": 0,
+    "storage_id": 0,
+    "resource_count": 10,
+    "resource_type": 0,
+    "time_stamp": "2025-11-27T12:05:29.400817",
+    "last_update": "2025-11-27T12:05:29.400817"
+  },
+  {
+    "pk": 1,
     "storage_id": 1,
-    "resource_count": 10.0,
+    "resource_count": 20,
     "resource_type": 1,
-    "time_stamp": "2024-05-11T11:09:21+03:00",
-    "last_update": "2024-06-03T21:16:25.999211",
-    "pk": 1
+    "time_stamp": "2025-11-27T12:05:29.400817",
+    "last_update": "2025-11-27T12:05:29.400817"
+  },
+  {
+    "pk": 2,
+    "storage_id": 0,
+    "resource_count": -30,
+    "resource_type": 0,
+    "time_stamp": "2025-11-27T12:05:29.400817",
+    "last_update": "2025-11-27T12:05:29.400817"
   }
 ]

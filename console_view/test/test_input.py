@@ -9,5 +9,5 @@ class DisabledTestConsoleInput:
         self.input = ConsoleInput()
 
     def test_something(self):
-        with mock.patch.object(builtins, 'input', lambda _: 'test input'):
-            assert self.input.get_input() == 'test input'
+        with mock.patch.object(builtins, "input", lambda _: "test input"):
+            assert self.input.get_input() == "test input"

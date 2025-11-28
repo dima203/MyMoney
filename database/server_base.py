@@ -8,13 +8,13 @@ class ServerBase(DataBase):
         super().__init__(path)
         self._path = path
 
-        if not self._path.startswith('http'):
+        if not self._path.startswith("http"):
             self.__session = None
             return
 
         self.__token = token
         self.__session = requests.Session()
-        self.__session.headers.update({'Authorization': f'Bearer {self.__token}'})
+        self.__session.headers.update({"Authorization": f"Bearer {self.__token}"})
 
     def __del__(self) -> None:
         if self.__session is None:
@@ -27,24 +27,23 @@ class ServerBase(DataBase):
             return []
 
         data = self.__session.get(self._path)
-        return data.json()['results']
+        return data.json()["results"]
 
     def add(self, data: dict) -> int | None:
         if self.__session is None:
             return None
 
         response = self.__session.post(self._path, data=data)
-        print(data)
-        return response.json()['pk']
+        return response.json()["pk"]
 
     def update(self, pk: str | int, data: dict) -> None:
         if self.__session is None:
             return
 
-        response = self.__session.patch(f'{self._path}/{pk}', data=data)
+        self.__session.patch(f"{self._path}/{pk}", data=data)
 
     def delete(self, pk: str | int) -> None:
         if self.__session is None:
             return
 
-        self.__session.delete(f'{self._path}/{pk}')
+        self.__session.delete(f"{self._path}/{pk}")

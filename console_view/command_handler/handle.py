@@ -1,11 +1,20 @@
-from dataview import AccountBaseView, TransactionBaseView
+import datetime
+
+from dataview import AccountBaseView, TransactionBaseView, ResourceBaseView
 from console_view.view import Viewer
-from core import Account, Money, Bank, Income, Expense, Transfer
+from core import Account, Money, Bank, Transaction
 
 
 class CommandHandler:
-    def __init__(self, database_view: AccountBaseView, transaction_view: TransactionBaseView,
-                 viewer: Viewer, bank: Bank) -> None:
+    def __init__(
+        self,
+        resources_view: ResourceBaseView,
+        database_view: AccountBaseView,
+        transaction_view: TransactionBaseView,
+        viewer: Viewer,
+        bank: Bank,
+    ) -> None:
+        self.__resources_view = resources_view
         self.__database_view = database_view
         self.__transaction_view = transaction_view
         self.__viewer = viewer
@@ -16,48 +25,36 @@ class CommandHandler:
 
     def process(self, command: tuple) -> bool:
         match command:
-            case 'get', 'all':
-                self.__viewer.show_accounts(self.__database_view.get_accounts())
-            case 'transactions', :
-                self.__viewer.show_transactions(self.__transaction_view.get_transactions())
-            case 'transactions', *args:
-                self.__viewer.show_error('Wrong command syntax "transactions"\n'
-                                         'transactions have syntax:\n'
-                                         'transactions')
-            case 'get', str(name):
-                if self.__database_view.get_account(name) is None:
+            case "get", "all":
+                self.__viewer.show_accounts(self.__database_view.get_all())
+            case ("transactions",):
+                self.__viewer.show_transactions(self.__transaction_view.get_all())
+            case "transactions", *_:
+                self.__viewer.show_error('Wrong command syntax "transactions"\ntransactions have syntax:\ntransactions')
+            case "get", str(name):
+                if self.__database_view.get(name) is None:
                     self.__viewer.show_error(f'Account with name "{name}" is not exist.')
                     return False
-                self.__viewer.show_account(name, self.__database_view.get_account(name))
-            case 'get', *args:
-                self.__viewer.show_error('Wrong command syntax "get"\n'
-                                         'get have syntax:\n'
-                                         'get <name | all>')
-            case 'create', str(name), str(currency):
-                self.__database_view.add_account(name, Account(name, currency))
-            case 'create', *args:
-                self.__viewer.show_error('Wrong command syntax "create"\n'
-                                         'create have syntax:\n'
-                                         'create <name> <currency>')
-            case 'add', *args:
-                match args:
-                    case 'income', str(account_name), str(value), str(currency):
-                        transaction = Income(0, None, Money(int(value), currency), self.__bank)
-                        self.__transaction_view.add_transaction(transaction)
-                    case 'expense', str(account_name), str(value), str(currency):
-                        transaction = Expense(0, None, Money(int(value), currency), self.__bank)
-                        self.__transaction_view.add_transaction(transaction)
-                        transaction.connect(self.__database_view.get_account(account_name))
-                    case 'transfer', str(from_account), str(to_account), str(value), str(currency):
-                        transaction = Transfer(0, None, None, Money(int(value), currency), self.__bank)
-                        self.__transaction_view.add_transaction(transaction)
-                        transaction.connect(self.__database_view.get_account(from_account),
-                                            self.__database_view.get_account(to_account))
-                    case _:
-                        self.__viewer.show_error('Wrong command syntax "add"\n'
-                                                 'add have syntax:\n'
-                                                 'add <type> <account> [account2](for transfer) <value> <currency>')
-            case 'exit', :
+                self.__viewer.show_account(name, self.__database_view.get(name))
+            case "get", *_:
+                self.__viewer.show_error('Wrong command syntax "get"\nget have syntax:\nget <name | all>')
+            case "create", str(name), str(currency):
+                self.__database_view.add(Account(name, currency, self.__resources_view.get(currency)))
+            case "create", *_:
+                self.__viewer.show_error('Wrong command syntax "create"\ncreate have syntax:\ncreate <name> <currency>')
+            case "add", str(name), str(value), str(currency):
+                transaction = Transaction(
+                    1,
+                    self.__database_view.get(name),
+                    Money(float(value), self.__resources_view.get(currency)),
+                    datetime.datetime.now(),
+                )
+                self.__transaction_view.add(transaction)
+            case "add", *_:
+                self.__viewer.show_error(
+                    'Wrong command syntax "add"\nadd have syntax:\nadd <account> <value> <currency>'
+                )
+            case ("exit",):
                 return True
             case _:
                 self.__viewer.show_error(f'Command "{command[0]}" is not exist.')
