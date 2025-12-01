@@ -17,8 +17,10 @@ from flet import (
     Text,
     TextStyle,
     MainAxisAlignment,
+    CrossAxisAlignment,
     ScrollMode,
-    icons
+    Icons,
+    View,
 )
 
 from datetime import datetime
@@ -27,75 +29,99 @@ from dataview import PlannedTransactionBaseView, AccountBaseView
 from core import PlannedTransaction, Money
 from core.utils import make_function_call
 
-from .screen import Screen
 
-
-class PlannedTransactionsScreen(Screen):
-    def __init__(self, view: PlannedTransactionBaseView, storage_view: AccountBaseView) -> None:
-        super().__init__()
+class PlannedTransactionsScreen(View):
+    def __init__(
+        self, route: str, view: PlannedTransactionBaseView, storage_view: AccountBaseView, *args, **kwargs
+    ) -> None:
+        super().__init__(route, *args, **kwargs)
         self.__view = view
         self.__storage_view = storage_view
 
+    def did_mount(self):
+        self.update()
+
     def build(self) -> Container:
+        self.vertical_alignment = MainAxisAlignment.CENTER
+        self.horizontal_alignment = CrossAxisAlignment.CENTER
+
         self.transaction_list = ListView(spacing=10, width=500)
         self.container = Container(self.transaction_list)
         self.transaction_storage_field = Dropdown(
-            label='Счет',
-            options=[
-                dropdown.Option(str(pk), storage.name) for pk, storage in self.__storage_view.get_all().items()
-            ]
+            label="Счет",
+            options=[dropdown.Option(str(pk), storage.name) for pk, storage in self.__storage_view.get_all().items()],
         )
-        self.transaction_time_picker = TimePicker(
-            confirm_text='Подтвердить',
-            on_change=self._change_time
-        )
-        self.transaction_date_picker = DatePicker(
-            confirm_text='Подтвердить',
-            on_change=self._change_date
-        )
+        self.transaction_time_picker = TimePicker(confirm_text="Подтвердить", on_change=self._change_time)
+        self.transaction_date_picker = DatePicker(confirm_text="Подтвердить", on_change=self._change_date)
         self.time_button = ElevatedButton(
-            text=' ',
-            icon=icons.TIMER,
-            on_click=lambda _: self.transaction_time_picker.pick_time()
+            text=" ", icon=Icons.TIMER, on_click=lambda _: self.transaction_time_picker.pick_time()
         )
         self.date_button = ElevatedButton(
-            text=' ',
-            icon=icons.CALENDAR_MONTH,
-            on_click=lambda _: self.transaction_date_picker.pick_date()
+            text=" ", icon=Icons.CALENDAR_MONTH, on_click=lambda _: self.transaction_date_picker.pick_date()
         )
-        self.transaction_value_field = TextField(label='Сумма')
+        self.transaction_value_field = TextField(label="Сумма")
         self.page.overlay.append(self.transaction_time_picker)
         self.page.overlay.append(self.transaction_date_picker)
-        self.modal_dialog: AlertDialog | None = None
-        return self.container
+
+        self.add_accept_button = TextButton("Подтвердить", on_click=lambda e: self._add_transaction())
+        self.update_accept_button = TextButton("Подтвердить")
+        self.cancel_button = TextButton("Отмена", on_click=lambda e: self._close_modal())
+
+        self.modal_dialog = AlertDialog(
+            modal=True,
+            title=Text("Добавление транзакции"),
+            content=Container(
+                Column(
+                    [
+                        self.transaction_storage_field,
+                        self.transaction_value_field,
+                        Row([self.time_button, self.date_button]),
+                    ],
+                    scroll=ScrollMode.ALWAYS,
+                ),
+                width=self.page.width * 0.7,
+                height=self.page.height * 0.7,
+                expand=True,
+            ),
+            adaptive=True,
+        )
+
+        self.controls = [self.transaction_list]
+        self.scroll = "always"
+        return self
 
     def update(self) -> None:
         self.transaction_list.controls.clear()
         self.transaction_list.controls.append(
             ListTile(
-                title=TextButton('Добавить', icons.ADD, on_click=lambda e: self._open_add()),
+                title=TextButton("Добавить", Icons.ADD, on_click=lambda e: self._open_add()),
             )
         )
         for pk, transaction in self.__view.get_all().items():
             self.transaction_list.controls.append(
                 ListTile(
                     leading=PopupMenuButton(
-                        icon=icons.ADD if transaction.value > 0 else icons.REMOVE,
+                        icon=Icons.ADD if transaction.value > 0 else Icons.REMOVE,
                         items=[
-                            PopupMenuItem(icon=icons.CHANGE_CIRCLE, text='update',
-                                          on_click=make_function_call(self._open_update, pk)),
-                            PopupMenuItem(icon=icons.REMOVE_CIRCLE, text='delete',
-                                          on_click=make_function_call(self._delete_transaction, pk)),
-                        ]
+                            PopupMenuItem(
+                                icon=Icons.CHANGE_CIRCLE,
+                                text="update",
+                                on_click=make_function_call(self._open_update, pk),
+                            ),
+                            PopupMenuItem(
+                                icon=Icons.REMOVE_CIRCLE,
+                                text="delete",
+                                on_click=make_function_call(self._delete_transaction, pk),
+                            ),
+                        ],
                     ),
-                    title=Row([
-                        Text(transaction.storage.name),
-                        Text(str(abs(transaction.value)))
-                    ],
-                        alignment=MainAxisAlignment.SPACE_BETWEEN
+                    title=Row(
+                        [Text(transaction.storage.name), Text(str(abs(transaction.value)))],
+                        alignment=MainAxisAlignment.SPACE_BETWEEN,
                     ),
-                    subtitle=Text(transaction.planned_time.strftime('%d.%m.%Y %H:%M'),
-                                  style=TextStyle(size=10, italic=True)),
+                    subtitle=Text(
+                        transaction.planned_time.strftime("%d.%m.%Y %H:%M"), style=TextStyle(size=10, italic=True)
+                    ),
                 )
             )
         self.transaction_list.update()
@@ -106,59 +132,27 @@ class PlannedTransactionsScreen(Screen):
 
     def _open_add(self) -> None:
         current_time = datetime.now()
-        self.transaction_storage_field.value = ''
-        self.transaction_value_field.value = ''
+        self.transaction_storage_field.value = ""
+        self.transaction_value_field.value = ""
         self.transaction_time_picker.value = current_time.time()
         self.transaction_date_picker.value = current_time.date()
-        self.modal_dialog = AlertDialog(
-            modal=True,
-            title=Text("Добавление транзакции"),
-            content=Container(
-                Column([
-                    self.transaction_storage_field,
-                    self.transaction_value_field,
-                    Row([
-                        self.time_button,
-                        self.date_button
-                    ])
-                ],
-                    scroll=ScrollMode.ALWAYS,
-                ),
-                width=self.page.width * 0.7,
-                height=self.page.height * 0.7,
-                expand=True,
-            ),
-            actions=[
-                TextButton("Подтвердить", on_click=lambda e: self._add_transaction()),
-                TextButton("Отмена", on_click=lambda e: self._close_add()),
-            ],
-            adaptive=True
-        )
 
-        self.page.dialog = self.modal_dialog
-        self.modal_dialog.open = True
+        self.modal_dialog.actions = [self.add_accept_button, self.cancel_button]
+        self.page.open(self.modal_dialog)
         self.page.update()
         self._change_time(None)
         self._change_date(None)
 
-    def _close_add(self):
-        self.modal_dialog.open = False
+    def _close_modal(self):
+        self.page.close(self.modal_dialog)
         self.page.update()
 
     def _add_transaction(self) -> None:
         storage = self.__storage_view.get(int(self.transaction_storage_field.value))
-        currency = Money(
-            float(self.transaction_value_field.value),
-            storage.value.currency
-        )
+        currency = Money(float(self.transaction_value_field.value), storage.value.currency)
 
         time_stamp = datetime.combine(self.transaction_date_picker.value.date(), self.transaction_time_picker.value)
-        transaction = PlannedTransaction(
-            storage=storage,
-            currency=currency,
-            planned_time=time_stamp,
-            repeatability=0
-        )
+        transaction = PlannedTransaction(storage, currency, time_stamp, 0)
         self.__view.add(transaction)
         self.modal_dialog.open = False
         self.page.update()
@@ -171,61 +165,29 @@ class PlannedTransactionsScreen(Screen):
         self.transaction_time_picker.value = transaction.planned_time.time()
         self.transaction_date_picker.value = transaction.planned_time
 
-        self.modal_dialog = AlertDialog(
-            modal=True,
-            title=Text("Изменение транзакции"),
-            content=Container(
-                Column([
-                    self.transaction_storage_field,
-                    self.transaction_value_field,
-                    Row([
-                        self.time_button,
-                        self.date_button
-                    ])
-                ],
-                    scroll=ScrollMode.ALWAYS,
-                ),
-                width=self.page.width * 0.7,
-                height=self.page.height * 0.7,
-                expand=True,
-            ),
-            actions=[
-                TextButton("Подтвердить", on_click=lambda e: self._update_transaction(pk)),
-                TextButton("Отмена", on_click=lambda e: self._close_update()),
-            ],
-            adaptive=True
-        )
-
-        self.page.dialog = self.modal_dialog
-        self.modal_dialog.open = True
+        self.update_accept_button.on_click = make_function_call(self._update_transaction, pk)
+        self.modal_dialog.actions = [self.update_accept_button, self.cancel_button]
+        self.page.open(self.modal_dialog)
         self.page.update()
         self._change_time(None)
         self._change_date(None)
-
-    def _close_update(self):
-        self.modal_dialog.open = False
-        self.page.update()
 
     def _update_transaction(self, pk: int) -> None:
         transaction = self.__view.get(pk)
         storage = self.__storage_view.get(int(self.transaction_storage_field.value))
         transaction.storage = storage
-        transaction.value = Money(
-            float(self.transaction_value_field.value),
-            storage.value.currency
-        )
+        transaction.value = Money(float(self.transaction_value_field.value), storage.value.currency)
         time_stamp = datetime.combine(self.transaction_date_picker.value.date(), self.transaction_time_picker.value)
         transaction.planned_time = time_stamp
 
-        self.__view.update(pk)
-        self.modal_dialog.open = False
+        self.page.close(self.modal_dialog)
         self.page.update()
         self.update()
 
     def _change_time(self, _) -> None:
-        self.time_button.text = self.transaction_time_picker.value.strftime('%H:%M')
+        self.time_button.text = self.transaction_time_picker.value.strftime("%H:%M")
         self.modal_dialog.update()
 
     def _change_date(self, _) -> None:
-        self.date_button.text = self.transaction_date_picker.value.strftime('%d.%m.%Y')
+        self.date_button.text = self.transaction_date_picker.value.strftime("%d.%m.%Y")
         self.modal_dialog.update()

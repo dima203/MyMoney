@@ -17,8 +17,8 @@ class TestJSONBase:
     def test_database_load_data(self) -> None:
         data = self.load_database.load()
         data = data[0]
-        assert data['resource_count'] == 10
-        assert data['resource_type'] == 1
+        assert data["resource_count"] == 10
+        assert data["resource_type"] == 1
 
     def test_database_load_non_exist_file(self) -> None:
         assert not os.path.exists(self.empty_file_path)

@@ -10,6 +10,7 @@ class MainNavigationBar(NavigationBar):
         self.destinations = [
             NavigationBarDestination(icon=Icons.WALLET, label="Счета"),
             NavigationBarDestination(icon=Icons.MONEY, label="Транзакции"),
+            NavigationBarDestination(icon=Icons.MONEY, label="Запланированные Транзакции"),
         ]
         return self
 
@@ -20,3 +21,5 @@ class MainNavigationBar(NavigationBar):
                 self.page.go("/storages")
             case 1:
                 self.page.go("/transactions")
+            case 2:
+                self.page.go("/planned_transactions")

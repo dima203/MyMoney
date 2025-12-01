@@ -234,6 +234,7 @@ class TransactionBaseView(BaseView):
     def _on_transaction_update(self, pk: str | int, data: dict) -> None:
         self.update(pk, data)
 
+
 class PlannedTransactionBaseView(BaseView):
     def __init__(self, database: DataBase, account_view: AccountBaseView, *, reserve_database: DataBase) -> None:
         super().__init__(database, reserve_database=reserve_database)
@@ -254,18 +255,18 @@ class PlannedTransactionBaseView(BaseView):
         del self.__transactions[pk]
         self._database.delete(pk)
 
-    def update(self, pk: int) -> None:
+    def update(self, pk: str | int, data: dict) -> None:
         self._database.update(pk, self.__transactions[pk].to_json())
 
     def load(self) -> None:
         for transaction_data in self._database.load():
-            storage = self.__account_view.get(transaction_data['storage_id'])
-            planned_time = datetime.datetime.fromisoformat(transaction_data['planned_time'])
-            self.__transactions[transaction_data['pk']] = PlannedTransaction(
+            storage = self.__account_view.get(transaction_data["storage_id"])
+            planned_time = datetime.datetime.fromisoformat(transaction_data["planned_time"])
+            self.__transactions[transaction_data["pk"]] = PlannedTransaction(
                 storage,
-                Money(transaction_data['resource_count'], storage.value.currency),
+                Money(transaction_data["resource_count"], storage.value.currency),
                 planned_time,
-                transaction_data['repeatability']
+                transaction_data["repeatability"],
             )
 
     def save(self) -> None:

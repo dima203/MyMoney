@@ -1,10 +1,12 @@
 [
   {
     "pk": 0,
-    "name": "BYN"
+    "name": "BYN",
+    "last_update": "2025-11-27T12:05:29.400817"
   },
   {
     "pk": 1,
-    "name": "USD"
+    "name": "USD",
+    "last_update": "2025-11-27T12:05:29.400817"
   }
 ]

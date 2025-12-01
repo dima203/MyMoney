@@ -14,14 +14,6 @@ class JSONBase(DataBase):
             json.dump([], self._path.open("w"))
             self.__last_pk = 0
 
-    def add(self, data: dict) -> int | None:
-        loaded = json.load(self._path.open())
-        new_pk = max(loaded, key=lambda item: item['pk'])['pk'] + 1
-        data['pk'] = new_pk
-        loaded.append(data)
-        json.dump(loaded, self._path.open('w'), indent=2)
-        return new_pk
-
     def load(self) -> list:
         return json.load(self._path.open())
 

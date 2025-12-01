@@ -43,8 +43,16 @@ class Application:
 
         self.page.remove(self.progress_ring)
 
-        self.authorization_screen = AuthorizationScreen(f'{self.base_url}api/token/', self._success_authorization)
-        self.page.add(self.authorization_screen)
+        self.navigation_bar = MainNavigationBar(self.page, on_change=lambda e: self._navigate(e))
+
+        self.authorization_screen = AuthorizationScreen(
+            "/authorization",
+            f"{self.base_url}api/token/",
+            self._success_authorization,
+        )
+
+        self.page.on_route_change = self._change_route
+        self.page.go("/authorization")
 
     def _success_authorization(self, token: str) -> None:
         self.page.add(self.progress_ring)
@@ -64,8 +72,9 @@ class Application:
             reserve_database=JSONBase(str(Path.cwd() / "transaction.json")),
         )
         self.planned_transactions_view = PlannedTransactionBaseView(
-            ServerBase(f'{self.base_url}api/planned_transactions', token=self.token), self.account_view,
-            reserve_database=JSONBase(str(Path.cwd() / 'planned_transaction.json'))
+            ServerBase(f"{self.base_url}api/planned_transactions", token=self.token),
+            self.account_view,
+            reserve_database=JSONBase(str(Path.cwd() / "planned_transaction.json")),
         )
 
         self.resource_view.load()
@@ -73,7 +82,6 @@ class Application:
         self.transactions_view.load()
         self.planned_transactions_view.load()
 
-        self.navigation_bar = MainNavigationBar(self.page, on_change=lambda e: self._navigate(e))
         self.storages_screen = StoragesView(
             "/storages", self.account_view, self.resource_view, navigation_bar=self.navigation_bar
         )
@@ -81,11 +89,13 @@ class Application:
             "/transactions", self.transactions_view, self.account_view, navigation_bar=self.navigation_bar
         )
         self.planned_transactions_screen = PlannedTransactionsScreen(
-            "/planned_transactions", self.planned_transactions_view, self.account_view, navigation_bar=self.navigation_bar
+            "/planned_transactions",
+            self.planned_transactions_view,
+            self.account_view,
+            navigation_bar=self.navigation_bar,
         )
 
-        self.page.on_route_change = self._change_route
-        self.page.go(self.page.route)
+        self.page.go("/storages")
 
     def _stop(self) -> None:
         self.resource_view.save()
@@ -96,11 +106,17 @@ class Application:
         self.page.views.clear()
         self.page.views.append(flet.View("/", navigation_bar=self.navigation_bar))
 
+        if self.page.route == "/authorization":
+            self.page.views.append(self.authorization_screen)
+
         if self.page.route == "/storages":
             self.page.views.append(self.storages_screen)
 
         if self.page.route == "/transactions":
             self.page.views.append(self.transactions_screen)
+
+        if self.page.route == "/planned_transactions":
+            self.page.views.append(self.planned_transactions_screen)
 
         self.page.update()
 
@@ -110,6 +126,8 @@ class Application:
                 self.page.go("/storages")
             case 1:
                 self.page.go("/transactions")
+            case 2:
+                self.page.go("/planned_transactions")
 
     def __get_server_url(self) -> str:
         result = ""

@@ -36,6 +36,7 @@ class StoragesView(View):
     def build(self) -> Container:
         self.vertical_alignment = MainAxisAlignment.CENTER
         self.horizontal_alignment = CrossAxisAlignment.CENTER
+
         self.storage_list = ListView(spacing=10, width=500)
         self.storage_name_field = TextField(label="Название")
         self.storage_value_field = TextField(label="Текущий баланс")
