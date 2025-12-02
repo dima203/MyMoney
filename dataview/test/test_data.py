@@ -10,14 +10,14 @@ from database import JSONBase
 class TestResourceBaseView:
     def setup_class(self) -> None:
         self.data_path = Path.cwd() / "dataview/test/test_resources.json"
+
+        self.file_data = json.load(self.data_path.open())
+
         self.db = JSONBase(str(self.data_path))
         self.db_view = ResourceBaseView(self.db, reserve_database=self.db)
         self.db_view.load()
 
-    def setup_method(self) -> None:
-        self.file_data = json.load(self.data_path.open())
-
-    def teardown_method(self) -> None:
+    def teardown_class(self) -> None:
         json.dump(self.file_data, self.data_path.open("w"), indent=2)
 
     def test_get(self) -> None:
@@ -33,6 +33,9 @@ class TestAccountBaseView:
     def setup_class(self) -> None:
         self.data_path = Path.cwd() / "dataview/test/test_accounts.json"
         self.resource_path = Path.cwd() / "dataview/test/test_resources.json"
+
+        self.file_data = json.load(self.data_path.open())
+
         self.db = JSONBase(str(self.data_path))
         self.resource_db = JSONBase(str(self.resource_path))
         self.resource_db_view = ResourceBaseView(self.resource_db, reserve_database=self.resource_db)
@@ -40,10 +43,7 @@ class TestAccountBaseView:
         self.resource_db_view.load()
         self.db_view.load()
 
-    def setup_method(self) -> None:
-        self.file_data = json.load(self.data_path.open())
-
-    def teardown_method(self) -> None:
+    def teardown_class(self) -> None:
         json.dump(self.file_data, self.data_path.open("w"), indent=2)
 
     def test_get(self) -> None:
@@ -60,6 +60,11 @@ class TestTransactionBaseView:
         self.data_path = Path.cwd() / "dataview/test/test_transactions.json"
         self.resource_path = Path.cwd() / "dataview/test/test_resources.json"
         self.account_path = Path.cwd() / "dataview/test/test_accounts.json"
+
+        self.file_data = json.load(self.data_path.open())
+        self.account_file_data = json.load(self.account_path.open())
+        self.resources_file_data = json.load(self.resource_path.open())
+
         self.resource_db = JSONBase(str(self.resource_path))
         self.account_db = JSONBase(str(self.account_path))
         self.db = JSONBase(str(self.data_path))
@@ -70,11 +75,10 @@ class TestTransactionBaseView:
         self.account_db_view.load()
         self.db_view.load()
 
-    def setup_method(self) -> None:
-        self.file_data = json.load(self.data_path.open())
-
-    def teardown_method(self) -> None:
+    def teardown_class(self) -> None:
         json.dump(self.file_data, self.data_path.open("w"), indent=2)
+        json.dump(self.account_file_data, self.account_path.open("w"), indent=2)
+        json.dump(self.resources_file_data, self.resource_path.open("w"), indent=2)
 
     def test_get(self) -> None:
         _ = self.db_view.get(1)
