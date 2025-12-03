@@ -54,10 +54,12 @@ class PlannedTransactionsScreen(View):
         self.transaction_time_picker = TimePicker(confirm_text="Подтвердить", on_change=self._change_time)
         self.transaction_date_picker = DatePicker(confirm_text="Подтвердить", on_change=self._change_date)
         self.time_button = ElevatedButton(
-            text=" ", icon=Icons.TIMER, on_click=lambda _: self.transaction_time_picker.pick_time()
+            text=" ",
+            icon=Icons.TIMER,
+            on_click=lambda _: self.page.open(self.transaction_time_picker),
         )
         self.date_button = ElevatedButton(
-            text=" ", icon=Icons.CALENDAR_MONTH, on_click=lambda _: self.transaction_date_picker.pick_date()
+            text=" ", icon=Icons.CALENDAR_MONTH, on_click=lambda _: self.page.open(self.transaction_date_picker)
         )
         self.transaction_value_field = TextField(label="Сумма")
         self.page.overlay.append(self.transaction_time_picker)
