@@ -32,9 +32,11 @@ class Transaction:
         self.__subscribers.remove(callback)
 
     def execute(self) -> None:
+        print("Executed")
         self.storage.value += self._value
 
     def cancel(self) -> None:
+        print("Canceled")
         self.storage.value -= self._value
 
     def to_json(self) -> dict[str, str | int]:
@@ -55,6 +57,7 @@ class Transaction:
             subscriber(self.pk, self.to_json())
 
     def __setattr__(self, key, value) -> None:
+        print(key, value)
         if key not in self.__dict__:
             object.__setattr__(self, key, value)
             return
