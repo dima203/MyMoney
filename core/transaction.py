@@ -70,7 +70,8 @@ class Transaction:
         self.__changed()
 
     def __del__(self) -> None:
-        self.cancel()
+        if self.storage is not None:
+            self.cancel()
 
 
 class Transfer(Transaction):
@@ -81,15 +82,25 @@ class Transfer(Transaction):
     ) -> None:
         self.expense = Expense(f"{transaction_id}_exp", from_account, currency, bank)
         if to_account is not None:
-            super().__init__(transaction_id, bank.exchange(currency, to_account.value.currency))
+            super().__init__(transaction_id, to_account, bank.exchange(currency, to_account.value.currency), datetime.datetime.now())
         else:
-            super().__init__(transaction_id, currency)
+            super().__init__(transaction_id, to_account, currency, datetime.datetime.now())
         self._type = "Transfer"
-        self.__from = to_account
+        self.__from = from_account
         self.__bank = bank
 
+    def execute(self) -> None:
+        self.expense.execute()
+        if self.storage is not None:
+            super().execute()
+
+    def cancel(self) -> None:
+        self.expense.cancel()
+        if self.storage is not None:
+            super().cancel()
+
     def __del__(self) -> None:
-        del self.expense
+        pass
 
     def to_json(self) -> dict[str, str | int]:
         return {
@@ -103,9 +114,9 @@ class Transfer(Transaction):
 class Income(Transaction):
     def __init__(self, transaction_id: int, account: Account | None, currency: Money, bank: Bank) -> None:
         if account is not None:
-            super().__init__(transaction_id, bank.exchange(currency, account.value.currency))
+            super().__init__(transaction_id, account, bank.exchange(currency, account.value.currency), datetime.datetime.now())
         else:
-            super().__init__(transaction_id, currency)
+            super().__init__(transaction_id, account, currency, datetime.datetime.now())
         self._type = "Income"
         self.__bank = bank
 
@@ -113,8 +124,8 @@ class Income(Transaction):
 class Expense(Transaction):
     def __init__(self, transaction_id: int, account: Account | None, currency: Money, bank: Bank) -> None:
         if account is not None:
-            super().__init__(transaction_id, -bank.exchange(currency, account.value.currency))
+            super().__init__(transaction_id, account, -bank.exchange(currency, account.value.currency), datetime.datetime.now())
         else:
-            super().__init__(transaction_id, -currency)
+            super().__init__(transaction_id, account, -currency, datetime.datetime.now())
         self._type = "Expense"
         self.__bank = bank

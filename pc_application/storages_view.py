@@ -39,7 +39,6 @@ class StoragesView(View):
 
         self.storage_list = ListView(spacing=10, width=500)
         self.storage_name_field = TextField(label="Название")
-        self.storage_value_field = TextField(label="Текущий баланс")
         self.storage_currency_field = Dropdown(
             label="Валюта",
             width=200,
@@ -58,7 +57,6 @@ class StoragesView(View):
                 Column(
                     [
                         self.storage_name_field,
-                        self.storage_value_field,
                         self.storage_currency_field,
                     ],
                     scroll=ScrollMode.ALWAYS,
@@ -109,7 +107,6 @@ class StoragesView(View):
 
     def _open_add(self) -> None:
         self.storage_name_field.value = ""
-        self.storage_value_field.value = ""
         self.storage_currency_field.value = ""
 
         self.modal_dialog.actions = [self.add_accept_button, self.cancel_button]
@@ -125,7 +122,7 @@ class StoragesView(View):
             None,
             self.storage_name_field.value,
             self.__resource_view.get(int(self.storage_currency_field.value)),
-            float(self.storage_value_field.value),
+            0,
         )
 
         self.__view.add(storage)
@@ -136,7 +133,6 @@ class StoragesView(View):
     def _open_update(self, pk: int) -> None:
         storage = self.__view.get(pk)
         self.storage_name_field.value = storage.name
-        self.storage_value_field.value = str(storage.value.value)
         self.storage_currency_field.value = str(storage.value.currency.pk)
 
         self.update_accept_button.on_click = make_function_call(self._update_storage, pk)
@@ -147,9 +143,6 @@ class StoragesView(View):
     def _update_storage(self, pk: int) -> None:
         storage = self.__view.get(pk)
         storage.name = self.storage_name_field.value
-        storage.value = Money(
-            float(self.storage_value_field.value), self.__resource_view.get(int(self.storage_currency_field.value))
-        )
 
         self.page.close(self.modal_dialog)
         self.page.update()

@@ -6,6 +6,7 @@ from .money import Money
 
 class PlannedTransaction:
     def __init__(self, storage: Account, currency: Money, planned_time: datetime.datetime, repeatability) -> None:
+        self.pk = None
         self.storage = storage
         self.value = currency
         self.planned_time = planned_time
@@ -13,6 +14,7 @@ class PlannedTransaction:
 
     def to_json(self) -> dict[str, str | int]:
         return {
+            "pk": self.pk,
             "storage_id": self.storage.pk,
             "resource_count": self.value.value,
             "resource_type": self.value.currency.pk,

@@ -23,7 +23,7 @@ class Money:
             return self.value > other
         if self.currency != other.currency:
             raise TypeError("Cannot compare different currency")
-        return self.value < other.value
+        return self.value > other.value
 
     def __lt__(self, other: Self | int | float) -> bool:
         if isinstance(other, int | float):
@@ -33,11 +33,15 @@ class Money:
         return self.value < other.value
 
     def __add__(self, other: Self | int | float) -> "Money":
+        if isinstance(other, (int, float)):
+            return Money(self.value + other, self.currency)
         if self.currency != other.currency:
             raise TypeError("Cannot sum two different currency")
         return Money(self.value + other.value, self.currency)
 
     def __sub__(self, other: Self | int | float) -> "Money":
+        if isinstance(other, (int, float)):
+            return Money(self.value - other, self.currency)
         if self.currency != other.currency:
             raise TypeError("Cannot sub two different currency")
         return Money(self.value - other.value, self.currency)

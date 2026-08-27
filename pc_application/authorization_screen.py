@@ -1,79 +1,110 @@
-from flet import (
-    Container,
-    TextField,
-    Column,
-    Row,
-    TextButton,
-    Text,
-    TextStyle,
-    MainAxisAlignment,
-    ScrollMode,
-    Colors,
-    View,
-)
-import requests
+"""Экран входа через Google OAuth.
+
+Показывает кнопку «Войти через Google», запускает OAuth flow
+(локальный HTTP-сервер + браузер), при успехе переходит в приложение.
+"""
+
+import flet as ft
 
 
-class AuthorizationScreen(View):
-    def __init__(self, route: str, url: str, success_callback: callable, *args, **kwargs) -> None:
+class AuthorizationScreen(ft.View):
+    """Экран входа: Google OAuth через бэкенд."""
+
+    def __init__(self, route: str, backend_url: str, success_callback: callable, *args, **kwargs):
         super().__init__(route, *args, **kwargs)
-        self.url = url
+        self.backend_url = backend_url
         self.success_callback = success_callback
 
-    def build(self) -> Container:
-        self.title = Text("Авторизация", style=TextStyle(size=20))
-        self.fail_text = Text(style=TextStyle(color=Colors.RED_200))
-        self.login_field = TextField(label="Имя пользователя")
-        self.password_field = TextField(label="Пароль", password=True, can_reveal_password=True)
-        self.submit_button = TextButton("Вход", on_click=lambda _: self._submit())
-        self.container = Row(
-            [
-                Column(
-                    [
-                        Row([self.title], alignment=MainAxisAlignment.CENTER),
-                        self.login_field,
-                        self.password_field,
-                        Row([self.submit_button], alignment=MainAxisAlignment.CENTER),
-                        self.fail_text,
-                    ],
-                    scroll=ScrollMode.ALWAYS,
-                    width=self.page.width * 0.7,
-                    alignment=MainAxisAlignment.CENTER,
-                )
-            ],
-            alignment=MainAxisAlignment.CENTER,
+        self.error_text = ft.Text(
+            "",
+            color=ft.Colors.RED_200,
+            visible=False,
+            size=14,
         )
-        self.controls = [self.container]
-        return self
+        self.login_button = ft.ElevatedButton(
+            "Войти через Google",
+            icon=ft.Icons.LOGIN,
+            on_click=self._submit,
+            width=280,
+            height=48,
+        )
+        self.progress = ft.ProgressRing(
+            visible=False,
+            width=24,
+            height=24,
+        )
 
-    def _submit(self) -> None:
-        self.login_field.error_text = ""
-        self.password_field.error_text = ""
-        self.fail_text.value = ""
-        self.login_field.update()
-        self.password_field.update()
-        self.fail_text.update()
+        self.controls = [
+            ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Icon(
+                            ft.Icons.LOCK,
+                            size=64,
+                            color=ft.Colors.TEAL,
+                        ),
+                        ft.Text("MyMoney", size=32, weight=ft.FontWeight.BOLD),
+                        ft.Text("Вход в приложение", size=16),
+                        ft.Container(height=24),
+                        self.login_button,
+                        self.progress,
+                        self.error_text,
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=10,
+                ),
+                alignment=ft.alignment.center,
+                expand=True,
+            )
+        ]
 
-        if self.url == "api/token/":
-            self.success_callback("")
-            return
+    def _set_error(self, message: str) -> None:
+        self.error_text.value = message
+        self.error_text.visible = True
+        self._safe_update(self.error_text)
 
-        response = requests.post(
-            f"{self.url}", data={"username": self.login_field.value, "password": self.password_field.value}
-        ).json()
+    def _clear_error(self) -> None:
+        self.error_text.visible = False
+        self.error_text.value = ""
+        self._safe_update(self.error_text)
 
-        if "access" in response:
-            token = response["access"]
-            self.success_callback(token)
-            return
-        if "username" in response:
-            self.login_field.error_text = "Имя пользователя не может быть пустым"
-            self.login_field.update()
-        if "password" in response:
-            self.password_field.error_text = "Пароль не может быть пустым"
-            self.password_field.update()
-        if "detail" in response:
-            self.fail_text.value = "Неверные данные для входа"
-            self.fail_text.update()
+    @staticmethod
+    def _safe_update(control) -> None:
+        try:
+            control.update()
+        except RuntimeError:
+            pass
 
-        self.update()
+    def authenticate(self) -> tuple[bool, str]:
+        """Запускает Google OAuth flow. Возвращает (успех, сообщение об ошибке)."""
+        from auth.google_auth import GoogleOAuthFlow, OAuthCallbackError
+
+        try:
+            flow = GoogleOAuthFlow(backend_url=self.backend_url)
+            tokens = flow.start()
+        except OAuthCallbackError as exc:
+            return False, str(exc)
+        except Exception as exc:
+            return False, "Не удалось подключиться к серверу"
+
+        self.success_callback(tokens["access"], tokens.get("refresh", ""))
+        return True, ""
+
+    async def _submit(self, e) -> None:
+        import asyncio
+
+        self.login_button.disabled = True
+        self.progress.visible = True
+        self._clear_error()
+        self._safe_update(self.login_button)
+        self._safe_update(self.progress)
+
+        ok, message = await asyncio.to_thread(self.authenticate)
+
+        self.login_button.disabled = False
+        self.progress.visible = False
+        self._safe_update(self.login_button)
+        self._safe_update(self.progress)
+
+        if not ok:
+            self._set_error(message)

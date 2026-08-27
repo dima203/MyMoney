@@ -20,6 +20,7 @@ class Application:
         self.server_port: int = 8000
         self.base_url: str = ""
         self.token: str = ""
+        self.refresh_token: str = ""
 
         self.resource_view: ResourceBaseView = None
         self.account_view: AccountBaseView = None
@@ -40,6 +41,8 @@ class Application:
         self.page.add(self.progress_ring)
 
         self.base_url = self.__get_server_url()
+        if not self.base_url:
+            self.base_url = f"http://127.0.0.1:{self.server_port}/"
 
         self.page.remove(self.progress_ring)
 
@@ -47,32 +50,53 @@ class Application:
 
         self.authorization_screen = AuthorizationScreen(
             "/authorization",
-            f"{self.base_url}api/token/",
+            self.base_url,
             self._success_authorization,
         )
 
         self.page.on_route_change = self._change_route
         self.page.go("/authorization")
 
-    def _success_authorization(self, token: str) -> None:
+    def _success_authorization(self, token: str, refresh_token: str = "") -> None:
         self.page.add(self.progress_ring)
         self.token = token
+        self.refresh_token = refresh_token
         self.resource_view = ResourceBaseView(
-            ServerBase(f"{self.base_url}api/resource_types", token=self.token),
+            ServerBase(
+                f"{self.base_url}api/v1/resources/",
+                token=self.token,
+                base_url=self.base_url,
+                get_refresh_token=lambda: self.refresh_token,
+            ),
             reserve_database=JSONBase(str(Path.cwd() / "resource.json")),
         )
         self.account_view = AccountBaseView(
-            ServerBase(f"{self.base_url}api/storages", token=self.token),
+            ServerBase(
+                f"{self.base_url}api/v1/accounts/",
+                token=self.token,
+                base_url=self.base_url,
+                get_refresh_token=lambda: self.refresh_token,
+            ),
             self.resource_view,
             reserve_database=JSONBase(str(Path.cwd() / "storage.json")),
         )
         self.transactions_view = TransactionBaseView(
-            ServerBase(f"{self.base_url}api/transactions", token=self.token),
+            ServerBase(
+                f"{self.base_url}api/v1/transactions/",
+                token=self.token,
+                base_url=self.base_url,
+                get_refresh_token=lambda: self.refresh_token,
+            ),
             self.account_view,
             reserve_database=JSONBase(str(Path.cwd() / "transaction.json")),
         )
         self.planned_transactions_view = PlannedTransactionBaseView(
-            ServerBase(f"{self.base_url}api/planned_transactions", token=self.token),
+            ServerBase(
+                f"{self.base_url}api/v1/interactions/planned-transactions/",
+                token=self.token,
+                base_url=self.base_url,
+                get_refresh_token=lambda: self.refresh_token,
+            ),
             self.account_view,
             reserve_database=JSONBase(str(Path.cwd() / "planned_transaction.json")),
         )
@@ -98,9 +122,12 @@ class Application:
         self.page.go("/storages")
 
     def _stop(self) -> None:
-        self.resource_view.save()
-        self.account_view.save()
-        self.transactions_view.save()
+        if self.resource_view is not None:
+            self.resource_view.save()
+        if self.account_view is not None:
+            self.account_view.save()
+        if self.transactions_view is not None:
+            self.transactions_view.save()
 
     def _change_route(self, e) -> None:
         self.page.views.clear()
@@ -137,18 +164,10 @@ class Application:
         for ip in filtered_ips:
             url = f"http://{ip}:{self.server_port}/"
             try:
-                _ = requests.get(f"{url}api/ping")
+                _ = requests.get(f"{url}api/v1/health/", timeout=5, proxies={"http": None, "https": None})
                 result = url
                 break
-            except requests.exceptions.ConnectionError:
+            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
                 continue
 
         return result
-
-    def __get_token(self) -> str:
-        if self.base_url == "":
-            return ""
-
-        return requests.post(f"{self.base_url}api/token/", data={"username": "admin", "password": "admin"}).json()[
-            "access"
-        ]
