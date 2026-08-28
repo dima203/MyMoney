@@ -179,22 +179,22 @@ class TestMoneyRepresentation:
         self.byn = Resource("BYN", "BYN")
 
     def test_repr(self):
-        assert repr(Money(5, self.usd)) == "Dollar(5)"
+        assert repr(Money(5, self.usd)) == "Money(5, Dollar)"
 
     def test_str(self):
         assert str(Money(5, self.usd)) == "5 $"
 
     def test_repr_eur(self):
-        assert repr(Money(10, self.eur)) == "Euro(10)"
+        assert repr(Money(10, self.eur)) == "Money(10, Euro)"
 
     def test_str_eur(self):
-        assert str(Money(10, self.eur)) == "10 €"
+        assert str(Money(10, self.eur)) == "10 \u20ac"
 
     def test_repr_rub(self):
-        assert repr(Money(100, self.rub)) == "Rub(100)"
+        assert repr(Money(100, self.rub)) == "Money(100, Ruble)"
 
     def test_str_rub(self):
-        assert str(Money(100, self.rub)) == "100 ₽"
+        assert str(Money(100, self.rub)) == "100 \u20bd"
 
 
 class TestMoneyEdgeCases:

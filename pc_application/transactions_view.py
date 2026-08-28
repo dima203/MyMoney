@@ -93,7 +93,11 @@ class TransactionsView(View):
                 title=TextButton("Добавить", Icons.ADD, on_click=lambda e: self._open_add_dialog()),
             )
         )
-        for pk, transaction in self.__view.get_all().items():
+        for pk, transaction in sorted(
+            self.__view.get_all().items(),
+            key=lambda x: x[1].time_stamp.replace(tzinfo=None) if x[1].time_stamp.tzinfo else x[1].time_stamp,
+            reverse=True,
+        ):
             self.transaction_list.controls.append(
                 ListTile(
                     leading=PopupMenuButton(

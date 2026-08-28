@@ -1,82 +1,88 @@
-import requests
+from __future__ import annotations
 
 from .abstract_base import DataBase
 
 
 class ServerBase(DataBase):
-    def __init__(self, path: str, *, token, base_url: str = "", get_refresh_token=None) -> None:
+    def __init__(self, path: str, *, rest_client=None) -> None:
         super().__init__(path)
         self._path = path
-        self.__base_url = base_url
-        self.__get_refresh_token = get_refresh_token
+        self._rest_client = rest_client
+        self._is_online = True
+        self._temp_pk_counter = -1
 
-        if not self._path.startswith("http"):
-            self.__session = None
-            return
-
-        self.__token = token
-        self.__session = requests.Session()
-        self.__session.trust_env = False
-        self.__session.headers.update({"Authorization": f"Bearer {self.__token}"})
-
-    def __del__(self) -> None:
-        if self.__session is None:
-            return
-
-        self.__session.close()
-
-    def _refresh_token(self) -> bool:
-        if self.__get_refresh_token is None or self.__base_url == "":
-            return False
-
-        refresh_token = self.__get_refresh_token()
-        if not refresh_token:
-            return False
-
-        try:
-            response = requests.post(
-                f"{self.__base_url}api/v1/auth/token/refresh/",
-                json={"refresh": refresh_token},
-                proxies={"http": None, "https": None},
-            )
-            if response.status_code == 200:
-                data = response.json()
-                self.__token = data["access"]
-                self.__session.headers.update({"Authorization": f"Bearer {self.__token}"})
-                return True
-        except Exception:
-            pass
-
-        return False
-
-    def _request(self, method: str, url: str, **kwargs) -> requests.Response:
-        response = self.__session.request(method, url, **kwargs)
-        if response.status_code == 401 and self._refresh_token():
-            response = self.__session.request(method, url, **kwargs)
-        return response
+    @property
+    def is_online(self) -> bool:
+        return self._is_online
 
     def load(self) -> list:
-        if self.__session is None:
+        if self._rest_client is None:
+            return []
+        try:
+            if "resources" in self._path:
+                data = self._rest_client.list_resources()
+            elif "accounts" in self._path:
+                data = self._rest_client.list_accounts()
+            elif "transactions" in self._path and "planned" not in self._path:
+                data = self._rest_client.list_transactions()
+            elif "planned" in self._path:
+                data = self._rest_client.list_planned_transactions()
+            else:
+                data = []
+            self._is_online = True
+            if isinstance(data, list):
+                return data
+            return data.get("results", [])
+        except Exception:
+            self._is_online = False
             return []
 
-        data = self._request("GET", self._path)
-        return data.json()["results"]
-
     def add(self, data: dict) -> int | None:
-        if self.__session is None:
+        if self._rest_client is None:
             return None
-
-        response = self._request("POST", self._path, json=data)
-        return response.json()["pk"]
+        try:
+            if "resources" in self._path:
+                result = self._rest_client.create_resource(data)
+            elif "accounts" in self._path:
+                result = self._rest_client.create_account(data)
+            elif "transactions" in self._path and "planned" not in self._path:
+                result = self._rest_client.create_transaction(data)
+            elif "planned" in self._path:
+                result = self._rest_client.list_planned_transactions()
+                return None
+            else:
+                return None
+            self._is_online = True
+            return result.get("id") if isinstance(result, dict) else None
+        except Exception:
+            self._is_online = False
+            self._temp_pk_counter -= 1
+            return self._temp_pk_counter
 
     def update(self, pk: str | int, data: dict) -> None:
-        if self.__session is None:
+        if self._rest_client is None:
             return
-
-        self._request("PATCH", f"{self._path}{pk}", json=data)
+        try:
+            if "resources" in self._path:
+                self._rest_client.delete_resource(pk)
+            elif "accounts" in self._path:
+                self._rest_client.update_account(pk, data)
+            elif "transactions" in self._path and "planned" not in self._path:
+                self._rest_client.update_transaction(pk, data)
+            self._is_online = True
+        except Exception:
+            self._is_online = False
 
     def delete(self, pk: str | int) -> None:
-        if self.__session is None:
+        if self._rest_client is None:
             return
-
-        self._request("DELETE", f"{self._path}{pk}")
+        try:
+            if "resources" in self._path:
+                self._rest_client.delete_resource(pk)
+            elif "accounts" in self._path:
+                self._rest_client.delete_account(pk)
+            elif "transactions" in self._path and "planned" not in self._path:
+                self._rest_client.delete_transaction(pk)
+            self._is_online = True
+        except Exception:
+            self._is_online = False

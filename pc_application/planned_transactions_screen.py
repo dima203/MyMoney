@@ -99,7 +99,11 @@ class PlannedTransactionsScreen(View):
                 title=TextButton("Добавить", Icons.ADD, on_click=lambda e: self._open_add()),
             )
         )
-        for pk, transaction in self.__view.get_all().items():
+        for pk, transaction in sorted(
+            self.__view.get_all().items(),
+            key=lambda x: x[1].planned_time.replace(tzinfo=None) if x[1].planned_time.tzinfo else x[1].planned_time,
+            reverse=True,
+        ):
             self.transaction_list.controls.append(
                 ListTile(
                     leading=PopupMenuButton(

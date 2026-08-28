@@ -1,5 +1,11 @@
-from pc_application import Application
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
-application = Application()
+from application.app import MyMoneyApp  # noqa: E402
+
+application = MyMoneyApp()
 application.run()

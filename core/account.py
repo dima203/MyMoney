@@ -1,53 +1,59 @@
-from datetime import datetime
 from typing import Callable
 
-from .storage import Storage
 from .money import Money
 from .resource import Resource
 
 
-class Account(Storage):
-    def __init__(self, pk: int | str, name: str, currency: Resource, value: float = 0) -> None:
+class Account:
+    def __init__(
+        self,
+        pk: int | str,
+        name: str,
+        currency: Resource,
+        value: float = 0,
+        *,
+        group: str = "",
+        account_type: str = "main",
+    ) -> None:
         self.pk = pk
         self.name = name
-        self.__subscribers = []
+        self.group = group
+        self.account_type = account_type
+        self.__subscribers: list[Callable] = []
         self.value: Money = Money(value, currency)
-        self.__saved_value: Money = Money(0, currency)
 
     def subscribe(self, callback: Callable[[int | str, dict], None]) -> None:
-        """Subscribe callback function on account value change."""
         self.__subscribers.append(callback)
 
     def unsubscribe(self, callback: Callable[[int | str, dict], None]) -> None:
-        """Unsubscribe callback function on account value change."""
         self.__subscribers.remove(callback)
 
     def get_balance(self) -> Money:
         return self.value
 
-    def to_json(self) -> dict[str, str | int]:
+    def to_json(self) -> dict[str, str | int | float]:
         return {
-            "pk": self.pk,
+            "id": self.pk,
             "name": self.name,
-            "resource_type": self.value.currency.pk,
-            "resource_count": self.value.value,
-            "last_update": datetime.now().isoformat(),
+            "group": self.group,
+            "account_type": self.account_type,
+            "resource_definition": self.value.currency.pk,
+            "current_balance_qty": self.value.value,
         }
 
-    def __changed(self) -> None:
-        if self.__subscribers is None:
-            return
-
+    def _notify(self) -> None:
         for subscriber in self.__subscribers:
             subscriber(self.pk, self.to_json())
 
     def __setattr__(self, key, value) -> None:
-        if key not in self.__dict__:
-            object.__setattr__(self, key, value)
-            return
-
         object.__setattr__(self, key, value)
-        self.__changed()
+        if key in ("name", "group", "account_type") and "_Account__subscribers" in self.__dict__:
+            self._notify()
 
-    def __eq__(self, other: "Account") -> bool:
-        return self.value == other.value
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Account):
+            return NotImplemented
+        return self.pk == other.pk
+
+    def __hash__(self) -> int:
+        return hash(self.pk)

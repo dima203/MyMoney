@@ -20,31 +20,57 @@ class TestAccountCreation:
         assert account.pk == "acc_1"
         assert account.get_balance() == Money(100, self.BYN)
 
+    def test_create_with_group(self):
+        account = Account(2, "Crypto", self.BYN, 1000, group="investments")
+        assert account.group == "investments"
+
+    def test_create_with_account_type(self):
+        account = Account(3, "Trading", self.BYN, 500, account_type="trading")
+        assert account.account_type == "trading"
+
     def test_to_json(self) -> None:
         test_account = Account(0, "test1", self.BYN)
-        json = test_account.to_json()
-        json.pop("last_update")
-        assert json == {"pk": 0, "name": "test1", "resource_count": 0, "resource_type": self.BYN.pk}
+        json_data = test_account.to_json()
+        assert json_data == {
+            "id": 0,
+            "name": "test1",
+            "group": "",
+            "account_type": "main",
+            "resource_definition": 0,
+            "current_balance_qty": 0,
+        }
 
     def test_to_json_with_value(self):
         account = Account(1, "Card", self.BYN, 250)
-        json = account.to_json()
-        json.pop("last_update")
-        assert json == {"pk": 1, "name": "Card", "resource_count": 250, "resource_type": 0}
+        json_data = account.to_json()
+        assert json_data == {
+            "id": 1,
+            "name": "Card",
+            "group": "",
+            "account_type": "main",
+            "resource_definition": 0,
+            "current_balance_qty": 250,
+        }
+
+    def test_to_json_with_group(self):
+        account = Account(2, "Stocks", self.BYN, 1000, group="investments", account_type="trading")
+        json_data = account.to_json()
+        assert json_data["group"] == "investments"
+        assert json_data["account_type"] == "trading"
 
 
 class TestAccountEquality:
     def setup_class(self) -> None:
         self.BYN = Resource(0, "BYN")
 
-    def test_equal_accounts(self):
+    def test_equal_accounts_by_pk(self):
         a1 = Account(0, "A", self.BYN, 100)
-        a2 = Account(1, "B", self.BYN, 100)
+        a2 = Account(0, "B", self.BYN, 200)
         assert a1 == a2
 
     def test_not_equal_accounts(self):
         a1 = Account(0, "A", self.BYN, 100)
-        a2 = Account(1, "B", self.BYN, 200)
+        a2 = Account(1, "B", self.BYN, 100)
         assert a1 != a2
 
 
@@ -83,18 +109,6 @@ class TestAccountSubscribe:
         assert args[0] == 0
         assert "name" in args[1]
         assert args[1]["name"] == "Updated"
-
-
-class TestAccountsetattr:
-    def setup_method(self) -> None:
-        self.BYN = Resource(0, "BYN")
-
-    def test_setattr_triggers_observer(self):
-        account = Account(0, "Test", self.BYN, 100)
-        callback = MagicMock()
-        account.subscribe(callback)
-        account.value = Money(200, self.BYN)
-        callback.assert_called()
 
     def test_initial_setattr_no_observer_call(self):
         callback = MagicMock()

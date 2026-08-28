@@ -1,26 +1,50 @@
 [
   {
-    "pk": 0,
-    "storage_id": 0,
-    "resource_count": 10,
-    "resource_type": 0,
-    "time_stamp": "2025-11-27T12:05:29.400817",
-    "last_update": "2025-11-27T12:05:29.400817"
+    "id": 0,
+    "date": "2025-11-27T12:05:29.400817",
+    "entries": [
+      {
+        "account": 0,
+        "quantity": 10,
+        "amount": 10,
+        "unit_price": 1
+      }
+    ],
+    "category": "",
+    "description": "",
+    "recurrence_rule": "",
+    "is_planned": false
   },
   {
-    "pk": 1,
-    "storage_id": 1,
-    "resource_count": 20,
-    "resource_type": 1,
-    "time_stamp": "2025-11-27T12:05:29.400817",
-    "last_update": "2025-11-27T12:05:29.400817"
+    "id": 1,
+    "date": "2025-11-27T12:05:29.400817",
+    "entries": [
+      {
+        "account": 1,
+        "quantity": 20,
+        "amount": 20,
+        "unit_price": 1
+      }
+    ],
+    "category": "",
+    "description": "",
+    "recurrence_rule": "",
+    "is_planned": false
   },
   {
-    "pk": 2,
-    "storage_id": 0,
-    "resource_count": -30,
-    "resource_type": 0,
-    "time_stamp": "2025-11-27T12:05:29.400817",
-    "last_update": "2025-11-27T12:05:29.400817"
+    "id": 2,
+    "date": "2025-11-27T12:05:29.400817",
+    "entries": [
+      {
+        "account": 0,
+        "quantity": -30,
+        "amount": -30,
+        "unit_price": 1
+      }
+    ],
+    "category": "",
+    "description": "",
+    "recurrence_rule": "",
+    "is_planned": false
   }
 ]

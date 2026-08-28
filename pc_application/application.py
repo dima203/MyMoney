@@ -4,7 +4,8 @@ import socket
 from pathlib import Path
 
 from dataview import AccountBaseView, TransactionBaseView, ResourceBaseView, PlannedTransactionBaseView
-from database import ServerBase, JSONBase
+from database import ServerBase, JSONBase, PendingStore
+from auth import save_tokens, load_tokens, clear_tokens
 
 from .authorization_screen import AuthorizationScreen
 from .planned_transactions_screen import PlannedTransactionsScreen
@@ -25,6 +26,7 @@ class Application:
         self.resource_view: ResourceBaseView = None
         self.account_view: AccountBaseView = None
         self.transactions_view: TransactionBaseView = None
+        self.planned_transactions_view: PlannedTransactionBaseView = None
 
     def run(self) -> None:
         flet.app(target=self._start, view=flet.AppView.FLET_APP)
@@ -55,51 +57,92 @@ class Application:
         )
 
         self.page.on_route_change = self._change_route
-        self.page.go("/authorization")
 
-    def _success_authorization(self, token: str, refresh_token: str = "") -> None:
-        self.page.add(self.progress_ring)
-        self.token = token
-        self.refresh_token = refresh_token
-        self.resource_view = ResourceBaseView(
-            ServerBase(
+        saved = load_tokens()
+        if saved and self._verify_token(saved["access"]):
+            self.token = saved["access"]
+            self.refresh_token = saved.get("refresh", "")
+            self._init_views()
+            self.page.go("/storages")
+        else:
+            clear_tokens()
+            self.page.go("/authorization")
+
+    def _verify_token(self, token: str) -> bool:
+        try:
+            resp = requests.get(
                 f"{self.base_url}api/v1/resources/",
-                token=self.token,
-                base_url=self.base_url,
-                get_refresh_token=lambda: self.refresh_token,
-            ),
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=5,
+                proxies={"http": None, "https": None},
+            )
+            return resp.status_code == 200
+        except Exception:
+            return False
+
+    def _init_views(self) -> None:
+        pending_store = PendingStore(str(Path.cwd() / "pending.json"))
+
+        resource_server = ServerBase(
+            f"{self.base_url}api/v1/resources/",
+            token=self.token,
+            base_url=self.base_url,
+            get_refresh_token=lambda: self.refresh_token,
+        )
+        account_server = ServerBase(
+            f"{self.base_url}api/v1/accounts/",
+            token=self.token,
+            base_url=self.base_url,
+            get_refresh_token=lambda: self.refresh_token,
+        )
+        transaction_server = ServerBase(
+            f"{self.base_url}api/v1/transactions/",
+            token=self.token,
+            base_url=self.base_url,
+            get_refresh_token=lambda: self.refresh_token,
+        )
+        planned_server = ServerBase(
+            f"{self.base_url}api/v1/interactions/planned-transactions/",
+            token=self.token,
+            base_url=self.base_url,
+            get_refresh_token=lambda: self.refresh_token,
+        )
+
+        self.resource_view = ResourceBaseView(
+            resource_server,
             reserve_database=JSONBase(str(Path.cwd() / "resource.json")),
         )
         self.account_view = AccountBaseView(
-            ServerBase(
-                f"{self.base_url}api/v1/accounts/",
-                token=self.token,
-                base_url=self.base_url,
-                get_refresh_token=lambda: self.refresh_token,
-            ),
+            account_server,
             self.resource_view,
             reserve_database=JSONBase(str(Path.cwd() / "storage.json")),
         )
         self.transactions_view = TransactionBaseView(
-            ServerBase(
-                f"{self.base_url}api/v1/transactions/",
-                token=self.token,
-                base_url=self.base_url,
-                get_refresh_token=lambda: self.refresh_token,
-            ),
+            transaction_server,
             self.account_view,
             reserve_database=JSONBase(str(Path.cwd() / "transaction.json")),
         )
         self.planned_transactions_view = PlannedTransactionBaseView(
-            ServerBase(
-                f"{self.base_url}api/v1/interactions/planned-transactions/",
-                token=self.token,
-                base_url=self.base_url,
-                get_refresh_token=lambda: self.refresh_token,
-            ),
+            planned_server,
             self.account_view,
             reserve_database=JSONBase(str(Path.cwd() / "planned_transaction.json")),
         )
+
+        self.resource_view.set_pending_store(pending_store)
+        self.account_view.set_pending_store(pending_store)
+        self.transactions_view.set_pending_store(pending_store)
+        self.planned_transactions_view.set_pending_store(pending_store)
+
+        if resource_server.is_online:
+            remap = pending_store.sync(
+                self.base_url,
+                self.token,
+                {"Authorization": f"Bearer {self.token}"},
+            )
+            if remap:
+                for view in (self.resource_view, self.account_view, self.transactions_view, self.planned_transactions_view):
+                    if hasattr(view, '_remap_pk'):
+                        view._remap_pk(remap)
 
         self.resource_view.load()
         self.account_view.load()
@@ -119,6 +162,14 @@ class Application:
             navigation_bar=self.navigation_bar,
         )
 
+        self.transactions_view._on_data_changed = self.transactions_screen.update
+
+    def _success_authorization(self, token: str, refresh_token: str = "") -> None:
+        self.page.add(self.progress_ring)
+        self.token = token
+        self.refresh_token = refresh_token
+        save_tokens(token, refresh_token)
+        self._init_views()
         self.page.go("/storages")
 
     def _stop(self) -> None:
@@ -128,6 +179,8 @@ class Application:
             self.account_view.save()
         if self.transactions_view is not None:
             self.transactions_view.save()
+        if self.planned_transactions_view is not None:
+            self.planned_transactions_view.save()
 
     def _change_route(self, e) -> None:
         self.page.views.clear()

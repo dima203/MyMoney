@@ -1,9 +1,4 @@
-"""Google OAuth 2.0 flow для Flet desktop клиента.
-
-Запускает ephemeral localhost HTTP-сервер, открывает браузер для
-авторизации Google, перехватывает auth code из redirect, отправляет
-его на бэкенд и получает JWT.
-"""
+"""Google OAuth 2.0 flow для Flet desktop клиента."""
 
 from __future__ import annotations
 
@@ -15,21 +10,18 @@ import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
-import requests
+import httpx
 
 logger = logging.getLogger(__name__)
 
 GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_CLIENT_ID = "484764873818-dk4tqe45glgojtubn5p602bultkib681.apps.googleusercontent.com"
 
 
 class OAuthCallbackError(Exception):
-    """Ошибка в OAuth callback (неверный code, и т.д.)."""
+    """Ошибка в OAuth callback."""
 
 
 class _OAuthCallbackHandler(BaseHTTPRequestHandler):
-    """HTTP handler для перехвата Google OAuth callback."""
-
     auth_code: str | None = None
     error: str | None = None
 
@@ -68,23 +60,17 @@ class _OAuthCallbackHandler(BaseHTTPRequestHandler):
 
 
 class GoogleOAuthFlow:
-    """Google OAuth 2.0 flow для desktop приложения.
-
-    Запускает локальный HTTP-сервер, открывает браузер для авторизации,
-    перехватывает auth code и отправляет его на бэкенд для получения JWT.
-    """
-
     def __init__(self, backend_url: str, client_id: str | None = None):
+        from core.config import SETTINGS
+
         self.backend_url = backend_url.rstrip("/")
-        self.client_id = client_id or GOOGLE_CLIENT_ID
+        self.client_id = client_id or SETTINGS.GOOGLE_OAUTH_CLIENT_ID
 
     def start(self) -> dict:
-        """Запускает OAuth flow и возвращает {'access': ..., 'refresh': ...}."""
-
         if not self.client_id:
             raise OAuthCallbackError(
                 "Google OAuth Client ID is not configured. "
-                "Set GOOGLE_CLIENT_ID in auth/google_auth.py"
+                "Set GOOGLE_OAUTH_CLIENT_ID in .env"
             )
 
         port = self._find_available_port()
@@ -108,28 +94,22 @@ class GoogleOAuthFlow:
         server.server_close()
 
         if _OAuthCallbackHandler.error:
-            logger.warning("Google OAuth error: %s", _OAuthCallbackHandler.error)
             raise OAuthCallbackError(f"Google OAuth error: {_OAuthCallbackHandler.error}")
 
         if not _OAuthCallbackHandler.auth_code:
-            logger.warning("Google OAuth: no auth code received (timeout)")
             raise OAuthCallbackError("Authorization timed out or was cancelled.")
 
         code = _OAuthCallbackHandler.auth_code
-        logger.info("Received auth code from Google, exchanging for tokens...")
-
         return self._exchange_code(code, redirect_uri)
 
     def _exchange_code(self, code: str, redirect_uri: str = "postmessage") -> dict:
-        """Отправка auth code на бэкенд для получения JWT."""
         try:
-            resp = requests.post(
-                f"{self.backend_url}/api/v1/auth/google/",
-                json={"code": code, "redirect_uri": redirect_uri},
-                timeout=15,
-                proxies={"http": None, "https": None},
-            )
-        except requests.exceptions.ConnectionError as exc:
+            with httpx.Client(timeout=15, trust_env=False) as client:
+                resp = client.post(
+                    f"{self.backend_url}/api/v1/auth/google/",
+                    json={"code": code, "redirect_uri": redirect_uri},
+                )
+        except httpx.HTTPError as exc:
             raise OAuthCallbackError(f"Backend unreachable: {exc}") from exc
 
         if resp.status_code != 200:
@@ -140,7 +120,6 @@ class GoogleOAuthFlow:
                 pass
             if "<html" in detail.lower() or len(detail) > 200:
                 detail = f"HTTP {resp.status_code}"
-            logger.warning("Google auth failed: status=%d detail=%s", resp.status_code, detail)
             raise OAuthCallbackError(detail)
 
         payload = resp.json()
@@ -148,7 +127,6 @@ class GoogleOAuthFlow:
         return {"access": payload["access"], "refresh": payload["refresh"]}
 
     def _build_auth_url(self, redirect_uri: str, state: str) -> str:
-        """Формирование Google OAuth URL."""
         params = {
             "client_id": self.client_id,
             "redirect_uri": redirect_uri,
@@ -163,7 +141,6 @@ class GoogleOAuthFlow:
 
     @staticmethod
     def _find_available_port() -> int:
-        """Поиск свободного порта для ephemeral HTTP-сервера."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("localhost", 0))
             return s.getsockname()[1]
