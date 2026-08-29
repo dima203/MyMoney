@@ -6,6 +6,7 @@ import flet as ft
 
 from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
+from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.category_picker import CategoryPicker
 from application.components.transaction_card import TransactionCard
 
@@ -46,7 +47,7 @@ class TransactionsView(BaseView):
             expand=True,
         )
 
-        super().__init__(content=content, title="Транзакции", route=route, selected_index=1)
+        super().__init__(content=content, title="Транзакции", route=route, selected_index=1, navigation_items=NAVIGATION_ITEMS)
         self.floating_action_button = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
             on_click=self._show_add_dialog,
@@ -333,6 +334,10 @@ class TransactionsView(BaseView):
                 "is_planned": False,
             }
 
+            save_button.disabled = True
+            save_button.text = "Сохранение..."
+            self.page.update()
+
             try:
                 if is_edit:
                     await asyncio.to_thread(self.api_client.update_transaction, tx["id"], payload)
@@ -340,12 +345,16 @@ class TransactionsView(BaseView):
                     await asyncio.to_thread(self.api_client.create_transaction, payload)
 
                 dialog.open = False
-                self.update()
+                self.page.update()
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
+                save_button.disabled = False
+                save_button.text = "Сохранить"
                 error_text.value = str(exc)
                 error_text.visible = True
-                self.update()
+                self.page.update()
+
+        save_button = ft.ElevatedButton("Сохранить", on_click=on_submit)
 
         dialog = ft.AlertDialog(
             title=ft.Text(title),
@@ -367,7 +376,7 @@ class TransactionsView(BaseView):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda _: self._close_dialog(dialog)),
-                ft.ElevatedButton("Сохранить", on_click=on_submit),
+                save_button,
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
@@ -390,25 +399,34 @@ class TransactionsView(BaseView):
 
     def _show_delete_confirm(self, tx: dict):
         async def on_confirm(e):
+            delete_button.disabled = True
+            delete_button.text = "Удаление..."
+            self.page.update()
+
             try:
                 await asyncio.to_thread(self.api_client.delete_transaction, tx["id"])
                 dialog.open = False
-                self.update()
+                self.page.update()
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
+                delete_button.disabled = False
+                delete_button.text = "Удалить"
                 dialog.open = False
-                self.update()
+                self.page.update()
                 self._error_text.value = f"Ошибка удаления: {exc}"
                 self._error_text.visible = True
                 self.update()
 
         desc = tx.get("description", "") or "Без описания"
+        delete_button = ft.ElevatedButton(
+            "Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR
+        )
         dialog = ft.AlertDialog(
             title=ft.Text("Удалить транзакцию?"),
             content=ft.Text(f'Удалить "{desc}"? Это действие необратимо.'),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda _: self._close_dialog(dialog)),
-                ft.ElevatedButton("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR),
+                delete_button,
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )

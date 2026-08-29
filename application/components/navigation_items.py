@@ -1,15 +1,5 @@
-from dataclasses import dataclass
-
 import flet as ft
-
-
-@dataclass
-class NavigationItem:
-    label: str
-    route: str
-    icon: ft.IconData
-    selected_icon: ft.IconData = None
-
+from MySpaceShared.components.navigation_items import NavigationItem
 
 NAVIGATION_ITEMS = [
     NavigationItem(

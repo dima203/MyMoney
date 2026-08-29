@@ -5,6 +5,7 @@ import flet as ft
 
 from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
+from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.account_group import AccountGroup
 from application.components.crypto_summary import CryptoSummary
 
@@ -31,7 +32,7 @@ class AccountsView(BaseView):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-        super().__init__(content=content, title="Счета", route=route, selected_index=0)
+        super().__init__(content=content, title="Счета", route=route, selected_index=0, navigation_items=NAVIGATION_ITEMS)
         self.floating_action_button = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
             on_click=self._show_add_dialog,
@@ -157,7 +158,7 @@ class AccountsView(BaseView):
                         alignment=ft.MainAxisAlignment.CENTER,
                         spacing=8,
                     ),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     expand=True,
                     padding=40,
                 )
@@ -232,6 +233,10 @@ class AccountsView(BaseView):
                 self.update()
                 return
 
+            save_button.disabled = True
+            save_button.text = "Сохранение..."
+            self.page.update()
+
             try:
                 payload = {
                     "name": name,
@@ -245,12 +250,16 @@ class AccountsView(BaseView):
                     await asyncio.to_thread(self.api_client.create_account, payload)
 
                 dialog.open = False
-                self.update()
+                self.page.update()
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
+                save_button.disabled = False
+                save_button.text = "Сохранить"
                 error_text.value = str(exc)
                 error_text.visible = True
-                self.update()
+                self.page.update()
+
+        save_button = ft.ElevatedButton("Сохранить", on_click=on_submit)
 
         dialog = ft.AlertDialog(
             title=ft.Text(title),
@@ -263,7 +272,7 @@ class AccountsView(BaseView):
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda _: self._close_dialog(dialog)),
-                ft.ElevatedButton("Сохранить", on_click=on_submit),
+                save_button,
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
@@ -273,24 +282,33 @@ class AccountsView(BaseView):
 
     def _show_delete_confirm(self, account: dict):
         async def on_confirm(e):
+            delete_button.disabled = True
+            delete_button.text = "Удаление..."
+            self.page.update()
+
             try:
                 await asyncio.to_thread(self.api_client.delete_account, account["id"])
                 dialog.open = False
-                self.update()
+                self.page.update()
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
+                delete_button.disabled = False
+                delete_button.text = "Удалить"
                 dialog.open = False
-                self.update()
+                self.page.update()
                 self._error_text.value = f"Ошибка удаления: {exc}"
                 self._error_text.visible = True
                 self.update()
 
+        delete_button = ft.ElevatedButton(
+            "Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR
+        )
         dialog = ft.AlertDialog(
             title=ft.Text("Удалить счет?"),
             content=ft.Text(f'Удалить "{account.get("name", "")}"? Это действие необратимо.'),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda _: self._close_dialog(dialog)),
-                ft.ElevatedButton("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR),
+                delete_button,
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )

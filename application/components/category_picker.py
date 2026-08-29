@@ -28,14 +28,20 @@ class CategoryPicker(ft.Container):
             border_radius=8,
             autofocus=False,
             on_select=self._handle_change,
-            suffix=ft.IconButton(
-                icon=ft.Icons.ADD,
-                icon_size=18,
-                tooltip="Добавить категорию",
-                on_click=self._show_add_dialog,
-            ),
+            expand=True,
         )
-        self.content = self._dropdown
+        self.content = ft.Row(
+            controls=[
+                self._dropdown,
+                ft.IconButton(
+                    icon=ft.Icons.ADD,
+                    icon_size=18,
+                    tooltip="Добавить категорию",
+                    on_click=self._show_add_dialog,
+                ),
+            ],
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
 
     def _handle_change(self, e):
         if self._on_change:

@@ -4,7 +4,6 @@ import asyncio
 import logging
 
 import flet as ft
-
 from application.api import (
     ApiError,
     BackendUnreachableError,
@@ -12,6 +11,7 @@ from application.api import (
 )
 from application.screens import LoginView
 from application.view import SplashView
+from core import APP_SETTINGS, build_theme, theme_mode_value
 from core.config import SETTINGS
 
 logger = logging.getLogger(__name__)
@@ -49,9 +49,7 @@ class MyMoneyApp:
         self.page.views.clear()
 
         if self.page.route == "/login":
-            self.page.views.append(
-                LoginView(SETTINGS.BACKEND_URL, on_success=self._on_login_success)
-            )
+            self.page.views.append(LoginView(SETTINGS.BACKEND_URL, on_success=self._on_login_success))
             self.page.update()
             return
 
@@ -62,21 +60,15 @@ class MyMoneyApp:
         if self.page.route == "/accounts":
             from application.view.accounts_view import AccountsView
 
-            self.page.views.append(
-                AccountsView(route="/accounts", api_client=self.api_client)
-            )
+            self.page.views.append(AccountsView(route="/accounts", api_client=self.api_client))
         elif self.page.route == "/transactions":
             from application.view.transactions_view import TransactionsView
 
-            self.page.views.append(
-                TransactionsView(route="/transactions", api_client=self.api_client)
-            )
+            self.page.views.append(TransactionsView(route="/transactions", api_client=self.api_client))
         elif self.page.route == "/planned":
             from application.view.planned_view import PlannedView
 
-            self.page.views.append(
-                PlannedView(route="/planned", api_client=self.api_client)
-            )
+            self.page.views.append(PlannedView(route="/planned", api_client=self.api_client))
         elif self.page.route == "/settings":
             from application.view.settings_view import SettingsView
 
@@ -104,9 +96,7 @@ class MyMoneyApp:
     def _on_logout(self) -> None:
         self.api_client.logout()
         self.page.views.clear()
-        self.page.views.append(
-            LoginView(SETTINGS.BACKEND_URL, on_success=self._on_login_success)
-        )
+        self.page.views.append(LoginView(SETTINGS.BACKEND_URL, on_success=self._on_login_success))
         self.page.update()
 
     async def view_pop(self, e: ft.ViewPopEvent):
@@ -128,6 +118,10 @@ class MyMoneyApp:
         self.page.window.min_height = 700
         self.page.window.width = 500
         self.page.window.height = 700
+
+        self.page.theme_mode = theme_mode_value(APP_SETTINGS.theme_mode)
+        self.page.theme = build_theme(APP_SETTINGS.accent_color)
+        self.page.dark_theme = build_theme(APP_SETTINGS.accent_color)
 
         self.page.on_route_change = self.route_change
         self.page.on_view_pop = self.view_pop

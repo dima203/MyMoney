@@ -68,7 +68,11 @@ class RecurrenceRule:
             day = min(from_date.day, _days_in_month(year, month))
             return datetime.date(year, month, day)
         if self.frequency == Frequency.YEARLY:
-            return from_date.replace(year=from_date.year + self.interval)
+            new_year = from_date.year + self.interval
+            try:
+                return from_date.replace(year=new_year)
+            except ValueError:
+                return datetime.date(new_year, from_date.month, 28)
         raise ValueError(f"Unknown frequency: {self.frequency}")
 
     def generate_dates(self, start: datetime.date, count: int = 10) -> list[datetime.date]:

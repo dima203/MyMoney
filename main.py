@@ -5,7 +5,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-from application.app import MyMoneyApp  # noqa: E402
+from application.app import MyMoneyApp
 
 application = MyMoneyApp()
 application.run()
