@@ -1,7 +1,6 @@
 import datetime
 
 import flet as ft
-
 from core.recurrence import RecurrenceRule
 
 

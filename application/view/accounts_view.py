@@ -2,7 +2,6 @@ import asyncio
 from collections import defaultdict
 
 import flet as ft
-
 from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
 from application.components.navigation_items import NAVIGATION_ITEMS
