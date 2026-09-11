@@ -11,17 +11,14 @@ class DataBase(ABC):
     @abstractmethod
     def load(self) -> list:
         """Load data from database connection"""
-        pass
 
     @abstractmethod
     def update(self, pk: str | int, data: dict) -> None:
         """Save data to database connection"""
-        pass
 
     @abstractmethod
     def delete(self, pk: str | int) -> None:
         """Delete record from database"""
-        pass
 
     @abstractmethod
     def add(self, data: dict) -> int | str:

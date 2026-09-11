@@ -75,7 +75,9 @@ class CategoryPicker(ft.Container):
                 self.update()
                 if self._on_change:
                     self._on_change(name)
-            dialog.open = False
+            page = self._get_page()
+            if page:
+                page.pop_dialog()
             self._dropdown.update()
 
         dialog = ft.AlertDialog(
@@ -83,22 +85,19 @@ class CategoryPicker(ft.Container):
             content=new_category_field,
             actions=[
                 ft.TextButton("Отмена", on_click=lambda _: self._close_dialog(dialog)),
-                ft.ElevatedButton("Добавить", on_click=on_add),
+                ft.Button("Добавить", on_click=on_add),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
         page = self._get_page()
         if page:
-            page.overlay.append(dialog)
-            dialog.open = True
-            page.update()
+            page.show_dialog(dialog)
 
     def _close_dialog(self, dialog):
-        dialog.open = False
         page = self._get_page()
         if page:
-            page.update()
+            page.pop_dialog()
 
     def _get_page(self):
         try:

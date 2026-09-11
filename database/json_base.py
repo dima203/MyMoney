@@ -28,7 +28,7 @@ class JSONBase(DataBase):
         loaded = self.load()
         pk = data.get("id") or data.get("pk")
         if pk is not None:
-            self._last_pk = pk if pk > self._last_pk else self._last_pk
+            self._last_pk = max(self._last_pk, pk)
         else:
             self._last_pk += 1
             pk = self._last_pk

@@ -4,14 +4,21 @@ from collections import defaultdict
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
-from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.account_group import AccountGroup
 from application.components.crypto_summary import CryptoSummary
+from application.components.navigation_items import NAVIGATION_ITEMS
+from MySpaceShared.components.connection_status import ConnectionBanner
+from MySpaceShared.components.empty_state import EmptyState
+from MySpaceShared.components.error_state import ErrorState
+from MySpaceShared.components.loading_state import LoadingState
 
 
 class AccountsView(BaseView):
-    def __init__(self, route: str, api_client):
+    def __init__(self, route: str, api_client, resource_view=None, account_view=None, connection_banner=None):
         self.api_client = api_client
+        self._resource_view = resource_view
+        self._account_view = account_view
+        self._connection_banner = connection_banner or ConnectionBanner()
         self._disposed = False
         self._accounts: list[dict] = []
         self._resources: list[dict] = []
@@ -19,10 +26,12 @@ class AccountsView(BaseView):
 
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
         self._accounts_column = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
-        self._loading = ft.ProgressRing(width=40, height=40, visible=True)
+        self._loading = LoadingState()
+        self._loading.visible = True
 
         content = ft.Column(
             controls=[
+                self._connection_banner,
                 self._error_text,
                 self._loading,
                 self._accounts_column,
@@ -31,7 +40,9 @@ class AccountsView(BaseView):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-        super().__init__(content=content, title="Счета", route=route, selected_index=0, navigation_items=NAVIGATION_ITEMS)
+        super().__init__(
+            content=content, title="Счета", route=route, selected_index=0, navigation_items=NAVIGATION_ITEMS
+        )
         self.floating_action_button = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
             on_click=self._show_add_dialog,
@@ -53,10 +64,15 @@ class AccountsView(BaseView):
             self._accounts_column.controls.clear()
             self.update()
 
-            resources, accounts = await asyncio.gather(
-                asyncio.to_thread(self.api_client.list_resources),
-                asyncio.to_thread(self.api_client.list_accounts),
-            )
+            if self._resource_view and self._account_view:
+                resources = await asyncio.to_thread(self._resource_view.get_all)
+                accounts = await asyncio.to_thread(self._account_view.get_all)
+            else:
+                resources, accounts = await asyncio.gather(
+                    asyncio.to_thread(self.api_client.list_resources),
+                    asyncio.to_thread(self.api_client.list_accounts),
+                )
+
             if self._disposed:
                 return
 
@@ -65,6 +81,10 @@ class AccountsView(BaseView):
             self._resource_map = {r["id"]: r for r in self._resources}
 
             self._loading.visible = False
+            if self._resource_view and not self._resource_view.is_online:
+                self._connection_banner.show()
+            else:
+                self._connection_banner.hide()
             self._rebuild_ui()
         except BackendUnreachableError:
             if not self._disposed:
@@ -146,20 +166,10 @@ class AccountsView(BaseView):
 
         if not self._accounts_column.controls:
             self._accounts_column.controls.append(
-                ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, size=64, color=ft.Colors.ON_SURFACE_VARIANT),
-                            ft.Text("Нет счетов", size=20, color=ft.Colors.ON_SURFACE_VARIANT),
-                            ft.Text("Нажмите + чтобы добавить", size=14, color=ft.Colors.ON_SURFACE_VARIANT),
-                        ],
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        spacing=8,
-                    ),
-                    alignment=ft.Alignment.CENTER,
-                    expand=True,
-                    padding=40,
+                EmptyState(
+                    icon=ft.Icons.ACCOUNT_BALANCE_WALLET,
+                    title="Нет счетов",
+                    subtitle="Нажмите + чтобы добавить",
                 )
             )
 
@@ -244,12 +254,17 @@ class AccountsView(BaseView):
                     "account_type": account_type,
                 }
                 if is_edit:
-                    await asyncio.to_thread(self.api_client.update_account, account["id"], payload)
+                    if self._account_view:
+                        await asyncio.to_thread(self._account_view.update, account["id"], payload)
+                    else:
+                        await asyncio.to_thread(self.api_client.update_account, account["id"], payload)
                 else:
-                    await asyncio.to_thread(self.api_client.create_account, payload)
+                    if self._account_view:
+                        await asyncio.to_thread(self._account_view.add, payload)
+                    else:
+                        await asyncio.to_thread(self.api_client.create_account, payload)
 
-                dialog.open = False
-                self.page.update()
+                self.page.pop_dialog()
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 save_button.disabled = False
@@ -258,7 +273,7 @@ class AccountsView(BaseView):
                 error_text.visible = True
                 self.page.update()
 
-        save_button = ft.ElevatedButton("Сохранить", on_click=on_submit)
+        save_button = ft.Button("Сохранить", on_click=on_submit)
 
         dialog = ft.AlertDialog(
             title=ft.Text(title),
@@ -270,14 +285,12 @@ class AccountsView(BaseView):
                 ),
             ),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda _: self._close_dialog(dialog)),
+                ft.TextButton("Отмена", on_click=lambda _: self.page.pop_dialog()),
                 save_button,
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
-        self.page.overlay.append(dialog)
-        dialog.open = True
-        self.page.update()
+        self.page.show_dialog(dialog)
 
     def _show_delete_confirm(self, account: dict):
         async def on_confirm(e):
@@ -286,38 +299,33 @@ class AccountsView(BaseView):
             self.page.update()
 
             try:
-                await asyncio.to_thread(self.api_client.delete_account, account["id"])
-                dialog.open = False
-                self.page.update()
+                if self._account_view:
+                    await asyncio.to_thread(self._account_view.delete, account["id"])
+                else:
+                    await asyncio.to_thread(self.api_client.delete_account, account["id"])
+                self.page.pop_dialog()
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 delete_button.disabled = False
                 delete_button.text = "Удалить"
-                dialog.open = False
-                self.page.update()
+                self.page.pop_dialog()
                 self._error_text.value = f"Ошибка удаления: {exc}"
                 self._error_text.visible = True
                 self.update()
 
-        delete_button = ft.ElevatedButton(
+        delete_button = ft.Button(
             "Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR
         )
         dialog = ft.AlertDialog(
             title=ft.Text("Удалить счет?"),
             content=ft.Text(f'Удалить "{account.get("name", "")}"? Это действие необратимо.'),
             actions=[
-                ft.TextButton("Отмена", on_click=lambda _: self._close_dialog(dialog)),
+                ft.TextButton("Отмена", on_click=lambda _: self.page.pop_dialog()),
                 delete_button,
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
-        self.page.overlay.append(dialog)
-        dialog.open = True
-        self.page.update()
-
-    def _close_dialog(self, dialog):
-        dialog.open = False
-        self.page.update()
+        self.page.show_dialog(dialog)
 
     @staticmethod
     def _get_currency_icon(resource_name: str) -> str:
