@@ -45,16 +45,9 @@ MyMoney/
 │   ├── sql_base.py          # SQLite
 │   └── none_base.py         # Заглушка (офлайн)
 ├── dataview/                # Представления данных (DatabaseView)
-├── pc_application/          # Flet Desktop UI
-│   ├── application.py       # Главный оркестратор
-│   ├── authorization_screen.py  # Экран логина
-│   ├── storages_view.py     # Просмотр счетов
-│   ├── transactions_view.py # Просмотр транзакций
-│   ├── planned_transactions_screen.py  # Запланированные транзакции
-│   └── navigation_bar.py    # Навигация
-├── console_view/            # Консольный интерфейс
-├── storage/                 # Локальное хранилище данных
-├── tests/                   # Тесты (pytest)
+├── application/             # Flet Desktop UI (главный оркестратор, views, components)
+├── auth/                    # Авторизация (Google OAuth, токены)
+├── test/                    # Тесты (pytest)
 ├── requirements.txt
 └── pyproject.toml           # Конфигурация ruff
 ```

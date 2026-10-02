@@ -48,7 +48,7 @@ class CryptoSummary(ft.Container):
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.padding.symmetric(horizontal=16, vertical=12),
+            padding=ft.Padding.symmetric(horizontal=16, vertical=12),
             on_click=self._toggle,
             ink=True,
             border_radius=8,
@@ -60,7 +60,7 @@ class CryptoSummary(ft.Container):
         )
         self.bgcolor = ft.Colors.SURFACE_CONTAINER_LOWEST
         self.border_radius = 12
-        self.padding = ft.padding.all(8)
+        self.padding = ft.Padding.all(8)
 
     def _toggle(self, e):
         self._expanded = not self._expanded

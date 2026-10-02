@@ -73,7 +73,7 @@ class PlannedTransactionCard(ft.Container):
                         ),
                         bgcolor=ft.Colors.PRIMARY_CONTAINER,
                         border_radius=4,
-                        padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                        padding=ft.Padding.symmetric(horizontal=6, vertical=2),
                     )
                 ]
 
@@ -84,7 +84,7 @@ class PlannedTransactionCard(ft.Container):
                     content=ft.Text(category, size=11, color=ft.Colors.TERTIARY),
                     bgcolor=ft.Colors.TERTIARY_CONTAINER,
                     border_radius=4,
-                    padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                    padding=ft.Padding.symmetric(horizontal=6, vertical=2),
                 )
             ]
 
@@ -117,12 +117,12 @@ class PlannedTransactionCard(ft.Container):
                     icon_size=18,
                     items=[
                         ft.PopupMenuItem(
-                            text="Редактировать",
+                            content="Редактировать",
                             icon=ft.Icons.EDIT,
                             on_click=lambda _: self._on_edit and self._on_edit(),
                         ),
                         ft.PopupMenuItem(
-                            text="Удалить",
+                            content="Удалить",
                             icon=ft.Icons.DELETE,
                             on_click=lambda _: self._on_delete and self._on_delete(),
                         ),
@@ -135,6 +135,6 @@ class PlannedTransactionCard(ft.Container):
         )
 
         self.content = ft.Column([top_row, bottom_row], spacing=4)
-        self.padding = ft.padding.symmetric(horizontal=16, vertical=10)
+        self.padding = ft.Padding.symmetric(horizontal=16, vertical=10)
         self.border_radius = 8
         self.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW

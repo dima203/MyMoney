@@ -30,6 +30,7 @@ class PlannedView(BaseView):
         self._transactions: list[dict] = []
         self._accounts: list[dict] = []
         self._account_map: dict[int, dict] = {}
+        self._recurrence_dialog: ft.AlertDialog | None = None
 
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
         self._loading = LoadingState()
@@ -197,7 +198,9 @@ class PlannedView(BaseView):
         title = "Редактировать план" if is_edit else "Новый план"
 
         account_options = [ft.dropdown.Option(key=str(a["id"]), text=a.get("name", "")) for a in self._accounts]
-        account_dropdown = ft.Dropdown(label="Счёт", options=account_options, border_radius=8)
+        account_dropdown = ft.Dropdown(
+            label="Счёт", options=account_options, border=ft.OutlineInputBorder(border_radius=8)
+        )
 
         type_group = ft.RadioGroup(
             content=ft.Row(
@@ -210,8 +213,10 @@ class PlannedView(BaseView):
             value="expense",
         )
 
-        amount_field = ft.TextField(label="Сумма", keyboard_type=ft.KeyboardType.NUMBER, border_radius=8)
-        description_field = ft.TextField(label="Описание", border_radius=8)
+        amount_field = ft.TextField(
+            label="Сумма", keyboard_type=ft.KeyboardType.NUMBER, border=ft.OutlineInputBorder(border_radius=8)
+        )
+        description_field = ft.TextField(label="Описание", border=ft.OutlineInputBorder(border_radius=8))
         category_picker = CategoryPicker(value=tx.get("category", "") if is_edit else "")
 
         now = datetime.datetime.now()
@@ -224,7 +229,7 @@ class PlannedView(BaseView):
         date_field = ft.TextField(
             label="Плановая дата",
             value=now.strftime("%Y-%m-%d"),
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
             read_only=True,
             suffix=ft.IconButton(
                 icon=ft.Icons.CALENDAR_MONTH,
@@ -238,14 +243,14 @@ class PlannedView(BaseView):
             label="Частота",
             options=FREQUENCY_OPTIONS,
             value="monthly",
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
             visible=False,
         )
         interval_field = ft.TextField(
             label="Интервал",
             value="1",
             keyboard_type=ft.KeyboardType.NUMBER,
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
             visible=False,
             width=100,
         )
@@ -374,10 +379,11 @@ class PlannedView(BaseView):
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
+        self._recurrence_dialog = dialog
         self.page.show_dialog(dialog)
 
     def _on_recurrence_toggle(self, e):
-        dialog = self.page.dialog
+        dialog = self._recurrence_dialog
         if dialog and isinstance(dialog, ft.AlertDialog) and dialog.open:
             content = dialog.content.content
             for control in content.controls:
@@ -395,7 +401,7 @@ class PlannedView(BaseView):
         picker = ft.DatePicker(
             on_change=lambda e: self._on_date_picked(e, date_field),
         )
-        self.page.show_date_picker(picker)
+        self.page.show_dialog(picker)
 
     def _on_date_picked(self, e, date_field):
         if e.control.value:

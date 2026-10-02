@@ -188,7 +188,7 @@ class AccountsView(BaseView):
         name_field = ft.TextField(
             label="Название",
             value=account.get("name", "") if is_edit else "",
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
             autofocus=True,
         )
 
@@ -201,14 +201,14 @@ class AccountsView(BaseView):
             value=str(account.get("resource_definition", ""))
             if is_edit and account.get("resource_definition")
             else None,
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
             disabled=is_edit,
         )
 
         group_field = ft.TextField(
             label="Группа",
             value=account.get("group", "") if is_edit else "",
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
         )
 
         account_type_options = [
@@ -220,7 +220,7 @@ class AccountsView(BaseView):
             label="Тип счета",
             options=account_type_options,
             value=account.get("account_type", "main") if is_edit else "main",
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
         )
 
         error_text = ft.Text("", size=12, color=ft.Colors.ERROR, visible=False)

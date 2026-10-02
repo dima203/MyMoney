@@ -98,7 +98,7 @@ class MyMoneyApp:
             return
 
         if not self._has_stored_token():
-            self.page.go("/login")
+            self.page.navigate("/login")
             return
 
         self._init_offline_views()
@@ -151,7 +151,7 @@ class MyMoneyApp:
                 )
             )
         else:
-            self.page.go("/accounts")
+            self.page.navigate("/accounts")
             return
         self.page.update()
 
@@ -163,7 +163,7 @@ class MyMoneyApp:
         logger.info("Tokens loaded, navigating to /accounts")
         self._init_offline_views()
         if self.page is not None:
-            self.page.go("/accounts")
+            self.page.navigate("/accounts")
 
     def _on_logout(self) -> None:
         self.api_client.logout()
@@ -181,7 +181,7 @@ class MyMoneyApp:
                 top_view = self.page.views[-1]
                 await self.page.push_route(top_view.route)
             else:
-                self.page.go("/accounts")
+                self.page.navigate("/accounts")
 
     async def main(self, page: ft.Page) -> None:
         self.page = page
@@ -210,7 +210,7 @@ class MyMoneyApp:
         else:
             logger.info("No valid session, going to /login")
             self.page.views.remove(splash)
-            self.page.go("/login")
+            self.page.navigate("/login")
 
     def run(self):
-        ft.app(target=self.main)
+        ft.run(self.main)

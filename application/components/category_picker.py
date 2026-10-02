@@ -25,7 +25,7 @@ class CategoryPicker(ft.Container):
             label="Категория",
             options=options,
             value=value if value in self._categories else None,
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
             autofocus=False,
             on_select=self._handle_change,
             expand=True,
@@ -62,7 +62,7 @@ class CategoryPicker(ft.Container):
     def _show_add_dialog(self, e):
         new_category_field = ft.TextField(
             label="Новая категория",
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
             autofocus=True,
         )
 

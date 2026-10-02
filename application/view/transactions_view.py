@@ -34,7 +34,7 @@ class TransactionsView(BaseView):
             label="Категория",
             options=[ft.dropdown.Option("Все")],
             value="Все",
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
             width=160,
             on_select=self._apply_filters,
         )
@@ -232,17 +232,21 @@ class TransactionsView(BaseView):
         )
 
         account_options = [ft.dropdown.Option(key=str(a["id"]), text=a.get("name", "")) for a in self._accounts]
-        account_dropdown = ft.Dropdown(label="Счёт", options=account_options, border_radius=8)
+        account_dropdown = ft.Dropdown(
+            label="Счёт", options=account_options, border=ft.OutlineInputBorder(border_radius=8)
+        )
 
         to_account_dropdown = ft.Dropdown(
             label="Счёт получения",
             options=account_options,
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
             visible=False,
         )
 
-        amount_field = ft.TextField(label="Сумма", keyboard_type=ft.KeyboardType.NUMBER, border_radius=8)
-        description_field = ft.TextField(label="Описание", border_radius=8)
+        amount_field = ft.TextField(
+            label="Сумма", keyboard_type=ft.KeyboardType.NUMBER, border=ft.OutlineInputBorder(border_radius=8)
+        )
+        description_field = ft.TextField(label="Описание", border=ft.OutlineInputBorder(border_radius=8))
 
         category_picker = CategoryPicker(value=tx.get("category", "") if is_edit else "")
 
@@ -256,7 +260,7 @@ class TransactionsView(BaseView):
         date_field = ft.TextField(
             label="Дата",
             value=now.strftime("%Y-%m-%d"),
-            border_radius=8,
+            border=ft.OutlineInputBorder(border_radius=8),
             read_only=True,
             suffix=ft.IconButton(
                 icon=ft.Icons.CALENDAR_MONTH,
@@ -398,7 +402,7 @@ class TransactionsView(BaseView):
         picker = ft.DatePicker(
             on_change=lambda e: self._on_date_picked(e, date_field),
         )
-        self.page.show_date_picker(picker)
+        self.page.show_dialog(picker)
 
     def _on_date_picked(self, e, date_field):
         if e.control.value:
