@@ -2,15 +2,17 @@ import asyncio
 import datetime
 
 import flet as ft
-from application.api import ApiError, BackendUnreachableError
+from application.api import ApiError, BackendUnreachableError, RestClientError
 from application.components import BaseView
 from application.components.category_picker import CategoryPicker
+from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.planned_transaction_card import PlannedTransactionCard
 from core.recurrence import Frequency, RecurrenceRule
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
 from MySpaceShared.components.loading_state import LoadingState
+from MySpaceShared.components.section_header import SectionHeader
 
 FREQUENCY_OPTIONS = [
     ft.dropdown.Option(key="daily", text="Ежедневно"),
@@ -18,6 +20,34 @@ FREQUENCY_OPTIONS = [
     ft.dropdown.Option(key="monthly", text="Ежемесячно"),
     ft.dropdown.Option(key="yearly", text="Ежегодно"),
 ]
+
+BUDGETS_SECTION_TITLE = "Запланировано из задач/ событий"
+CROSS_APP_BUDGET_SOURCES = ("task", "calendar")
+
+
+def filter_cross_app_budgets(items: list[dict]) -> list[dict]:
+    """Keep task/calendar budget rows, drop own transactions and duplicates, sort by date."""
+    seen: set[tuple] = set()
+    result: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("source_app") not in CROSS_APP_BUDGET_SOURCES:
+            continue
+        key = (
+            item.get("source_app"),
+            item.get("source_id"),
+            item.get("title"),
+            str(item.get("date")),
+            str(item.get("amount")),
+            item.get("currency"),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    result.sort(key=lambda entry: str(entry.get("date") or "9999-12-31"))
+    return result
 
 
 class PlannedView(BaseView):
@@ -28,6 +58,7 @@ class PlannedView(BaseView):
         self._connection_banner = connection_banner or ConnectionBanner()
         self._disposed = False
         self._transactions: list[dict] = []
+        self._budgets: list[dict] = []
         self._accounts: list[dict] = []
         self._account_map: dict[int, dict] = {}
         self._recurrence_dialog: ft.AlertDialog | None = None
@@ -35,14 +66,36 @@ class PlannedView(BaseView):
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
         self._loading = LoadingState()
         self._loading.visible = True
-        self._tx_list = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
+        self._tx_list = ft.Column(spacing=8)
+        self._budget_hint = ft.Text(
+            "",
+            size=12,
+            color=ft.Colors.ON_SURFACE_VARIANT,
+            visible=False,
+        )
+        self._budget_items = ft.Column(spacing=8)
+        self._budget_section = ft.Column(
+            spacing=8,
+            visible=False,
+            controls=[
+                SectionHeader(BUDGETS_SECTION_TITLE),
+                self._budget_hint,
+                self._budget_items,
+            ],
+        )
+        self._scroll_column = ft.Column(
+            controls=[self._tx_list, self._budget_section],
+            spacing=16,
+            expand=True,
+            scroll=ft.ScrollMode.AUTO,
+        )
 
         content = ft.Column(
             controls=[
                 self._connection_banner,
                 self._error_text,
                 self._loading,
-                self._tx_list,
+                self._scroll_column,
             ],
             expand=True,
         )
@@ -106,6 +159,46 @@ class PlannedView(BaseView):
                 self._error_text.value = f"Ошибка загрузки: {exc}"
                 self._error_text.visible = True
                 self.update()
+
+        if not self._disposed:
+            await self._load_budgets()
+
+    async def _load_budgets(self) -> None:
+        self._budgets = []
+        self._budget_hint.value = ""
+        if self._disposed:
+            return
+        if self._transaction_view is not None and not self._transaction_view.is_online:
+            self._budget_hint.value = "Нет подключения: планы из задач и событий недоступны"
+            self._render_budget_section()
+            return
+        try:
+            raw = await asyncio.to_thread(self.api_client.list_budgets)
+        except (RestClientError, AttributeError):
+            if not self._disposed:
+                self._budget_hint.value = "Не удалось загрузить планы из задач и событий"
+                self._render_budget_section()
+            return
+        if self._disposed:
+            return
+        items = raw.get("results", []) if isinstance(raw, dict) else raw
+        self._budgets = filter_cross_app_budgets(items if isinstance(items, list) else [])
+        self._render_budget_section()
+
+    def _render_budget_section(self) -> None:
+        self._budget_items.controls.clear()
+        if self._budgets:
+            for item in self._budgets:
+                self._budget_items.controls.append(CrossAppBudgetCard(item))
+            self._budget_hint.visible = False
+            self._budget_section.visible = True
+        elif self._budget_hint.value:
+            self._budget_hint.visible = True
+            self._budget_section.visible = True
+        else:
+            self._budget_hint.visible = False
+            self._budget_section.visible = False
+        self.update()
 
     def _rebuild_list(self):
         self._tx_list.controls.clear()
@@ -430,9 +523,7 @@ class PlannedView(BaseView):
                 self.update()
 
         desc = tx.get("description", "") or "Без описания"
-        delete_button = ft.Button(
-            "Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR
-        )
+        delete_button = ft.Button("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR)
         dialog = ft.AlertDialog(
             title=ft.Text("Удалить план?"),
             content=ft.Text(f'Удалить "{desc}"?'),

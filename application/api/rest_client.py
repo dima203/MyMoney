@@ -61,6 +61,9 @@ class RestClient(BaseRestClient):
     def list_planned_transactions(self, **params) -> list:
         return self._request("GET", "/api/v1/interactions/planned-transactions/", params=params)
 
+    def list_budgets(self, **params) -> list:
+        return self._request("GET", "/api/v1/interactions/budgets/", params=params)
+
 
 __all__ = [
     "ApiError",

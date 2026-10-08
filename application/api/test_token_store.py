@@ -27,7 +27,7 @@ class TestTokenData:
 class TestTokenStoreInit:
     def test_default_path(self):
         store = TokenStore()
-        assert store.path == Path.home() / ".mymoney" / "tokens.json"
+        assert store.path == Path.home() / ".myspace" / "tokens.json"
 
     def test_custom_path(self, tmp_path):
         store = TokenStore(tmp_path / "custom.json")
@@ -37,6 +37,68 @@ class TestTokenStoreInit:
         path = str(tmp_path / "tokens.json")
         store = TokenStore(path)
         assert store.path == Path(path)
+
+
+class TestLegacyMigration:
+    @staticmethod
+    def _patch_home(monkeypatch, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        base = type(Path(""))
+
+        class _HomePath(base):
+            @classmethod
+            def home(cls):
+                return home
+
+        monkeypatch.setattr("MySpaceShared.api.token_store.Path", _HomePath)
+        return home
+
+    def test_legacy_mymoney_file_is_migrated(self, monkeypatch, tmp_path):
+        home = self._patch_home(monkeypatch, tmp_path)
+        legacy = home / ".mymoney" / "tokens.json"
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text(
+            json.dumps({"access": "a1", "refresh": "r1", "username": "u"}),
+            encoding="utf-8",
+        )
+
+        store = TokenStore()
+        data = store.load()
+
+        assert data.access == "a1"
+        assert data.refresh == "r1"
+        assert store.path == home / ".myspace" / "tokens.json"
+        assert store.path.exists()
+        assert not legacy.exists()
+
+    def test_corrupt_legacy_file_does_not_crash(self, monkeypatch, tmp_path):
+        home = self._patch_home(monkeypatch, tmp_path)
+        legacy = home / ".mymoney" / "tokens.json"
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text("not json {{{", encoding="utf-8")
+
+        store = TokenStore()
+        data = store.load()
+
+        assert data.access == ""
+        assert not store.path.exists()
+
+    def test_explicit_path_skips_migration(self, monkeypatch, tmp_path):
+        home = self._patch_home(monkeypatch, tmp_path)
+        legacy = home / ".mymoney" / "tokens.json"
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text(
+            json.dumps({"access": "a1", "refresh": "r1", "username": "u"}),
+            encoding="utf-8",
+        )
+        target = tmp_path / "explicit.json"
+
+        data = TokenStore(target).load()
+
+        assert data.access == ""
+        assert not target.exists()
+        assert legacy.exists()
 
 
 class TestTokenStoreLoad:

@@ -119,6 +119,9 @@ def test_domain_methods_hit_correct_urls():
     client.list_planned_transactions()
     assert seen["path"] == "/api/v1/interactions/planned-transactions/"
 
+    client.list_budgets()
+    assert seen["path"] == "/api/v1/interactions/budgets/"
+
 
 # ------------------------------------------------------------------ CRUD
 
