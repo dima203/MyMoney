@@ -21,7 +21,7 @@ FREQUENCY_OPTIONS = [
     ft.dropdown.Option(key="yearly", text="Ежегодно"),
 ]
 
-BUDGETS_SECTION_TITLE = "Запланировано из задач/ событий"
+BUDGETS_SECTION_TITLE = "Запланировано из задач/событий"
 CROSS_APP_BUDGET_SOURCES = ("task", "calendar")
 
 

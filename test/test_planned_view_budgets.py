@@ -1,4 +1,4 @@
-"""Тесты секции «Запланировано из задач/ событий» в PlannedView."""
+"""Тесты секции «Запланировано из задач/событий» в PlannedView."""
 
 import asyncio
 from unittest.mock import MagicMock
