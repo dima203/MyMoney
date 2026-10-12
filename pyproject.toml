@@ -1,4 +1,7 @@
 [project]
+name = "mymoney"
+version = "0.1.0"
+description = "MyMoney — Flet desktop client for income/expenses tracking"
 requires-python = ">= 3.12"
 
 [tool.ruff]
@@ -13,7 +16,7 @@ indent-width = 4 # Ширина отступа
 src = ["src"]
 
 # Настройки линтера
-[lint]
+[tool.ruff.lint]
 # Нестабильные и находящиеся в предварительной версии правила
 preview = true
 # Правила, которые должен применять линтер
@@ -35,13 +38,17 @@ select = [
     "ERA",  # eradicate
     "FURB", # refurb
 ]
-# Игнорирование конкретных предупреждений линтера
+# Игнорирование конкретных предупреждений линтера (имена правил — требование RUF201)
 ignore = [
-    "C408",  # Ненужный вызов dict, list и т.д.
-    "RUF001", # Игнорирование похожих символов с разными ASCII
-    "RUF002", # Игнорирование похожих символов с разными ASCII
-    "RUF003", # Игнорирование похожих символов с разными ASCII
-    "S110",  # try-except-pass
+    "unnecessary-collection-call",                # C408: Ненужный вызов dict, list и т.д.
+    "ambiguous-unicode-character-string",         # RUF001: похожие символы с разными ASCII
+    "ambiguous-unicode-character-docstring",      # RUF002
+    "ambiguous-unicode-character-comment",        # RUF003
+    "try-except-pass",                            # S110
+    # Домен MyMoney намеренно работает с наивными локальными датами (сравнения с серверными данными, тесты)
+    "call-datetime-without-tzinfo",               # DTZ001
+    "call-datetime-now-without-tzinfo",           # DTZ005
+    "call-date-today",                            # DTZ011
 ]
 # Исключение директорий и файлов из линтинга
 exclude = [
@@ -52,11 +59,21 @@ fixable = [
     "I", # cортировка испортов
 ]
 
-# Настройки форматтера
-[format]
-quote-style = "double" # 'single' для одинарных, "double" для двойных кавычек
-indent-style = "space"
+[tool.ruff.lint.per-file-ignores]
+# Офлайн-слой ловит любые ошибки сети, чтобы переключиться в offline-режим
+"database/pending_store.py" = ["blind-except"]
+"database/server_base.py" = ["blind-except"]
+# В тестах допустимы assert и точное сравнение литеральных float-значений
+"**/test/**" = ["assert", "float-equality-comparison"]
+"**/test_*.py" = ["assert", "float-equality-comparison"]
+# logging.basicConfig() должен выполняться до импорта application-модулей
+"main.py" = ["module-import-not-at-top-of-file"]
 
 # Дополнительные настройки для плагинов
-[lint.flake8-bandit]
+[tool.ruff.lint.flake8-bandit]
 check-typed-exception = true # Проверка типизированных исключений
+
+# Настройки форматтера
+[tool.ruff.format]
+quote-style = "double" # 'single' для одинарных, "double" для двойных кавычек
+indent-style = "space"

@@ -2,10 +2,11 @@ import datetime
 import json
 from pathlib import Path
 
-from dataview import ResourceBaseView, AccountBaseView, TransactionBaseView
-from core import Account, Transaction, Resource
+from core import Account, Resource, Transaction
 from core.journal_entry import JournalEntry
 from database import JSONBase
+
+from dataview import AccountBaseView, ResourceBaseView, TransactionBaseView
 
 
 class TestResourceBaseView:

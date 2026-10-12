@@ -2,7 +2,7 @@ import datetime
 from abc import ABC, abstractmethod
 from typing import Any
 
-from core import Account, Transaction, Resource
+from core import Account, Resource, Transaction
 from core.journal_entry import JournalEntry
 from database import DataBase
 

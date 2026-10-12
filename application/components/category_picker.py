@@ -66,7 +66,7 @@ class CategoryPicker(ft.Container):
             autofocus=True,
         )
 
-        async def on_add(e):
+        def on_add(e):
             name = new_category_field.value.strip() if new_category_field.value else ""
             if name and name not in self._categories:
                 self._categories.append(name)

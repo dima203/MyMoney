@@ -112,7 +112,7 @@ class PlannedView(BaseView):
 
     def did_mount(self):
         super().did_mount()
-        asyncio.create_task(self._load_data())
+        self._load_task = asyncio.create_task(self._load_data())
 
     def dispose(self):
         self._disposed = True

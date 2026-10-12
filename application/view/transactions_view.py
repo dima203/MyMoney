@@ -66,7 +66,7 @@ class TransactionsView(BaseView):
 
     def did_mount(self):
         super().did_mount()
-        asyncio.create_task(self._load_data())
+        self._load_task = asyncio.create_task(self._load_data())
 
     def dispose(self):
         self._disposed = True
@@ -431,9 +431,7 @@ class TransactionsView(BaseView):
                 self.update()
 
         desc = tx.get("description", "") or "Без описания"
-        delete_button = ft.Button(
-            "Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR
-        )
+        delete_button = ft.Button("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR)
         dialog = ft.AlertDialog(
             title=ft.Text("Удалить транзакцию?"),
             content=ft.Text(f'Удалить "{desc}"? Это действие необратимо.'),

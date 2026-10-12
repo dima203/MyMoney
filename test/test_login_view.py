@@ -14,6 +14,7 @@ class FakeOAuthFlow:
     def start(self):
         if not self.success:
             from MySpaceShared.auth.google_auth import OAuthCallbackError
+
             raise OAuthCallbackError(self.error_msg or "OAuth failed")
         return {"access": "acc1", "refresh": "ref1"}
 
@@ -37,9 +38,11 @@ def _mock_config_response():
 
 def test_authenticate_success():
     view = _view()
-    with patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow, \
-         patch("MySpaceShared.api.token_store.TokenStore") as MockStore, \
-         patch("httpx.Client") as MockClient:
+    with (
+        patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow,
+        patch("MySpaceShared.api.token_store.TokenStore") as MockStore,
+        patch("httpx.Client") as MockClient,
+    ):
         MockFlow.return_value = FakeOAuthFlow(success=True)
         MockClient.return_value.__enter__ = lambda s: s
         MockClient.return_value.__exit__ = MagicMock(return_value=False)
@@ -52,9 +55,11 @@ def test_authenticate_success():
 
 def test_authenticate_saves_tokens():
     view = _view()
-    with patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow, \
-         patch("MySpaceShared.api.token_store.TokenStore") as MockStore, \
-         patch("httpx.Client") as MockClient:
+    with (
+        patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow,
+        patch("MySpaceShared.api.token_store.TokenStore") as MockStore,
+        patch("httpx.Client") as MockClient,
+    ):
         MockFlow.return_value = FakeOAuthFlow(success=True)
         MockClient.return_value.__enter__ = lambda s: s
         MockClient.return_value.__exit__ = MagicMock(return_value=False)
@@ -67,8 +72,7 @@ def test_authenticate_saves_tokens():
 
 def test_authenticate_oauth_error():
     view = _view()
-    with patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow, \
-         patch("httpx.Client") as MockClient:
+    with patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow, patch("httpx.Client") as MockClient:
         MockFlow.return_value = FakeOAuthFlow(success=False, error_msg="auth denied")
         MockClient.return_value.__enter__ = lambda s: s
         MockClient.return_value.__exit__ = MagicMock(return_value=False)
@@ -80,8 +84,7 @@ def test_authenticate_oauth_error():
 
 def test_authenticate_network_error():
     view = _view()
-    with patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow, \
-         patch("httpx.Client") as MockClient:
+    with patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow, patch("httpx.Client") as MockClient:
         MockFlow.return_value = FakeOAuthFlow(success=False, error_msg="connection refused")
         MockClient.return_value.__enter__ = lambda s: s
         MockClient.return_value.__exit__ = MagicMock(return_value=False)
@@ -93,9 +96,11 @@ def test_authenticate_network_error():
 
 def test_submit_success_calls_on_success():
     view = _view()
-    with patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow, \
-         patch("MySpaceShared.api.token_store.TokenStore"), \
-         patch("httpx.Client") as MockClient:
+    with (
+        patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow,
+        patch("MySpaceShared.api.token_store.TokenStore"),
+        patch("httpx.Client") as MockClient,
+    ):
         MockFlow.return_value = FakeOAuthFlow(success=True)
         MockClient.return_value.__enter__ = lambda s: s
         MockClient.return_value.__exit__ = MagicMock(return_value=False)
@@ -103,14 +108,14 @@ def test_submit_success_calls_on_success():
 
         async def run():
             await view._submit(None)
+
         asyncio.run(run())
     view.on_success.assert_called_once_with(view)
 
 
 def test_submit_error_sets_error_text():
     view = _view()
-    with patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow, \
-         patch("httpx.Client") as MockClient:
+    with patch("MySpaceShared.auth.google_auth.GoogleOAuthFlow") as MockFlow, patch("httpx.Client") as MockClient:
         MockFlow.return_value = FakeOAuthFlow(success=False, error_msg="oauth failed")
         MockClient.return_value.__enter__ = lambda s: s
         MockClient.return_value.__exit__ = MagicMock(return_value=False)
@@ -118,6 +123,7 @@ def test_submit_error_sets_error_text():
 
         async def run():
             await view._submit(None)
+
         asyncio.run(run())
     assert view.error_text.visible is True
     assert "oauth failed" in view.error_text.value

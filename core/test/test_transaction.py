@@ -1,7 +1,7 @@
 import datetime
 from unittest.mock import MagicMock
 
-from core import Account, Transaction, Resource
+from core import Account, Resource, Transaction
 from core.journal_entry import JournalEntry
 
 

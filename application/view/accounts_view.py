@@ -9,7 +9,6 @@ from application.components.crypto_summary import CryptoSummary
 from application.components.navigation_items import NAVIGATION_ITEMS
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
-from MySpaceShared.components.error_state import ErrorState
 from MySpaceShared.components.loading_state import LoadingState
 
 
@@ -52,7 +51,7 @@ class AccountsView(BaseView):
 
     def did_mount(self):
         super().did_mount()
-        asyncio.create_task(self._load_data())
+        self._load_task = asyncio.create_task(self._load_data())
 
     def dispose(self):
         self._disposed = True
@@ -313,9 +312,7 @@ class AccountsView(BaseView):
                 self._error_text.visible = True
                 self.update()
 
-        delete_button = ft.Button(
-            "Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR
-        )
+        delete_button = ft.Button("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR)
         dialog = ft.AlertDialog(
             title=ft.Text("Удалить счет?"),
             content=ft.Text(f'Удалить "{account.get("name", "")}"? Это действие необратимо.'),

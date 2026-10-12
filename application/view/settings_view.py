@@ -25,7 +25,7 @@ class SettingsView(BaseSettingsView):
 
     def did_mount(self):
         super().did_mount()
-        asyncio.create_task(self._async_load_profile())
+        self._load_task = asyncio.create_task(self._async_load_profile())
 
     async def _async_load_profile(self):
         try:

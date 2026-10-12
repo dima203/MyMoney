@@ -1,10 +1,10 @@
-from typing import Self
+from typing import ClassVar, Self
 
 from .resource import Resource
 
 
 class Money:
-    __currency_names = {
+    __currency_names: ClassVar[dict[str, str]] = {
         "USD": "Dollar",
         "EUR": "Euro",
         "RUB": "Ruble",
@@ -25,7 +25,7 @@ class Money:
         "USDC": "USD Coin",
     }
 
-    __currency_symbols = {
+    __currency_symbols: ClassVar[dict[str, str]] = {
         "USD": "$",
         "EUR": "\u20ac",
         "RUB": "\u20bd",

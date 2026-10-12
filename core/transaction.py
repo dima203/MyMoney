@@ -1,5 +1,5 @@
 import datetime
-from typing import Callable
+from collections.abc import Callable
 
 from .journal_entry import JournalEntry
 

@@ -13,7 +13,6 @@ class AccountCard(ft.Container):
         menu_button = ft.PopupMenuButton(
             icon=ft.Icons.MORE_VERT,
             icon_size=20,
-            # menu_offset=ft.Offset(0, -10),
             items=[
                 ft.PopupMenuItem(content="Редактировать", icon=ft.Icons.EDIT, on_click=lambda _: on_edit and on_edit()),
                 ft.PopupMenuItem(content="Удалить", icon=ft.Icons.DELETE, on_click=lambda _: on_delete and on_delete()),
