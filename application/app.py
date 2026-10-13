@@ -16,6 +16,7 @@ from core import APP_SETTINGS, build_theme, theme_mode_value
 from core.config import SETTINGS
 from database.views import AccountView, ResourceView, TransactionView
 from MySpaceShared.components.connection_status import ConnectionBanner
+from MySpaceShared.components.utils import is_mobile_page
 
 logger = logging.getLogger(__name__)
 
@@ -186,10 +187,11 @@ class MyMoneyApp:
     async def main(self, page: ft.Page) -> None:
         self.page = page
         self.page.title = "MyMoney"
-        self.page.window.min_width = 500
-        self.page.window.min_height = 700
-        self.page.window.width = 500
-        self.page.window.height = 700
+        if not is_mobile_page(page):
+            self.page.window.min_width = 500
+            self.page.window.min_height = 700
+            self.page.window.width = 500
+            self.page.window.height = 700
 
         self.page.theme_mode = theme_mode_value(APP_SETTINGS.theme_mode)
         self.page.theme = build_theme(APP_SETTINGS.accent_color)
