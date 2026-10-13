@@ -8,6 +8,7 @@ from application.components import BaseView
 from application.components.category_picker import CategoryPicker
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.transaction_card import TransactionCard
+from application.display import FAB_CLEARANCE, account_display_name, format_amount_input
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
 from MySpaceShared.components.loading_state import LoadingState
@@ -161,6 +162,7 @@ class TransactionsView(BaseView):
                 card = self._build_card(tx)
                 self._tx_list.controls.append(card)
 
+        self._tx_list.controls.append(ft.Container(height=FAB_CLEARANCE))
         self.update()
 
     def _group_by_date(self, transactions: list[dict]) -> dict[str, list[dict]]:
@@ -186,13 +188,22 @@ class TransactionsView(BaseView):
 
         return dict(groups)
 
+    def _resolve_currency(self, entries: list[dict]) -> str:
+        """Валюта строки: общий unit счётов записей; пусто при смешанных переводах."""
+        units = {
+            str(self._account_map.get(entry.get("account"), {}).get("resource") or "").strip() for entry in entries
+        }
+        units.discard("")
+        return units.pop() if len(units) == 1 else ""
+
     def _build_card(self, tx: dict) -> TransactionCard:
         entries = tx.get("entries", [])
         total = sum(float(e.get("amount", 0)) for e in entries)
         first_entry = entries[0] if entries else {}
         account_id = first_entry.get("account")
         account = self._account_map.get(account_id, {})
-        account_name = account.get("name", "—")
+        account_name = account_display_name(account)
+        currency = self._resolve_currency(entries)
 
         try:
             timestamp = datetime.datetime.fromisoformat(tx.get("date", ""))
@@ -203,6 +214,7 @@ class TransactionsView(BaseView):
             description=tx.get("description", ""),
             amount=total,
             account_name=account_name,
+            currency=currency,
             category=tx.get("category", ""),
             timestamp=timestamp,
             on_edit=lambda t=tx: self._show_edit_dialog(t),
@@ -231,7 +243,7 @@ class TransactionsView(BaseView):
             value="expense",
         )
 
-        account_options = [ft.dropdown.Option(key=str(a["id"]), text=a.get("name", "")) for a in self._accounts]
+        account_options = [ft.dropdown.Option(key=str(a["id"]), text=account_display_name(a)) for a in self._accounts]
         account_dropdown = ft.Dropdown(
             label="Счёт", options=account_options, border=ft.OutlineInputBorder(border_radius=8)
         )
@@ -282,7 +294,7 @@ class TransactionsView(BaseView):
             entries = tx.get("entries", [])
             if entries:
                 first = entries[0]
-                amount_field.value = str(abs(float(first.get("amount", 0))))
+                amount_field.value = format_amount_input(float(first.get("amount", 0)))
                 account_dropdown.value = str(first.get("account", ""))
             type_group.value = "expense"
             description_field.value = tx.get("description", "")

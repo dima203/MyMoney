@@ -8,6 +8,7 @@ from application.components.category_picker import CategoryPicker
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.planned_transaction_card import PlannedTransactionCard
+from application.display import FAB_CLEARANCE, account_display_name, format_amount_input
 from core.recurrence import Frequency, RecurrenceRule
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
@@ -84,7 +85,7 @@ class PlannedView(BaseView):
             ],
         )
         self._scroll_column = ft.Column(
-            controls=[self._tx_list, self._budget_section],
+            controls=[self._tx_list, self._budget_section, ft.Container(height=FAB_CLEARANCE)],
             spacing=16,
             expand=True,
             scroll=ft.ScrollMode.AUTO,
@@ -231,7 +232,7 @@ class PlannedView(BaseView):
         first_entry = entries[0] if entries else {}
         account_id = first_entry.get("account")
         account = self._account_map.get(account_id, {})
-        account_name = account.get("name", "—")
+        account_name = account_display_name(account)
 
         planned_date = None
         date_str = tx.get("date", "")
@@ -290,7 +291,7 @@ class PlannedView(BaseView):
         is_edit = tx is not None
         title = "Редактировать план" if is_edit else "Новый план"
 
-        account_options = [ft.dropdown.Option(key=str(a["id"]), text=a.get("name", "")) for a in self._accounts]
+        account_options = [ft.dropdown.Option(key=str(a["id"]), text=account_display_name(a)) for a in self._accounts]
         account_dropdown = ft.Dropdown(
             label="Счёт", options=account_options, border=ft.OutlineInputBorder(border_radius=8)
         )
@@ -354,7 +355,7 @@ class PlannedView(BaseView):
             entries = tx.get("entries", [])
             if entries:
                 first = entries[0]
-                amount_field.value = str(abs(float(first.get("amount", 0))))
+                amount_field.value = format_amount_input(float(first.get("amount", 0)))
                 account_dropdown.value = str(first.get("account", ""))
             description_field.value = tx.get("description", "")
             if tx.get("recurrence_rule"):

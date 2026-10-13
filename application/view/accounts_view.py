@@ -8,6 +8,7 @@ from application.components.account_group import AccountGroup
 from application.components.crypto_summary import CryptoSummary
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.demo_seed import DemoSeeder
+from application.display import FAB_CLEARANCE, account_display_name
 from core.onboarding import OnboardingState
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
@@ -181,7 +182,7 @@ class AccountsView(BaseView):
 
             account_data = {
                 "id": acc["id"],
-                "name": acc.get("name", ""),
+                "name": account_display_name(acc, resource["name"] if resource else ""),
                 "balance": f"{balance:,.2f} {resource_name}",
                 "icon": icon,
                 "on_edit": lambda a=acc: self._show_edit_dialog(a),
@@ -239,6 +240,8 @@ class AccountsView(BaseView):
                     self._on_start_fresh,
                 )
             )
+        else:
+            self._accounts_column.controls.append(ft.Container(height=FAB_CLEARANCE))
 
         self.update()
 
@@ -431,7 +434,7 @@ class AccountsView(BaseView):
         delete_button = ft.Button("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR)
         dialog = ft.AlertDialog(
             title=ft.Text("Удалить счет?"),
-            content=ft.Text(f'Удалить "{account.get("name", "")}"? Это действие необратимо.'),
+            content=ft.Text(f'Удалить "{account_display_name(account)}"? Это действие необратимо.'),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda _: self.page.pop_dialog()),
                 delete_button,

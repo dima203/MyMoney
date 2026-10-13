@@ -9,6 +9,7 @@ class TransactionCard(ft.Container):
         description: str,
         amount: float,
         account_name: str,
+        currency: str = "",
         category: str = "",
         timestamp: datetime.datetime | None = None,
         on_edit=None,
@@ -17,11 +18,14 @@ class TransactionCard(ft.Container):
         super().__init__()
         self._on_edit = on_edit
         self._on_delete = on_delete
+        self._currency = currency
 
         is_positive = amount >= 0
         amount_color = ft.Colors.GREEN_700 if is_positive else ft.Colors.RED_700
         amount_prefix = "+" if is_positive else ""
         amount_str = f"{amount_prefix}{amount:,.2f}"
+        if currency:
+            amount_str = f"{amount_str} {currency}"
 
         time_str = ""
         if timestamp:
@@ -95,6 +99,9 @@ class TransactionCard(ft.Container):
         is_positive = amount >= 0
         amount_color = ft.Colors.GREEN_700 if is_positive else ft.Colors.RED_700
         amount_prefix = "+" if is_positive else ""
-        self._amount_text.value = f"{amount_prefix}{amount:,.2f}"
+        amount_str = f"{amount_prefix}{amount:,.2f}"
+        if self._currency:
+            amount_str = f"{amount_str} {self._currency}"
+        self._amount_text.value = amount_str
         self._amount_text.color = amount_color
         self.update()
