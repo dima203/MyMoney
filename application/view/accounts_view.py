@@ -7,13 +7,73 @@ from application.components import BaseView
 from application.components.account_group import AccountGroup
 from application.components.crypto_summary import CryptoSummary
 from application.components.navigation_items import NAVIGATION_ITEMS
+from application.demo_seed import DemoSeeder
+from core.onboarding import OnboardingState
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
 from MySpaceShared.components.loading_state import LoadingState
 
 
+def build_empty_state(show_welcome: bool, on_seed, on_start_fresh) -> ft.Control:
+    seed_button = ft.Button("Заполнить примерами", on_click=on_seed)
+    if show_welcome:
+        return ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Icon(ft.Icons.WAVING_HAND, size=64, color=ft.Colors.ON_SURFACE_VARIANT),
+                    ft.Text(
+                        "Добро пожаловать в MyMoney!",
+                        size=20,
+                        color=ft.Colors.ON_SURFACE_VARIANT,
+                        text_align=ft.TextAlign.CENTER,
+                    ),
+                    ft.Text(
+                        "Счета, операции и бюджеты в одном месте. "
+                        "Начните с примеров или добавьте первый счёт кнопкой +.",
+                        size=14,
+                        color=ft.Colors.ON_SURFACE_VARIANT,
+                        text_align=ft.TextAlign.CENTER,
+                    ),
+                    ft.Row(
+                        controls=[seed_button, ft.TextButton("Начать с нуля", on_click=on_start_fresh)],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        wrap=True,
+                    ),
+                ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=12,
+            ),
+            alignment=ft.Alignment.CENTER,
+            padding=ft.Padding.only(top=48, bottom=24),
+        )
+    return ft.Container(
+        content=ft.Column(
+            controls=[
+                EmptyState(
+                    icon=ft.Icons.ACCOUNT_BALANCE_WALLET,
+                    title="Нет счетов",
+                    subtitle="Нажмите + чтобы добавить",
+                ),
+                ft.Row(controls=[seed_button], alignment=ft.MainAxisAlignment.CENTER),
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=12,
+        ),
+        height=360,
+    )
+
+
 class AccountsView(BaseView):
-    def __init__(self, route: str, api_client, resource_view=None, account_view=None, connection_banner=None):
+    def __init__(
+        self,
+        route: str,
+        api_client,
+        resource_view=None,
+        account_view=None,
+        connection_banner=None,
+        onboarding: OnboardingState | None = None,
+        seeder_factory=None,
+    ):
         self.api_client = api_client
         self._resource_view = resource_view
         self._account_view = account_view
@@ -22,8 +82,13 @@ class AccountsView(BaseView):
         self._accounts: list[dict] = []
         self._resources: list[dict] = []
         self._resource_map: dict[int, dict] = {}
+        self._onboarding = onboarding if onboarding is not None else OnboardingState()
+        self._seeder_factory = seeder_factory
+        self._seeding = False
+        self._seed_busy = False
 
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
+        self._seed_status = ft.Text("", size=13, color=ft.Colors.ON_SURFACE_VARIANT, visible=False)
         self._accounts_column = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
         self._loading = LoadingState()
         self._loading.visible = True
@@ -32,6 +97,7 @@ class AccountsView(BaseView):
             controls=[
                 self._connection_banner,
                 self._error_text,
+                self._seed_status,
                 self._loading,
                 self._accounts_column,
             ],
@@ -59,6 +125,8 @@ class AccountsView(BaseView):
     async def _load_data(self):
         try:
             self._error_text.visible = False
+            self._seed_busy = False
+            self._seed_status.visible = False
             self._loading.visible = True
             self._accounts_column.controls.clear()
             self.update()
@@ -165,14 +233,62 @@ class AccountsView(BaseView):
 
         if not self._accounts_column.controls:
             self._accounts_column.controls.append(
-                EmptyState(
-                    icon=ft.Icons.ACCOUNT_BALANCE_WALLET,
-                    title="Нет счетов",
-                    subtitle="Нажмите + чтобы добавить",
+                build_empty_state(
+                    not self._onboarding.welcome_seen,
+                    self._on_seed_demo,
+                    self._on_start_fresh,
                 )
             )
 
         self.update()
+
+    def _make_seeder(self) -> DemoSeeder:
+        if self._seeder_factory is not None:
+            return self._seeder_factory()
+        return DemoSeeder(
+            resource_view=self._resource_view,
+            account_view=self._account_view,
+            api_client=self.api_client,
+        )
+
+    def _set_seed_status(self, message: str, is_error: bool) -> None:
+        self._seed_status.value = message
+        self._seed_status.color = ft.Colors.ERROR if is_error else ft.Colors.ON_SURFACE_VARIANT
+        self._seed_status.visible = bool(message)
+
+    def _on_start_fresh(self, e):
+        self._onboarding.mark_welcome_seen()
+        self._rebuild_ui()
+
+    async def _on_seed_demo(self, e=None):
+        if self._seeding:
+            return
+        self._seeding = True
+        self._seed_busy = True
+        self._set_seed_status("Заполнение примеров...", is_error=False)
+        self._rebuild_ui()
+        try:
+            result = await asyncio.to_thread(self._make_seeder().seed)
+            if self._disposed:
+                return
+            self._seed_busy = False
+            if result.status == "created":
+                self._onboarding.mark_welcome_seen()
+            await self._load_data()
+            if result.status != "created":
+                self._set_seed_status(
+                    result.message,
+                    is_error=result.status in ("partial", "error", "offline"),
+                )
+                self.update()
+        except Exception as exc:  # ruff: ignore[blind-except]
+            if not self._disposed:
+                self._seed_busy = False
+                await self._load_data()
+                self._set_seed_status(f"Ошибка заполнения: {exc}", is_error=True)
+                self.update()
+        finally:
+            self._seeding = False
 
     def _show_add_dialog(self, e):
         self._open_account_dialog()
