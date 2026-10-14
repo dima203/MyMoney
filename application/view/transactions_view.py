@@ -14,6 +14,71 @@ from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
 from MySpaceShared.components.loading_state import LoadingState
 
+DAY_HEADER_HEIGHT = 36
+SCROLL_EPSILON = 0.5
+
+
+def is_native_amount(value) -> bool:
+    if value is None:
+        return True
+    try:
+        return abs(float(value) - 1.0) < 1e-9
+    except (TypeError, ValueError):
+        return True
+
+
+def resolve_row_currency(entries: list[dict], account_map: dict) -> str:
+    """Валюта строки: общий unit «родных» записей; пусто при смешанных переводах."""
+    native_units: set[str] = set()
+    all_units: set[str] = set()
+    for entry in entries:
+        unit = str(account_map.get(entry.get("account"), {}).get("resource") or "").strip()
+        if not unit:
+            continue
+        all_units.add(unit)
+        if is_native_amount(entry.get("unit_price")):
+            native_units.add(unit)
+    if len(native_units) == 1:
+        return next(iter(native_units))
+    if not native_units and len(all_units) == 1:
+        return next(iter(all_units))
+    return ""
+
+
+def day_group_offsets(
+    content_height: float,
+    card_counts: list[int],
+    spacing: int = 8,
+    header_height: int = DAY_HEADER_HEIGHT,
+    trailer_height: int = FAB_CLEARANCE,
+) -> list[float] | None:
+    """Y-координаты шапок групп в контенте списка; None, если геометрия непригодна."""
+    n_groups = len(card_counts)
+    n_cards = sum(card_counts)
+    if n_groups == 0 or n_cards == 0:
+        return []
+    usable = content_height - n_groups * header_height - (n_cards + n_groups) * spacing - trailer_height
+    card_height = usable / n_cards
+    if card_height <= 0:
+        return None
+    offsets: list[float] = []
+    y = 0.0
+    for count in card_counts:
+        offsets.append(y)
+        y += header_height + spacing + count * (card_height + spacing)
+    return offsets
+
+
+def day_group_index(offsets: list[float], pixels: float) -> int:
+    """Индекс верхней видимой группы: самая большая шапка, не ниже точки фиксации."""
+    index = 0
+    for i, offset in enumerate(offsets):
+        if offset <= pixels + SCROLL_EPSILON:
+            index = i
+        else:
+            break
+    return index
+
 
 class TransactionsView(BaseView):
     def __init__(self, route: str, api_client, transaction_view=None, account_view=None, connection_banner=None):
@@ -26,11 +91,25 @@ class TransactionsView(BaseView):
         self._accounts: list[dict] = []
         self._account_map: dict[int, dict] = {}
         self._categories: list[str] = []
+        self._day_groups: list[tuple[str, int]] = []
 
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
         self._loading = LoadingState()
         self._loading.visible = True
-        self._tx_list = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
+        self._pinned_label = ft.Text("", size=13, weight=ft.FontWeight.W_600, color=ft.Colors.ON_SURFACE_VARIANT)
+        self._pinned_header = ft.Container(
+            content=self._pinned_label,
+            height=DAY_HEADER_HEIGHT,
+            left=0,
+            right=0,
+            top=0,
+            padding=ft.Padding.symmetric(horizontal=16),
+            alignment=ft.Alignment.CENTER_LEFT,
+            bgcolor=ft.Colors.SURFACE_CONTAINER_LOW,
+            visible=False,
+            ignore_interactions=True,
+        )
+        self._tx_list = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True, on_scroll=self._on_tx_scroll)
 
         self._filter_category = ft.Dropdown(
             label="Категория",
@@ -51,7 +130,7 @@ class TransactionsView(BaseView):
                 self._error_text,
                 self._loading,
                 self._filter_bar,
-                self._tx_list,
+                ft.Stack(controls=[self._tx_list, self._pinned_header], expand=True),
             ],
             expand=True,
         )
@@ -138,6 +217,9 @@ class TransactionsView(BaseView):
 
     def _rebuild_list(self):
         self._tx_list.controls.clear()
+        self._day_groups = []
+        self._pinned_label.value = ""
+        self._pinned_header.visible = False
         filtered = self._get_filtered_transactions()
 
         if not filtered:
@@ -152,10 +234,13 @@ class TransactionsView(BaseView):
             return
 
         grouped = self._group_by_date(filtered)
+        self._day_groups = [(date_label, len(txs)) for date_label, txs in grouped.items()]
         for date_label, txs in grouped.items():
             header = ft.Container(
                 content=ft.Text(date_label, size=13, weight=ft.FontWeight.W_600, color=ft.Colors.ON_SURFACE_VARIANT),
-                padding=ft.Padding.symmetric(horizontal=16, vertical=8),
+                height=DAY_HEADER_HEIGHT,
+                padding=ft.Padding.symmetric(horizontal=16),
+                alignment=ft.Alignment.CENTER_LEFT,
             )
             self._tx_list.controls.append(header)
 
@@ -190,12 +275,25 @@ class TransactionsView(BaseView):
         return dict(groups)
 
     def _resolve_currency(self, entries: list[dict]) -> str:
-        """Валюта строки: общий unit счётов записей; пусто при смешанных переводах."""
-        units = {
-            str(self._account_map.get(entry.get("account"), {}).get("resource") or "").strip() for entry in entries
-        }
-        units.discard("")
-        return units.pop() if len(units) == 1 else ""
+        return resolve_row_currency(entries, self._account_map)
+
+    def _on_tx_scroll(self, e):
+        show = False
+        label = ""
+        if self._day_groups and e.max_scroll_extent > SCROLL_EPSILON:
+            offsets = day_group_offsets(e.extent_total, [count for _, count in self._day_groups])
+            if offsets and e.pixels > SCROLL_EPSILON:
+                label = self._day_groups[day_group_index(offsets, e.pixels)][0]
+                show = True
+        if show:
+            changed = not self._pinned_header.visible or self._pinned_label.value != label
+            self._pinned_label.value = label
+            self._pinned_header.visible = True
+            if changed:
+                self.update()
+        elif self._pinned_header.visible:
+            self._pinned_header.visible = False
+            self.update()
 
     def _build_card(self, tx: dict) -> TransactionCard:
         entries = tx.get("entries", [])

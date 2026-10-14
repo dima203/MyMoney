@@ -28,14 +28,8 @@ class TransactionCard(ft.Container):
             amount_str = f"{amount_str} {currency}"
 
         time_str = ""
-        if timestamp:
-            now = datetime.datetime.now()
-            if timestamp.date() == now.date():
-                time_str = timestamp.strftime("%H:%M")
-            elif timestamp.date() == (now - datetime.timedelta(days=1)).date():
-                time_str = "Вчера"
-            else:
-                time_str = timestamp.strftime("%d %b")
+        if timestamp and (timestamp.hour, timestamp.minute, timestamp.second) != (0, 0, 0):
+            time_str = timestamp.strftime("%H:%M")
 
         self._amount_text = ft.Text(amount_str, size=16, weight=ft.FontWeight.BOLD, color=amount_color)
         self._desc_text = ft.Text(
@@ -67,7 +61,14 @@ class TransactionCard(ft.Container):
         bottom_row = ft.Row(
             [
                 ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, size=14, color=ft.Colors.ON_SURFACE_VARIANT),
-                ft.Text(account_name, size=12, color=ft.Colors.ON_SURFACE_VARIANT, expand=True),
+                ft.Text(
+                    account_name,
+                    size=12,
+                    color=ft.Colors.ON_SURFACE_VARIANT,
+                    expand=True,
+                    max_lines=1,
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                ),
                 ft.PopupMenuButton(
                     icon=ft.Icons.MORE_VERT,
                     icon_size=18,

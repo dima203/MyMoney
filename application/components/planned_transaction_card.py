@@ -110,7 +110,14 @@ class PlannedTransactionCard(ft.Container):
         bottom_row = ft.Row(
             [
                 ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, size=14, color=ft.Colors.ON_SURFACE_VARIANT),
-                ft.Text(account_name, size=12, color=ft.Colors.ON_SURFACE_VARIANT, expand=True),
+                ft.Text(
+                    account_name,
+                    size=12,
+                    color=ft.Colors.ON_SURFACE_VARIANT,
+                    expand=True,
+                    max_lines=1,
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                ),
                 execute_btn,
                 ft.PopupMenuButton(
                     icon=ft.Icons.MORE_VERT,

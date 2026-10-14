@@ -1,5 +1,7 @@
+import json
 import os
 import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -220,3 +222,43 @@ class TestSyncPending:
         mock_rest_client.create_resource.side_effect = Exception("still offline")
         view.sync_pending()
         assert len(view._pending.get_all()) == 1
+
+
+class TestAccountUnitJoin:
+    def _write_json(self, tmp_data_dir: str, name: str, data) -> None:
+        with open(os.path.join(tmp_data_dir, name), "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+
+    def test_cache_account_without_resource_joined_from_resources(self, tmp_data_dir, mock_rest_client):
+        self._write_json(tmp_data_dir, "resources.json", [{"id": 405, "name": "Тether", "unit": "USDT"}])
+        self._write_json(tmp_data_dir, "accounts.json", [{"id": 4, "name": "1", "resource_definition": 405}])
+        mock_rest_client.list_accounts.side_effect = Exception("offline")
+        view = AccountView(mock_rest_client, tmp_data_dir)
+        result = view.get_all()
+        assert result[0]["resource"] == "USDT"
+
+    def test_server_resource_is_not_overwritten(self, tmp_data_dir, mock_rest_client):
+        self._write_json(tmp_data_dir, "resources.json", [{"id": 1, "name": "Тether", "unit": "USDT"}])
+        mock_rest_client.list_accounts.return_value = [
+            {"id": 4, "name": "1", "resource_definition": 1, "resource": "BTC"}
+        ]
+        view = AccountView(mock_rest_client, tmp_data_dir)
+        result = view.get_all()
+        assert result[0]["resource"] == "BTC"
+
+    def test_corrupt_resources_cache_does_not_crash(self, tmp_data_dir, mock_rest_client):
+        Path(tmp_data_dir, "resources.json").write_text("{not json", encoding="utf-8")
+        self._write_json(tmp_data_dir, "accounts.json", [{"id": 4, "name": "1", "resource_definition": 405}])
+        mock_rest_client.list_accounts.side_effect = Exception("offline")
+        view = AccountView(mock_rest_client, tmp_data_dir)
+        result = view.get_all()
+        assert result[0]["name"] == "1"
+        assert "resource" not in result[0]
+
+    def test_unknown_resource_definition_left_unfilled(self, tmp_data_dir, mock_rest_client):
+        self._write_json(tmp_data_dir, "resources.json", [{"id": 1, "name": "Доллар", "unit": "USD"}])
+        self._write_json(tmp_data_dir, "accounts.json", [{"id": 4, "name": "1", "resource_definition": 999}])
+        mock_rest_client.list_accounts.side_effect = Exception("offline")
+        view = AccountView(mock_rest_client, tmp_data_dir)
+        result = view.get_all()
+        assert "resource" not in result[0]

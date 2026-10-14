@@ -135,6 +135,38 @@ class AccountView(OfflineView):
             "update_account": rest_client.update_account,
             "delete_account": rest_client.delete_account,
         }
+        self._resources_path = os.path.join(data_dir, "resources.json")
+
+    def get_all(self) -> list[dict]:
+        accounts = super().get_all()
+        units = self._resource_units()
+        if not units:
+            return accounts
+        return [self._fill_resource(account, units) for account in accounts]
+
+    def _resource_units(self) -> dict[int, str]:
+        try:
+            with open(self._resources_path, encoding="utf-8") as f:
+                resources = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return {}
+        if not isinstance(resources, list):
+            return {}
+        return {
+            resource["id"]: str(resource.get("unit") or "").strip()
+            for resource in resources
+            if isinstance(resource, dict) and resource.get("id") is not None
+        }
+
+    def _fill_resource(self, account: dict, units: dict[int, str]) -> dict:
+        if account.get("resource"):
+            return account
+        unit = units.get(account.get("resource_definition"))
+        if not unit:
+            return account
+        filled = dict(account)
+        filled["resource"] = unit
+        return filled
 
 
 class TransactionView(OfflineView):
