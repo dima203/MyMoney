@@ -8,7 +8,8 @@ from application.components.category_picker import CategoryPicker
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.planned_transaction_card import PlannedTransactionCard
-from application.display import FAB_CLEARANCE, account_display_name, format_amount_input
+from application.display import FAB_CLEARANCE, account_display_name
+from application.transaction_form import form_state
 from core.recurrence import Frequency, RecurrenceRule
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
@@ -354,9 +355,10 @@ class PlannedView(BaseView):
         if is_edit:
             entries = tx.get("entries", [])
             if entries:
-                first = entries[0]
-                amount_field.value = format_amount_input(float(first.get("amount", 0)))
-                account_dropdown.value = str(first.get("account", ""))
+                state = form_state(entries, allow_transfer=False)
+                amount_field.value = state.amount_text
+                account_dropdown.value = state.account_id
+                type_group.value = state.tx_type
             description_field.value = tx.get("description", "")
             if tx.get("recurrence_rule"):
                 recurrence_switch.value = True
@@ -400,6 +402,10 @@ class PlannedView(BaseView):
                 date_val = datetime.datetime.fromisoformat(date_str)
             except ValueError:
                 date_val = now
+            if is_edit:
+                date_val = date_val.replace(
+                    hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond
+                )
 
             recurrence_rule = ""
             if recurrence_switch.value:

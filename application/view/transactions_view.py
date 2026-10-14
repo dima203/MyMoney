@@ -8,7 +8,8 @@ from application.components import BaseView
 from application.components.category_picker import CategoryPicker
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.transaction_card import TransactionCard
-from application.display import FAB_CLEARANCE, account_display_name, format_amount_input
+from application.display import FAB_CLEARANCE, account_display_name
+from application.transaction_form import form_state
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
 from MySpaceShared.components.loading_state import LoadingState
@@ -293,10 +294,13 @@ class TransactionsView(BaseView):
         if is_edit:
             entries = tx.get("entries", [])
             if entries:
-                first = entries[0]
-                amount_field.value = format_amount_input(float(first.get("amount", 0)))
-                account_dropdown.value = str(first.get("account", ""))
-            type_group.value = "expense"
+                state = form_state(entries)
+                amount_field.value = state.amount_text
+                account_dropdown.value = state.account_id
+                type_group.value = state.tx_type
+                if state.to_account_id is not None:
+                    to_account_dropdown.visible = True
+                    to_account_dropdown.value = state.to_account_id
             description_field.value = tx.get("description", "")
 
         async def on_submit(e):
@@ -348,6 +352,10 @@ class TransactionsView(BaseView):
                 date_val = datetime.datetime.fromisoformat(date_str)
             except ValueError:
                 date_val = now
+            if is_edit:
+                date_val = date_val.replace(
+                    hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond
+                )
 
             payload = {
                 "date": date_val.isoformat(),
