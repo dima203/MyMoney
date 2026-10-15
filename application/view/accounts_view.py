@@ -1,14 +1,16 @@
 import asyncio
 from collections import defaultdict
+from decimal import Decimal
 
 import flet as ft
-from application.api import ApiError, BackendUnreachableError
+from application.api import ApiError, BackendUnreachableError, RestClientError
 from application.components import BaseView
 from application.components.account_group import AccountGroup
 from application.components.crypto_summary import CryptoSummary
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.demo_seed import DemoSeeder
 from application.display import FAB_CLEARANCE, account_display_name
+from core.group_totals import build_price_map, format_group_total, group_total_in_base
 from core.onboarding import OnboardingState
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
@@ -84,6 +86,8 @@ class AccountsView(BaseView):
         self._accounts: list[dict] = []
         self._resources: list[dict] = []
         self._resource_map: dict[int, dict] = {}
+        self._base_currency: str | None = None
+        self._prices: dict[str, Decimal] = {}
         self._onboarding = onboarding if onboarding is not None else OnboardingState()
         self._seeder_factory = seeder_factory
         self._seeding = False
@@ -136,11 +140,13 @@ class AccountsView(BaseView):
             if self._resource_view and self._account_view:
                 resources = await asyncio.to_thread(self._resource_view.get_all)
                 accounts = await asyncio.to_thread(self._account_view.get_all)
+                online = bool(self._resource_view.is_online)
             else:
                 resources, accounts = await asyncio.gather(
                     asyncio.to_thread(self.api_client.list_resources),
                     asyncio.to_thread(self.api_client.list_accounts),
                 )
+                online = True
 
             if self._disposed:
                 return
@@ -148,6 +154,11 @@ class AccountsView(BaseView):
             self._resources = resources if isinstance(resources, list) else resources.get("results", [])
             self._accounts = accounts if isinstance(accounts, list) else accounts.get("results", [])
             self._resource_map = {r["id"]: r for r in self._resources}
+
+            if online:
+                self._base_currency, self._prices = await asyncio.to_thread(self._fetch_fx_context)
+            else:
+                self._base_currency, self._prices = None, {}
 
             self._loading.visible = False
             if self._resource_view and not self._resource_view.is_online:
@@ -168,10 +179,25 @@ class AccountsView(BaseView):
                 self._error_text.visible = True
                 self.update()
 
+    def _fetch_fx_context(self) -> tuple[str | None, dict[str, Decimal]]:
+        try:
+            profile = self.api_client.me()
+        except RestClientError:
+            return None, {}
+        base = profile.get("base_currency") if isinstance(profile, dict) else None
+        if not isinstance(base, str) or not base.strip():
+            return None, {}
+        try:
+            prices_rows = self.api_client.get_prices()
+        except RestClientError:
+            return base.strip().upper(), {}
+        return base.strip().upper(), build_price_map(prices_rows)
+
     def _rebuild_ui(self):
         self._accounts_column.controls.clear()
 
         grouped = defaultdict(list)
+        grouped_raw = defaultdict(list)
         crypto_accounts = []
 
         for acc in self._accounts:
@@ -195,29 +221,14 @@ class AccountsView(BaseView):
             else:
                 group = acc.get("group", "")
                 grouped[group].append(account_data)
+                grouped_raw[group].append(acc)
 
         for group_name in sorted(grouped.keys()):
-            accounts_in_group = grouped[group_name]
-            total = sum(
-                float(a.get("current_balance_qty", 0))
-                for a in self._accounts
-                if a.get("group", "") == group_name
-                and not (self._resource_map.get(a.get("resource_definition"), {}).get("resource_type") == "asset")
-            )
-            resource_names = set()
-            for a in self._accounts:
-                if a.get("group", "") == group_name:
-                    r = self._resource_map.get(a.get("resource_definition"))
-                    if r and r.get("resource_type") != "asset":
-                        resource_names.add(r["name"])
-            balance_str = f"{total:,.2f}" if len(resource_names) <= 1 else ""
-            if len(resource_names) == 1:
-                balance_str += f" {next(iter(resource_names))}"
-
+            balance_str = self._group_balance_text(grouped_raw[group_name])
             group_widget = AccountGroup(
                 group_name=group_name,
                 total_balance=balance_str,
-                accounts=accounts_in_group,
+                accounts=grouped[group_name],
             )
             self._accounts_column.controls.append(group_widget)
 
@@ -245,6 +256,27 @@ class AccountsView(BaseView):
             self._accounts_column.controls.append(ft.Container(height=FAB_CLEARANCE))
 
         self.update()
+
+    def _group_balance_text(self, group_accounts: list[dict]) -> str:
+        if self._base_currency:
+            result = group_total_in_base(
+                group_accounts,
+                self._resource_map,
+                self._base_currency,
+                self._prices,
+            )
+            return format_group_total(result, self._base_currency)
+
+        total = sum(float(a.get("current_balance_qty", 0)) for a in group_accounts)
+        resource_names = set()
+        for a in group_accounts:
+            r = self._resource_map.get(a.get("resource_definition"))
+            if r:
+                resource_names.add(r["name"])
+        balance_str = f"{total:,.2f}" if len(resource_names) <= 1 else ""
+        if len(resource_names) == 1:
+            balance_str += f" {next(iter(resource_names))}"
+        return balance_str
 
     def _make_seeder(self) -> DemoSeeder:
         if self._seeder_factory is not None:

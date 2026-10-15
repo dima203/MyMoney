@@ -293,3 +293,33 @@ def test_update_profile():
     client, _ = _client(handler)
     result = client.update_profile(username="alice")
     assert result["username"] == "alice"
+
+
+# ------------------------------------------------------------------ prices
+
+
+def test_get_prices_public_no_token(tmp_path):
+    seen = {}
+
+    def handler(request):
+        seen["path"] = request.url.path
+        seen["auth"] = request.headers.get("Authorization")
+        return _ok_json([{"symbol": "BTC", "price": 50000.0}])
+
+    client, _ = _client(handler, token_store=TokenStore(tmp_path / "tokens.json"))
+    result = client.get_prices()
+    assert seen["path"] == "/api/v1/prices/"
+    assert seen["auth"] is None
+    assert result == [{"symbol": "BTC", "price": 50000.0}]
+
+
+def test_get_prices_with_symbols_filter():
+    seen = {}
+
+    def handler(request):
+        seen["symbols"] = request.url.params.get("symbols")
+        return _ok_json([])
+
+    client, _ = _client(handler)
+    client.get_prices(["BTC", "ETH"])
+    assert seen["symbols"] == "BTC,ETH"

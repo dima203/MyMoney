@@ -64,6 +64,10 @@ class RestClient(BaseRestClient):
     def list_budgets(self, **params) -> list:
         return self._request("GET", "/api/v1/interactions/budgets/", params=params)
 
+    def get_prices(self, symbols: list[str] | None = None) -> list:
+        params = {"symbols": ",".join(symbols)} if symbols else {}
+        return self._request("GET", "/api/v1/prices/", params=params, auth=False)
+
 
 __all__ = [
     "ApiError",
