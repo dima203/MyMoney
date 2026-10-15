@@ -10,6 +10,7 @@ from application.components.navigation_items import NAVIGATION_ITEMS
 from application.demo_seed import DemoSeeder
 from application.display import FAB_CLEARANCE, account_display_name
 from core.onboarding import OnboardingState
+from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
 from MySpaceShared.components.loading_state import LoadingState
@@ -411,9 +412,9 @@ class AccountsView(BaseView):
         self.page.show_dialog(dialog)
 
     def _show_delete_confirm(self, account: dict):
-        async def on_confirm(e):
-            delete_button.disabled = True
-            delete_button.text = "Удаление..."
+        async def delete(e):
+            e.control.disabled = True
+            e.control.text = "Удаление..."
             self.page.update()
 
             try:
@@ -424,24 +425,18 @@ class AccountsView(BaseView):
                 self.page.pop_dialog()
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
-                delete_button.disabled = False
-                delete_button.text = "Удалить"
+                e.control.disabled = False
+                e.control.text = "Удалить"
                 self.page.pop_dialog()
                 self._error_text.value = f"Ошибка удаления: {exc}"
                 self._error_text.visible = True
                 self.update()
 
-        delete_button = ft.Button("Удалить", on_click=on_confirm, bgcolor=ft.Colors.ERROR, color=ft.Colors.ON_ERROR)
-        dialog = ft.AlertDialog(
-            title=ft.Text("Удалить счет?"),
-            content=ft.Text(f'Удалить "{account_display_name(account)}"? Это действие необратимо.'),
-            actions=[
-                ft.TextButton("Отмена", on_click=lambda _: self.page.pop_dialog()),
-                delete_button,
-            ],
-            actions_alignment=ft.MainAxisAlignment.END,
-        )
-        self.page.show_dialog(dialog)
+        ConfirmDialog(
+            title="Удалить счет?",
+            message=f'Удалить "{account_display_name(account)}"? Это действие необратимо.',
+            on_confirm=lambda e: asyncio.create_task(delete(e)),
+        ).show(self.page)
 
     @staticmethod
     def _get_currency_icon(resource_name: str) -> str:
