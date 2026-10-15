@@ -256,3 +256,7 @@ fabric.properties
  
 # Runtime data 
 /data/
+
+# UI acceptance screenshots (runtime artifacts)
+/tools/screenshots/
+

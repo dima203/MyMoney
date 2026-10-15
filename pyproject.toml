@@ -68,6 +68,8 @@ fixable = [
 "**/test_*.py" = ["assert", "float-equality-comparison"]
 # logging.basicConfig() должен выполняться до импорта application-модулей
 "main.py" = ["module-import-not-at-top-of-file"]
+# QA-скрипт намеренно печатает отчёт (ошибки снимков гасятся ruff: ignore)
+"tools/screenshots.py" = ["T20"]
 
 # Дополнительные настройки для плагинов
 [tool.ruff.lint.flake8-bandit]
