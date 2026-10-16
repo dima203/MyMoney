@@ -1,6 +1,8 @@
 import datetime
 
 import flet as ft
+from application.display import READ_ONLY_BADGE_LABEL
+from MySpaceShared.components import StatusBadge
 
 
 class TransactionCard(ft.Container):
@@ -14,10 +16,15 @@ class TransactionCard(ft.Container):
         timestamp: datetime.datetime | None = None,
         on_edit=None,
         on_delete=None,
+        read_only: bool = False,
     ):
         super().__init__()
+        if read_only:
+            on_edit = None
+            on_delete = None
         self._on_edit = on_edit
         self._on_delete = on_delete
+        self._read_only = read_only
         self._currency = currency
 
         is_positive = amount >= 0
@@ -47,10 +54,14 @@ class TransactionCard(ft.Container):
                 )
             ]
 
+        badge_controls = []
+        if read_only:
+            badge_controls = [StatusBadge(READ_ONLY_BADGE_LABEL)]
+
         top_row = ft.Row(
             [
                 self._amount_text,
-                ft.Row(category_controls, spacing=4),
+                ft.Row(category_controls + badge_controls, spacing=4),
                 ft.Text(time_str, size=12, color=ft.Colors.ON_SURFACE_VARIANT) if time_str else ft.Container(),
             ],
             alignment=ft.MainAxisAlignment.START,
@@ -58,17 +69,19 @@ class TransactionCard(ft.Container):
             spacing=8,
         )
 
-        bottom_row = ft.Row(
-            [
-                ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, size=14, color=ft.Colors.ON_SURFACE_VARIANT),
-                ft.Text(
-                    account_name,
-                    size=12,
-                    color=ft.Colors.ON_SURFACE_VARIANT,
-                    expand=True,
-                    max_lines=1,
-                    overflow=ft.TextOverflow.ELLIPSIS,
-                ),
+        bottom_controls = [
+            ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, size=14, color=ft.Colors.ON_SURFACE_VARIANT),
+            ft.Text(
+                account_name,
+                size=12,
+                color=ft.Colors.ON_SURFACE_VARIANT,
+                expand=True,
+                max_lines=1,
+                overflow=ft.TextOverflow.ELLIPSIS,
+            ),
+        ]
+        if not read_only:
+            bottom_controls.append(
                 ft.PopupMenuButton(
                     icon=ft.Icons.MORE_VERT,
                     icon_size=18,
@@ -84,8 +97,11 @@ class TransactionCard(ft.Container):
                             on_click=lambda _: self._on_delete and self._on_delete(),
                         ),
                     ],
-                ),
-            ],
+                )
+            )
+
+        bottom_row = ft.Row(
+            bottom_controls,
             alignment=ft.MainAxisAlignment.START,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=4,

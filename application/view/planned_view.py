@@ -8,7 +8,7 @@ from application.components.category_picker import CategoryPicker
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.planned_transaction_card import PlannedTransactionCard
-from application.display import FAB_CLEARANCE, account_display_name
+from application.display import FAB_CLEARANCE, account_display_name, is_read_only_transaction
 from application.transaction_form import form_state
 from core.recurrence import Frequency, RecurrenceRule
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
@@ -140,7 +140,7 @@ class PlannedView(BaseView):
             if self._disposed:
                 return
 
-            self._transactions = [tx for tx in all_txs if tx.get("is_planned")]
+            self._transactions = [tx for tx in all_txs if tx.get("is_planned") and not is_read_only_transaction(tx)]
             self._accounts = accounts if isinstance(accounts, list) else accounts.get("results", [])
             self._account_map = {a["id"]: a for a in self._accounts}
 

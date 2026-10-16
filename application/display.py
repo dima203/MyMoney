@@ -10,6 +10,21 @@ ACCOUNT_TYPE_LABELS: dict[str, str] = {
 
 UNKNOWN_ACCOUNT_NAME = "—"
 FAB_CLEARANCE = 88
+READ_ONLY_DESCRIPTION_PREFIXES: tuple[str, ...] = ("okx: snapshot ", "import: snapshot ")
+READ_ONLY_BADGE_LABEL = "Снимок OKX"
+
+
+def is_read_only_transaction(tx: dict) -> bool:
+    """Снимок OKX: серверный флаг `read_only`, fallback — по префиксу описания.
+
+    Серверный флаг авторитетен (он сам считается по префиксу); fallback нужен
+    для строк из офлайн-кэша, сохранённых до появления поля в API.
+    """
+    flag = tx.get("read_only")
+    if isinstance(flag, bool):
+        return flag
+    description = tx.get("description")
+    return isinstance(description, str) and description.startswith(READ_ONLY_DESCRIPTION_PREFIXES)
 
 
 def account_display_name(account: dict, resource_name: str = "") -> str:
@@ -42,7 +57,10 @@ def format_amount_input(value: float) -> str:
 __all__ = [
     "ACCOUNT_TYPE_LABELS",
     "FAB_CLEARANCE",
+    "READ_ONLY_BADGE_LABEL",
+    "READ_ONLY_DESCRIPTION_PREFIXES",
     "UNKNOWN_ACCOUNT_NAME",
     "account_display_name",
     "format_amount_input",
+    "is_read_only_transaction",
 ]

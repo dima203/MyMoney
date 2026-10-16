@@ -8,7 +8,7 @@ from application.components import BaseView
 from application.components.category_picker import CategoryPicker
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.transaction_card import TransactionCard
-from application.display import FAB_CLEARANCE, account_display_name
+from application.display import FAB_CLEARANCE, account_display_name, is_read_only_transaction
 from application.transaction_form import form_state
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
@@ -319,6 +319,7 @@ class TransactionsView(BaseView):
             timestamp=timestamp,
             on_edit=lambda t=tx: self._show_edit_dialog(t),
             on_delete=lambda t=tx: self._show_delete_confirm(t),
+            read_only=is_read_only_transaction(tx),
         )
 
     def _show_add_dialog(self, e):

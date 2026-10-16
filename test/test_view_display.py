@@ -344,3 +344,34 @@ class TestPlannedViewFallbacks:
         dialog = self._open_dialog(view, None, monkeypatch)
         options = dialog.content.content.controls[1].options
         assert [option.text for option in options] == ["BTC (торговый)"]
+
+
+class TestPlannedViewReadOnlySnapshots:
+    def _tx(self, **overrides) -> dict:
+        tx = {
+            "id": 7,
+            "date": "2026-10-12",
+            "description": "okx: snapshot 2026-10-12 07:00",
+            "category": "OKX",
+            "is_planned": False,
+            "entries": [{"account": 10, "amount": 0.5, "unit_price": 1}],
+        }
+        tx.update(overrides)
+        return tx
+
+    def test_snapshot_not_shown_in_planned(self) -> None:
+        view = _make_planned_view(accounts=[OKX_ACCOUNT], transactions=[self._tx()])
+        asyncio.run(view._load_data())
+        assert view._transactions == []
+
+    def test_read_only_planned_row_is_hidden(self) -> None:
+        tx = self._tx(is_planned=True, read_only=True)
+        view = _make_planned_view(accounts=[OKX_ACCOUNT], transactions=[tx])
+        asyncio.run(view._load_data())
+        assert view._transactions == []
+
+    def test_editable_planned_row_is_shown(self) -> None:
+        tx = self._tx(description="Зарплата", is_planned=True, read_only=False)
+        view = _make_planned_view(accounts=[OKX_ACCOUNT], transactions=[tx])
+        asyncio.run(view._load_data())
+        assert len(view._transactions) == 1
