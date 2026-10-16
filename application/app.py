@@ -195,7 +195,7 @@ class MyMoneyApp:
 
         self.page.theme_mode = theme_mode_value(APP_SETTINGS.theme_mode)
         self.page.theme = build_theme(APP_SETTINGS.accent_color)
-        self.page.dark_theme = build_theme(APP_SETTINGS.accent_color)
+        self.page.dark_theme = build_theme(APP_SETTINGS.accent_color, dark=True)
 
         self.page.on_route_change = self.route_change
         self.page.on_view_pop = self.view_pop

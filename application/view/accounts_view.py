@@ -10,12 +10,15 @@ from application.components.crypto_summary import CryptoSummary
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.demo_seed import DemoSeeder
 from application.display import FAB_CLEARANCE, account_display_name
+from core.app_settings import APP_SETTINGS
 from core.group_totals import build_price_map, format_group_total, group_total_in_base
 from core.onboarding import OnboardingState
+from MySpaceShared.components import AccentIcon, GradientSurface, HeroValue
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
 from MySpaceShared.components.loading_state import LoadingState
+from MySpaceShared.core.tokens import SPACING, accent_gradient
 
 
 def build_empty_state(show_welcome: bool, on_seed, on_start_fresh) -> ft.Control:
@@ -24,11 +27,11 @@ def build_empty_state(show_welcome: bool, on_seed, on_start_fresh) -> ft.Control
         return ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Icon(ft.Icons.WAVING_HAND, size=64, color=ft.Colors.ON_SURFACE_VARIANT),
+                    AccentIcon(ft.Icons.WAVING_HAND, size=72),
                     ft.Text(
                         "Добро пожаловать в MyMoney!",
-                        size=20,
-                        color=ft.Colors.ON_SURFACE_VARIANT,
+                        size=22,
+                        weight=ft.FontWeight.BOLD,
                         text_align=ft.TextAlign.CENTER,
                     ),
                     ft.Text(
@@ -45,7 +48,7 @@ def build_empty_state(show_welcome: bool, on_seed, on_start_fresh) -> ft.Control
                     ),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=12,
+                spacing=SPACING["md"],
             ),
             alignment=ft.Alignment.CENTER,
             padding=ft.Padding.only(top=48, bottom=24),
@@ -95,7 +98,7 @@ class AccountsView(BaseView):
 
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
         self._seed_status = ft.Text("", size=13, color=ft.Colors.ON_SURFACE_VARIANT, visible=False)
-        self._accounts_column = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
+        self._accounts_column = ft.Column(spacing=SPACING["md"], scroll=ft.ScrollMode.AUTO, expand=True)
         self._loading = LoadingState()
         self._loading.visible = True
 
@@ -223,6 +226,10 @@ class AccountsView(BaseView):
                 grouped[group].append(account_data)
                 grouped_raw[group].append(acc)
 
+        hero = self._build_summary_hero(grouped_raw)
+        if hero is not None:
+            self._accounts_column.controls.append(hero)
+
         for group_name in sorted(grouped.keys()):
             balance_str = self._group_balance_text(grouped_raw[group_name])
             group_widget = AccountGroup(
@@ -277,6 +284,45 @@ class AccountsView(BaseView):
         if len(resource_names) == 1:
             balance_str += f" {next(iter(resource_names))}"
         return balance_str
+
+    def _build_summary_hero(self, grouped_raw: dict) -> ft.Control | None:
+        accounts = [acc for raws in grouped_raw.values() for acc in raws]
+        if not accounts or not self._base_currency:
+            return None
+        result = group_total_in_base(
+            accounts,
+            self._resource_map,
+            self._base_currency,
+            self._prices,
+        )
+        if result.converted == 0:
+            return None
+
+        value = f"{result.total:,.2f} {self._base_currency}"
+        delta = f"курс недоступен: {', '.join(result.missing_symbols)}" if result.has_missing else None
+        hero_value = HeroValue(
+            value,
+            label="Всего на счетах",
+            delta=delta,
+            delta_color=ft.Colors.with_opacity(0.85, ft.Colors.WHITE),
+            value_size=32,
+        )
+        hero_value.value_text.color = ft.Colors.WHITE
+        hero_value.label_text.color = ft.Colors.with_opacity(0.85, ft.Colors.WHITE)
+
+        content = ft.Row(
+            [
+                AccentIcon(ft.Icons.ACCOUNT_BALANCE_WALLET, size=44, color=ft.Colors.WHITE),
+                hero_value,
+            ],
+            spacing=SPACING["lg"],
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        return GradientSurface(
+            content,
+            gradient=accent_gradient(APP_SETTINGS.accent_color),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=16),
+        )
 
     def _make_seeder(self) -> DemoSeeder:
         if self._seeder_factory is not None:

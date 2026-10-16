@@ -106,7 +106,7 @@ class TransactionsView(BaseView):
             top=0,
             padding=ft.Padding.symmetric(horizontal=16),
             alignment=ft.Alignment.CENTER_LEFT,
-            bgcolor=ft.Colors.SURFACE_CONTAINER_LOW,
+            bgcolor=ft.Colors.SURFACE,
             visible=False,
             ignore_interactions=True,
         )

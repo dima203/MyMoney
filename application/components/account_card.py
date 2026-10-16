@@ -1,14 +1,18 @@
 import flet as ft
+from MySpaceShared.components import AccentIcon, ElevatedCard
+from MySpaceShared.core.tokens import SPACING
 
 
 class AccountCard(ft.Container):
+    """Карточка счёта: иконка валюты, название и баланс."""
+
     def __init__(self, name: str, balance: str, currency_icon: str = "●", on_edit=None, on_delete=None):
         super().__init__()
         self.name = name
         self.balance = balance
 
-        self._name_text = ft.Text(name, size=16, weight=ft.FontWeight.W_500, expand=True)
-        self._balance_text = ft.Text(balance, size=16, weight=ft.FontWeight.BOLD)
+        self._name_text = ft.Text(name, size=15, weight=ft.FontWeight.W_600)
+        self._balance_text = ft.Text(balance, size=17, weight=ft.FontWeight.BOLD)
 
         menu_button = ft.PopupMenuButton(
             icon=ft.Icons.MORE_VERT,
@@ -19,30 +23,21 @@ class AccountCard(ft.Container):
             ],
         )
 
-        self.content = ft.Container(
-            content=ft.Row(
-                [
-                    ft.Container(
-                        content=ft.Icon(currency_icon, size=24, color=ft.Colors.PRIMARY),
-                        width=40,
-                        height=40,
-                        border_radius=20,
-                        bgcolor=ft.Colors.PRIMARY_CONTAINER,
-                        alignment=ft.Alignment.CENTER,
-                    ),
-                    self._name_text,
-                    self._balance_text,
-                    menu_button,
-                ],
-                alignment=ft.MainAxisAlignment.START,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            ),
-            padding=ft.Padding.symmetric(horizontal=16, vertical=12),
-            border_radius=8,
-            bgcolor=ft.Colors.SURFACE_CONTAINER_LOW,
-            ink=True,
+        info = ft.Column(
+            [self._name_text, self._balance_text],
+            spacing=2,
+            expand=True,
+            alignment=ft.MainAxisAlignment.CENTER,
         )
+        row = ft.Row(
+            [AccentIcon(currency_icon, size=42), info],
+            spacing=SPACING["md"],
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            expand=True,
+        )
+        self.content = ElevatedCard(row, trailing=menu_button, padding=ft.Padding.symmetric(horizontal=16, vertical=12))
 
     def update_balance(self, balance: str):
+        self.balance = balance
         self._balance_text.value = balance
         self.update()
