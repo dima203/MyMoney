@@ -260,3 +260,6 @@ fabric.properties
 # UI acceptance screenshots (runtime artifacts)
 /tools/screenshots/
 
+# PyCharm run configurations (user/machine-specific, contain SDK paths)
+.run/
+
