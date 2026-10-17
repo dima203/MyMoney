@@ -1,3 +1,4 @@
+# MySpaceShared: pip install -e ../MySpaceShared (см. root requirements.txt)
 flet==1.0.3
 pytest~=9.1.0
 httpx~=0.28.1
@@ -6,4 +7,3 @@ pydantic~=2.13.4
 python-dotenv~=1.2.2
 loguru~=0.7.3
 ruff~=0.16.5
-myspace-shared @ git+https://github.com/dima203/MySpaceShared.git
