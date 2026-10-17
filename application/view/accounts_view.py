@@ -13,6 +13,7 @@ from application.display import FAB_CLEARANCE, account_display_name
 from core.app_settings import APP_SETTINGS
 from core.group_totals import build_price_map, format_group_total, group_total_in_base
 from core.onboarding import OnboardingState
+
 from MySpaceShared.components import AccentIcon, GradientSurface, HeroValue
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
@@ -363,7 +364,7 @@ class AccountsView(BaseView):
                     is_error=result.status in ("partial", "error", "offline"),
                 )
                 self.update()
-        except Exception as exc:  # ruff: ignore[blind-except]
+        except Exception as exc:
             if not self._disposed:
                 self._seed_busy = False
                 await self._load_data()

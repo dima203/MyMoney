@@ -1,4 +1,5 @@
 import flet as ft
+
 from MySpaceShared.view.splash_view import SplashView as SharedSplashView
 
 

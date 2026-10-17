@@ -69,7 +69,7 @@ async def save_login_shot(page: ft.Page) -> None:
         path.write_bytes(data)
         RESULTS.append(("login", str(path), len(data)))
         print(f"login -> {path} ({len(data)} bytes)")
-    except Exception as exc:  # ruff: ignore[blind-except]
+    except Exception as exc:
         FAILURES.append(f"login capture failed: {exc}")
 
 
@@ -112,7 +112,7 @@ async def main(page: ft.Page) -> None:
             continue
         try:
             await capture_tab(page, name, route, index, deadline)
-        except Exception as exc:  # ruff: ignore[blind-except]
+        except Exception as exc:
             FAILURES.append(f"{name}: {exc}")
             print(f"{name}: FAILED ({exc})")
 

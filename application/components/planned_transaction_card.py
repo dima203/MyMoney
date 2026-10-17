@@ -2,6 +2,7 @@ import datetime
 
 import flet as ft
 from core.recurrence import RecurrenceRule
+
 from MySpaceShared.components import ElevatedCard
 from MySpaceShared.core.tokens import PILL_RADIUS, RADIUS, SPACING
 

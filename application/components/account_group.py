@@ -1,4 +1,5 @@
 import flet as ft
+
 from MySpaceShared.components import AccentIcon
 
 from .account_card import AccountCard

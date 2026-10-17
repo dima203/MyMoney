@@ -1,5 +1,6 @@
 import flet as ft
 from core.app_settings import APP_SETTINGS
+
 from MySpaceShared.components import AccentIcon, GradientSurface, HeroValue
 from MySpaceShared.core.tokens import SPACING, accent_gradient
 

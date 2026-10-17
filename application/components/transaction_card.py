@@ -2,6 +2,7 @@ import datetime
 
 import flet as ft
 from application.display import READ_ONLY_BADGE_LABEL
+
 from MySpaceShared.components import ElevatedCard, StatusBadge
 from MySpaceShared.core.tokens import PILL_RADIUS, RADIUS, SPACING
 

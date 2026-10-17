@@ -10,6 +10,7 @@ from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.transaction_card import TransactionCard
 from application.display import FAB_CLEARANCE, account_display_name, is_read_only_transaction
 from application.transaction_form import form_state
+
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState

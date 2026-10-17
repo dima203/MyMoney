@@ -15,6 +15,7 @@ from application.view import SplashView
 from core import APP_SETTINGS, build_theme, theme_mode_value
 from core.config import SETTINGS
 from database.views import AccountView, ResourceView, TransactionView
+
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.utils import is_mobile_page
 

@@ -1,4 +1,5 @@
 import flet as ft
+
 from MySpaceShared.components.navigation_items import NavigationItem
 
 NAVIGATION_ITEMS = [

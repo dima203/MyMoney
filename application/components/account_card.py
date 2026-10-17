@@ -1,4 +1,5 @@
 import flet as ft
+
 from MySpaceShared.components import AccentIcon, ElevatedCard
 from MySpaceShared.core.tokens import SPACING
 

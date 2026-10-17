@@ -1,4 +1,5 @@
 import flet as ft
+
 from MySpaceShared.screens.login_view import LoginView as SharedLoginView
 from MySpaceShared.screens.login_view import default_authenticate
 

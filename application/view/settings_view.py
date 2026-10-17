@@ -3,6 +3,7 @@ import asyncio
 from application.api import ApiError, BackendUnreachableError
 from application.components.navigation_items import NAVIGATION_ITEMS
 from core import APP_SETTINGS, AppSettings
+
 from MySpaceShared.view.settings_view import BaseSettingsView
 
 
