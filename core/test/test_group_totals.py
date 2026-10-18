@@ -165,6 +165,22 @@ class TestGroupTotalInBase:
         assert result.converted == 0
         assert result.missing_symbols == ()
 
+    def test_ignored_currency_skipped(self) -> None:
+        """7.5: делистнутый MAX исключён из трекинга — не ломает конверсию."""
+        resources = {
+            **GROUP_RESOURCES,
+            7: {"id": 7, "unit": "MAX", "ticker": "MAX-USDT", "name": "MAX"},
+        }
+        accounts = [
+            self._acc(1, "100"),
+            {"resource_definition": 7, "current_balance_qty": "0.279076280000"},
+        ]
+        result = group_total_in_base(accounts, resources, "USDT", GROUP_PRICES)
+        assert result.total == Decimal(100)
+        assert result.converted == 1
+        assert result.missing_symbols == ()
+        assert result.has_missing is False
+
 
 class TestFormatGroupTotal:
     def test_full_conversion(self) -> None:

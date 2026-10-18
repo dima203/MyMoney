@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
+from MySpaceShared.core import IGNORED_CURRENCIES
+
 QUOTE_CURRENCY = "USDT"
 _USDT_SUFFIX = "-USDT"
 _UNKNOWN_SYMBOL = "—"
@@ -85,6 +87,9 @@ def group_total_in_base(
             continue
         resource = resource_map.get(acc.get("resource_definition"))
         symbol = price_symbol_for_resource(resource)
+        if symbol in IGNORED_CURRENCIES:
+            # 7.5: делистнутые тикеры (MAX) не участвуют в конверсии
+            continue
         qty = _to_decimal(acc.get("current_balance_qty", 0))
         if qty is None:
             qty = Decimal(0)
