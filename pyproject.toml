@@ -5,3 +5,9 @@ description = "MyMoney — Flet desktop client for income/expenses tracking"
 requires-python = ">= 3.12"
 
 # [tool.ruff] удалён (6.1): единая конфигурация ruff живёт в ../ruff.toml корня монорепозитория.
+
+# Deep-link OAuth (3.9): мобильная сборка открывает myspace://auth?action=...
+# (одноразовый код 120с → обмен на JWT); десктоп использует loopback как раньше.
+[tool.flet.deep_linking]
+scheme = "myspace"
+host = "auth"
