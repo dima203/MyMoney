@@ -68,6 +68,18 @@ class RestClient(BaseRestClient):
         params = {"symbols": ",".join(symbols)} if symbols else {}
         return self._request("GET", "/api/v1/prices/", params=params, auth=False)
 
+    def list_envelopes(self, **params) -> list:
+        return self._request("GET", "/api/v1/envelopes/", params=params)
+
+    def create_envelope(self, payload: dict) -> dict:
+        return self._request("POST", "/api/v1/envelopes/", json=payload)
+
+    def update_envelope(self, envelope_id: int, payload: dict) -> dict:
+        return self._request("PATCH", f"/api/v1/envelopes/{envelope_id}/", json=payload)
+
+    def delete_envelope(self, envelope_id: int) -> None:
+        self._request("DELETE", f"/api/v1/envelopes/{envelope_id}/")
+
 
 __all__ = [
     "ApiError",

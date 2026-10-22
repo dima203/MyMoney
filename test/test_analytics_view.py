@@ -10,7 +10,14 @@ from unittest.mock import MagicMock
 import flet as ft
 import flet_charts as ftc
 from application.api import BackendUnreachableError
-from application.view.analytics_view import AnalyticsView, format_money, period_caption
+from application.view.analytics_view import (
+    ENVELOPES_EMPTY,
+    ENVELOPES_OFFLINE,
+    AnalyticsView,
+    format_money,
+    limit_text,
+    period_caption,
+)
 
 TODAY = datetime.date(2026, 10, 22)
 ACCOUNTS = [{"id": 1, "resource": "BYN"}, {"id": 2, "resource": "USD"}]
@@ -46,6 +53,7 @@ def _rows() -> list[dict]:
 def _api(me=None) -> MagicMock:
     api = MagicMock()
     api.me.return_value = {"base_currency": "BYN"} if me is None else me
+    api.list_envelopes.return_value = []
     return api
 
 
@@ -56,7 +64,10 @@ def _ready(view: AnalyticsView) -> AnalyticsView:
     return view
 
 
-def _view(rows=None, accounts=None, is_online=True, me=None) -> AnalyticsView:
+def _view(rows=None, accounts=None, is_online=True, me=None, envelopes=None) -> AnalyticsView:
+    api = _api(me)
+    if envelopes is not None:
+        api.list_envelopes.return_value = envelopes
     transaction_view = MagicMock()
     transaction_view.is_online = is_online
     transaction_view.get_all.return_value = _rows() if rows is None else rows
@@ -65,11 +76,17 @@ def _view(rows=None, accounts=None, is_online=True, me=None) -> AnalyticsView:
     return _ready(
         AnalyticsView(
             route="/analytics",
-            api_client=_api(me),
+            api_client=api,
             transaction_view=transaction_view,
             account_view=account_view,
         )
     )
+
+
+def _envelope(**overrides) -> dict:
+    row = {"id": 1, "category": "Еда", "limit_amount": "100.0000", "currency_ticker": "BYN", "currency": None}
+    row.update(overrides)
+    return row
 
 
 class TestAnalyticsViewLoad:
@@ -206,3 +223,112 @@ class TestFormatting:
         assert period_caption(1) == "за месяц"
         assert period_caption(3) == "за 3 мес."
         assert period_caption(12) == "за год"
+
+    def test_limit_text_strips_trailing_zeros(self) -> None:
+        assert limit_text("500.0000") == "500"
+        assert limit_text("650.50") == "650.5"
+        assert limit_text(0) == "0"
+        assert limit_text(None) == ""
+        assert limit_text("oops") == ""
+
+
+class TestEnvelopesSection:
+    def test_renders_progress_and_overspending(self) -> None:
+        view = _view(envelopes=[_envelope()])
+
+        asyncio.run(view._load_data())
+
+        texts = _texts(view._content)
+        assert "Конверты месяца" in texts
+        assert "150.00 BYN из 100.00 BYN" in texts
+        assert "Превышение на 50.00 BYN" in texts
+        bars = [item for item in _walk(view._body) if isinstance(item, ft.ProgressBar)]
+        assert any(bar.color == ft.Colors.ERROR and bar.value == 1.0 for bar in bars)
+
+    def test_renders_envelope_within_limit(self) -> None:
+        view = _view(envelopes=[_envelope(limit_amount="300")])
+
+        asyncio.run(view._load_data())
+
+        texts = _texts(view._content)
+        assert "150.00 BYN из 300.00 BYN" in texts
+        assert not [text for text in texts if text.startswith("Превышение")]
+        bars = [item for item in _walk(view._body) if isinstance(item, ft.ProgressBar)]
+        assert any(bar.color == ft.Colors.PRIMARY and bar.value == 0.5 for bar in bars)
+
+    def test_empty_state_has_add_button(self) -> None:
+        view = _view()
+
+        asyncio.run(view._load_data())
+
+        texts = _texts(view._content)
+        assert ENVELOPES_EMPTY in texts
+        buttons = [item for item in _walk(view._body) if isinstance(item, ft.TextButton)]
+        assert any(button.content == "Добавить" for button in buttons)
+
+    def test_offline_shows_hint_without_request(self) -> None:
+        view = _view(is_online=False)
+
+        asyncio.run(view._load_data())
+
+        assert ENVELOPES_OFFLINE in _texts(view._content)
+        view.api_client.list_envelopes.assert_not_called()
+
+    def test_backend_error_keeps_charts_alive(self) -> None:
+        view = _view()
+        view.api_client.list_envelopes.side_effect = BackendUnreachableError("down")
+
+        asyncio.run(view._load_data())
+
+        texts = _texts(view._content)
+        assert ENVELOPES_OFFLINE in texts
+        assert "680.00 BYN" in texts
+        assert view._error_text.visible is False
+
+    def test_currency_options_map_resource_ids(self) -> None:
+        accounts = [
+            {"id": 1, "resource": "BYN", "resource_definition": 11},
+            {"id": 2, "resource": "USD", "resource_definition": 12},
+            {"id": 3, "resource": "BYN", "resource_definition": 11},
+            {"id": 4, "resource": "EUR"},
+        ]
+        view = _view(accounts=accounts)
+
+        asyncio.run(view._load_data())
+
+        assert view._currency_options() == {"BYN": 11, "USD": 12, "EUR": None}
+
+    def test_paginated_envelopes_payload(self) -> None:
+        view = _view(envelopes={"results": [_envelope()]})
+
+        asyncio.run(view._load_data())
+
+        assert "150.00 BYN из 100.00 BYN" in _texts(view._content)
+
+
+class TestEnvelopeDialog:
+    def test_edit_dialog_prefilled_and_stretched(self) -> None:
+        view = _view()
+        view._envelopes = [_envelope(limit_amount="300.0000")]
+
+        dialog = view._envelope_dialog(view._envelopes[0])
+
+        assert dialog.title.value == "Изменить конверт"
+        fields = dialog.content.content.controls
+        assert [field.value for field in fields[:3]] == ["Еда", "300", "BYN"]
+        assert dialog.content.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+        assert fields[0].autofocus is True
+
+    def test_new_dialog_defaults(self) -> None:
+        view = _view()
+        asyncio.run(view._load_data())
+
+        dialog = view._envelope_dialog({})
+
+        assert dialog.title.value == "Новый конверт"
+        fields = dialog.content.content.controls
+        assert fields[0].value == ""
+        assert fields[1].value == ""
+        assert fields[2].value == "BYN"
+        assert [field.text for field in fields[2].options] == ["BYN", "USD"]
+        assert dialog.actions[1].content == "Сохранить"

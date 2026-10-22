@@ -94,8 +94,8 @@ def parse_day(value) -> date | None:
     return None
 
 
-def _as_float(value) -> float:
-    """Число из значения проводки; мусор/None → 0.0."""
+def as_float(value) -> float:
+    """Число из значения проводки/суммы; мусор/None → 0.0."""
     try:
         return float(value or 0)
     except (TypeError, ValueError):
@@ -111,7 +111,7 @@ def expense_total(entries) -> float:
     total = 0.0
     for entry in entries or []:
         if isinstance(entry, dict):
-            total += _as_float(entry.get("amount"))
+            total += as_float(entry.get("amount"))
     return -total if total < -TRANSFER_EPSILON else 0.0
 
 
@@ -149,7 +149,7 @@ def expense_records(rows, currencies: dict[int, str]) -> list[ExpenseRecord]:
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
-            amount = _as_float(entry.get("amount"))
+            amount = as_float(entry.get("amount"))
             if amount >= -TRANSFER_EPSILON:
                 continue
             account_id = entry.get("account")
@@ -249,6 +249,7 @@ __all__ = [
     "ExpenseSummary",
     "MonthTotal",
     "account_currencies",
+    "as_float",
     "build_summary",
     "expense_records",
     "expense_total",

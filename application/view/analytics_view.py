@@ -9,6 +9,8 @@ import flet as ft
 import flet_charts as ftc
 from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
+from application.components.envelope_card import EnvelopeCard
+from application.components.formatting import UNKNOWN_CURRENCY, format_money
 from application.components.navigation_items import NAVIGATION_ITEMS
 from core.analytics import (
     DEFAULT_PERIOD,
@@ -18,7 +20,9 @@ from core.analytics import (
     MonthTotal,
     build_summary,
 )
+from core.envelopes import EnvelopeProgress, envelope_payload, envelope_progress
 
+from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.elevated_card import ElevatedCard
 from MySpaceShared.components.empty_state import EmptyState
@@ -32,14 +36,15 @@ CHART_HEADROOM = 1.2
 CHART_GRID_LINES = 4
 BAR_WIDTH = 22
 BAR_RADIUS = 4
-UNKNOWN_CURRENCY = "—"
 NO_EXPENSES_TITLE = "Нет расходов за период"
 NO_EXPENSES_SUBTITLE = "Добавьте транзакции — здесь появятся графики и разбивка по категориям"
-
-
-def format_money(amount: float, currency: str) -> str:
-    """Сумма с разделителем тысяч: «1 234.50 BYN»."""
-    return f"{amount:,.2f} {currency or UNKNOWN_CURRENCY}".replace(",", " ").strip()
+ENVELOPES_TITLE = "Конверты месяца"
+ENVELOPES_KEY = "envelopes"
+ENVELOPES_EMPTY = "Лимиты не заданы — добавьте конверт, чтобы следить за тратами по категории"
+ENVELOPES_OFFLINE = "Конверты недоступны без подключения к серверу"
+ENVELOPES_ADD = "Добавить"
+ENVELOPES_SUBTITLE = "Лимит расходов на текущий месяц по категории"
+DIALOG_WIDTH = 350
 
 
 def period_caption(months: int) -> str:
@@ -48,6 +53,17 @@ def period_caption(months: int) -> str:
     if months == 12:
         return "за год"
     return f"за {months} мес."
+
+
+def limit_text(value) -> str:
+    """Лимит для поля ввода: «500» вместо «500.0000»."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return ""
+    try:
+        amount = float(value)
+    except (TypeError, ValueError):
+        return ""
+    return f"{amount:.2f}".rstrip("0").rstrip(".")
 
 
 def _event_period(event) -> str | None:
@@ -60,6 +76,22 @@ def _event_period(event) -> str | None:
     else:
         return None
     return next((item for item in payload if isinstance(item, str) and item in PERIOD_MONTHS), None)
+
+
+def _dict_rows(payload) -> list[dict]:
+    """Строки ответа API (список или `{results: [...]}`), только dict-элементы."""
+    if isinstance(payload, list):
+        items = payload
+    elif isinstance(payload, dict):
+        items = payload.get("results", [])
+    else:
+        items = []
+    return [item for item in items or [] if isinstance(item, dict)]
+
+
+def _hint(text: str, *, size: int = 13) -> ft.Text:
+    """Приглушённая подпись секции."""
+    return ft.Text(text, size=size, color=ft.Colors.ON_SURFACE_VARIANT)
 
 
 def _bar_rod(point: MonthTotal, currency: str) -> ftc.BarChartRod:
@@ -86,6 +118,8 @@ class AnalyticsView(BaseView):
         self._base_currency = ""
         self._period = DEFAULT_PERIOD
         self._summary: ExpenseSummary | None = None
+        self._envelopes: list[dict] = []
+        self._envelopes_offline = False
 
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
         self._loading = LoadingState()
@@ -137,9 +171,10 @@ class AnalyticsView(BaseView):
             if self._disposed:
                 return
 
-            self._rows = [row for row in rows if isinstance(row, dict)]
-            self._accounts = [account for account in (accounts or []) if isinstance(account, dict)]
+            self._rows = _dict_rows(rows)
+            self._accounts = _dict_rows(accounts)
             self._base_currency = await self._fetch_base_currency()
+            await self._load_envelopes()
             self._loading.visible = False
             self._sync_banner()
             self._rebuild()
@@ -158,6 +193,27 @@ class AnalyticsView(BaseView):
             return currency.strip() if isinstance(currency, str) else ""
         return ""
 
+    async def _load_envelopes(self) -> None:
+        """Конверты online-only: их сбой не должен ломать графики расходов."""
+        if self._offline:
+            self._mark_envelopes_offline()
+            return
+        try:
+            payload = await asyncio.to_thread(self.api_client.list_envelopes)
+        except (ApiError, BackendUnreachableError):
+            self._mark_envelopes_offline()
+            return
+        self._envelopes_offline = False
+        self._envelopes = _dict_rows(payload)
+
+    def _mark_envelopes_offline(self) -> None:
+        self._envelopes = []
+        self._envelopes_offline = True
+
+    async def _reload_envelopes(self) -> None:
+        await self._load_envelopes()
+        self._rebuild()
+
     def _fail(self, message: str) -> None:
         if self._disposed:
             return
@@ -166,8 +222,13 @@ class AnalyticsView(BaseView):
         self._error_text.visible = True
         self.update()
 
+    @property
+    def _offline(self) -> bool:
+        """Локальный режим: dual-database view знает о недоступности сервера."""
+        return self._transaction_view is not None and not self._transaction_view.is_online
+
     def _sync_banner(self) -> None:
-        if self._transaction_view is not None and not self._transaction_view.is_online:
+        if self._offline:
             self._connection_banner.show()
         else:
             self._connection_banner.hide()
@@ -198,6 +259,7 @@ class AnalyticsView(BaseView):
             ft.Row([self._period_selector]),
             self._total_card(summary),
             *self._details(summary),
+            *self._envelopes_section(),
         ]
         self.update()
 
@@ -289,6 +351,148 @@ class AnalyticsView(BaseView):
                 )
             )
         return ft.Column(controls=controls, spacing=12)
+
+    # --------------------------------------------------------------- конверты
+
+    def _currency_options(self) -> dict[str, int | None]:
+        """Тикер валюты → id ресурса (для FK конверта); базовая может быть без id."""
+        options: dict[str, int | None] = {}
+        for account in self._accounts:
+            ticker = account.get("resource")
+            resource_id = account.get("resource_definition")
+            if isinstance(ticker, str) and ticker.strip():
+                options.setdefault(ticker.strip(), resource_id if isinstance(resource_id, int) else None)
+        if self._base_currency:
+            options.setdefault(self._base_currency, None)
+        return options
+
+    def _envelopes_section(self) -> list[ft.Control]:
+        if self._envelopes_offline:
+            return [self._envelopes_header(), _hint(ENVELOPES_OFFLINE)]
+
+        progress = envelope_progress(
+            self._envelopes,
+            self._rows,
+            self._accounts,
+            today=self._today(),
+            base_currency=self._base_currency,
+        )
+        add_button = ft.TextButton(ENVELOPES_ADD, icon=ft.Icons.ADD, on_click=self._open_envelope_editor)
+        header = self._envelopes_header(add_button)
+        if not progress:
+            return [header, _hint(ENVELOPES_EMPTY)]
+        cards = self._envelope_cards(progress)
+        return [header, _hint(ENVELOPES_SUBTITLE, size=12), ft.Column(cards, spacing=12)]
+
+    def _envelopes_header(self, trailing: ft.Control | None = None) -> SectionHeader:
+        """Заголовок секции; `key` нужен для прокрутки к конвертам."""
+        header = SectionHeader(ENVELOPES_TITLE, trailing=trailing)
+        header.key = ENVELOPES_KEY
+        return header
+
+    def _envelope_cards(self, progress: list[EnvelopeProgress]) -> list[ft.Control]:
+        raw_by_id = {row.get("id"): row for row in self._envelopes}
+        return [self._envelope_card(item, raw_by_id.get(item.envelope_id)) for item in progress]
+
+    def _envelope_card(self, item: EnvelopeProgress, raw: dict | None) -> EnvelopeCard:
+        envelope = raw or {"category": item.category, "limit_amount": item.limit_amount}
+        return EnvelopeCard(
+            item,
+            on_edit=lambda _event, envelope=envelope: self._open_envelope_editor(envelope),
+            on_delete=lambda _event, envelope=envelope: self._confirm_delete_envelope(envelope),
+        )
+
+    def _currency_dropdown(self, selected: str, currency_map: dict[str, int | None]) -> ft.Dropdown:
+        options = [ft.DropdownOption(key=ticker, text=ticker) for ticker in sorted(currency_map)]
+        if selected and selected not in currency_map:
+            options.append(ft.DropdownOption(key=selected, text=selected))
+        return ft.Dropdown(label="Валюта", value=selected or None, options=options, width=DIALOG_WIDTH)
+
+    def _dialog_error(self, error_text: ft.Text, message: str) -> None:
+        error_text.value = message
+        error_text.visible = True
+        self.page.update()
+
+    def _envelope_dialog(self, envelope: dict) -> ft.AlertDialog:
+        currency_map = self._currency_options()
+        selected_currency = str(envelope.get("currency_ticker") or self._base_currency or "")
+
+        category_field = ft.TextField(label="Категория", value=str(envelope.get("category") or ""), autofocus=True)
+        limit_field = ft.TextField(
+            label="Лимит на месяц",
+            value=limit_text(envelope.get("limit_amount")),
+            keyboard_type=ft.KeyboardType.NUMBER,
+        )
+        currency_dropdown = self._currency_dropdown(selected_currency, currency_map)
+        error_text = ft.Text("", size=12, color=ft.Colors.ERROR, visible=False)
+
+        async def on_submit(_event) -> None:
+            try:
+                payload = envelope_payload(
+                    category_field.value,
+                    limit_field.value,
+                    currency_map.get(currency_dropdown.value or ""),
+                )
+            except ValueError as exc:
+                self._dialog_error(error_text, str(exc))
+                return
+
+            save_button.disabled = True
+            save_button.text = "Сохранение..."
+            self.page.update()
+            try:
+                envelope_id = envelope.get("id")
+                if envelope_id:
+                    await asyncio.to_thread(self.api_client.update_envelope, envelope_id, payload)
+                else:
+                    await asyncio.to_thread(self.api_client.create_envelope, payload)
+                self.page.pop_dialog()
+                await self._reload_envelopes()
+            except (ApiError, BackendUnreachableError) as exc:
+                save_button.disabled = False
+                save_button.text = "Сохранить"
+                self._dialog_error(error_text, str(exc))
+
+        save_button = ft.Button("Сохранить", on_click=on_submit)
+        return ft.AlertDialog(
+            title=ft.Text("Изменить конверт" if envelope.get("id") else "Новый конверт"),
+            content=ft.Container(
+                content=ft.Column(
+                    controls=[category_field, limit_field, currency_dropdown, error_text],
+                    spacing=12,
+                    width=DIALOG_WIDTH,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                ),
+            ),
+            actions=[
+                ft.TextButton("Отмена", on_click=lambda _: self.page.pop_dialog()),
+                save_button,
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+    def _open_envelope_editor(self, envelope: dict | None = None) -> None:
+        self.page.show_dialog(self._envelope_dialog(envelope if isinstance(envelope, dict) else {}))
+
+    def _confirm_delete_envelope(self, envelope: dict) -> None:
+        async def delete(_event) -> None:
+            try:
+                await asyncio.to_thread(self.api_client.delete_envelope, envelope.get("id"))
+            except (ApiError, BackendUnreachableError) as exc:
+                self.page.pop_dialog()
+                self._error_text.value = f"Ошибка удаления: {exc}"
+                self._error_text.visible = True
+                self.update()
+                return
+            self.page.pop_dialog()
+            await self._reload_envelopes()
+
+        category = str(envelope.get("category") or "")
+        ConfirmDialog(
+            title="Удалить конверт?",
+            message=f"Конверт «{category}» будет удалён.",
+            on_confirm=lambda event: asyncio.create_task(delete(event)),
+        ).show(self.page)
 
 
 __all__ = ["AnalyticsView", "format_money", "period_caption"]
