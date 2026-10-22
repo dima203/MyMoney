@@ -21,7 +21,7 @@ class SettingsView(BaseSettingsView):
             on_logout=on_logout,
             app_settings=app_settings if app_settings is not None else APP_SETTINGS,
             navigation_items=NAVIGATION_ITEMS,
-            selected_index=3,
+            selected_index=4,
         )
 
     def did_mount(self):

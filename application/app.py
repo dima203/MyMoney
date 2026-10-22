@@ -142,6 +142,18 @@ class MyMoneyApp:
                     connection_banner=self._connection_banner,
                 )
             )
+        elif self.page.route == "/analytics":
+            from application.view.analytics_view import AnalyticsView
+
+            self.page.views.append(
+                AnalyticsView(
+                    route="/analytics",
+                    api_client=self.api_client,
+                    transaction_view=self._transaction_view,
+                    account_view=self._account_view,
+                    connection_banner=self._connection_banner,
+                )
+            )
         elif self.page.route == "/settings":
             from application.view.settings_view import SettingsView
 

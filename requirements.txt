@@ -1,5 +1,6 @@
 # MySpaceShared: pip install -e ../MySpaceShared (см. root requirements.txt)
 flet==1.0.3
+flet-charts==1.0.3
 pytest~=9.1.0
 httpx~=0.28.1
 pydantic-settings~=2.15.0
