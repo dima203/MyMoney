@@ -10,6 +10,7 @@ from application.api import (
     BackendUnreachableError,
     RestClient,
 )
+from application.components.command_palette import HOTKEY_HINT, HOTKEY_KEY, CommandPalette, as_rows
 from application.screens import LoginView
 from application.view import SplashView
 from core import APP_SETTINGS, build_theme, theme_mode_value
@@ -32,6 +33,7 @@ class MyMoneyApp:
         self._account_view: AccountView | None = None
         self._transaction_view: TransactionView | None = None
         self._connection_banner = ConnectionBanner()
+        self._palette: CommandPalette | None = None
 
     def _init_offline_views(self) -> None:
         if self._resource_view is not None:
@@ -40,6 +42,42 @@ class MyMoneyApp:
         self._resource_view = ResourceView(self.api_client, DATA_DIR)
         self._account_view = AccountView(self.api_client, DATA_DIR)
         self._transaction_view = TransactionView(self.api_client, DATA_DIR)
+
+    def _mount(self, view) -> None:
+        """Добавить раздел с действием «Поиск» в шапке."""
+        view.app_bar.actions = [
+            ft.IconButton(
+                ft.Icons.SEARCH,
+                tooltip=f"Поиск ({HOTKEY_HINT})",
+                on_click=lambda _event: self._open_palette(),
+            )
+        ]
+        self.page.views.append(view)
+
+    def _palette_rows(self) -> tuple[list[dict], list[dict]]:
+        transactions = self._transaction_view.get_all() if self._transaction_view is not None else []
+        accounts = self._account_view.get_all() if self._account_view is not None else []
+        return as_rows(transactions), as_rows(accounts)
+
+    def _open_palette(self) -> None:
+        """Открыть палитру: только на рабочем маршруте и не поверх уже открытой."""
+        if self.page is None or self._palette is not None:
+            return
+        if getattr(self.page, "route", None) in (None, "", "/login"):
+            return
+        self._palette = CommandPalette(
+            load_rows=self._palette_rows,
+            on_navigate=self.page.navigate,
+            on_close=self._palette_closed,
+        )
+        self._palette.show(self.page)
+
+    def _palette_closed(self) -> None:
+        self._palette = None
+
+    def _on_keyboard(self, event: ft.KeyboardEvent) -> None:
+        if getattr(event, "ctrl", False) and str(getattr(event, "key", "")).lower() == HOTKEY_KEY:
+            self._open_palette()
 
     def _has_stored_token(self) -> bool:
         return self.api_client.token_store.load().is_authenticated
@@ -109,7 +147,7 @@ class MyMoneyApp:
         if self.page.route == "/accounts":
             from application.view.accounts_view import AccountsView
 
-            self.page.views.append(
+            self._mount(
                 AccountsView(
                     route="/accounts",
                     api_client=self.api_client,
@@ -121,7 +159,7 @@ class MyMoneyApp:
         elif self.page.route == "/transactions":
             from application.view.transactions_view import TransactionsView
 
-            self.page.views.append(
+            self._mount(
                 TransactionsView(
                     route="/transactions",
                     api_client=self.api_client,
@@ -133,7 +171,7 @@ class MyMoneyApp:
         elif self.page.route == "/planned":
             from application.view.planned_view import PlannedView
 
-            self.page.views.append(
+            self._mount(
                 PlannedView(
                     route="/planned",
                     api_client=self.api_client,
@@ -145,7 +183,7 @@ class MyMoneyApp:
         elif self.page.route == "/analytics":
             from application.view.analytics_view import AnalyticsView
 
-            self.page.views.append(
+            self._mount(
                 AnalyticsView(
                     route="/analytics",
                     api_client=self.api_client,
@@ -157,7 +195,7 @@ class MyMoneyApp:
         elif self.page.route == "/settings":
             from application.view.settings_view import SettingsView
 
-            self.page.views.append(
+            self._mount(
                 SettingsView(
                     route="/settings",
                     api_client=self.api_client,
@@ -212,6 +250,7 @@ class MyMoneyApp:
 
         self.page.on_route_change = self.route_change
         self.page.on_view_pop = self.view_pop
+        self.page.on_keyboard_event = self._on_keyboard
 
         splash = SplashView()
         self.page.views.append(splash)
