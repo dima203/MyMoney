@@ -6,10 +6,12 @@ import flet as ft
 from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
 from application.components.category_picker import CategoryPicker
+from application.components.csv_save import export_csv
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.transaction_card import TransactionCard
 from application.display import FAB_CLEARANCE, account_display_name, is_read_only_transaction
 from application.transaction_form import form_state
+from core.csv_export import transactions_csv
 
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
@@ -122,7 +124,15 @@ class TransactionsView(BaseView):
             on_select=self._apply_filters,
         )
         self._filter_bar = ft.Row(
-            controls=[self._filter_category, ft.Container(expand=True)],
+            controls=[
+                self._filter_category,
+                ft.Container(expand=True),
+                ft.IconButton(
+                    ft.Icons.DOWNLOAD_OUTLINED,
+                    tooltip="Экспорт CSV",
+                    on_click=self._export_csv,
+                ),
+            ],
             alignment=ft.MainAxisAlignment.START,
         )
 
@@ -186,15 +196,11 @@ class TransactionsView(BaseView):
         except BackendUnreachableError:
             if not self._disposed:
                 self._loading.visible = False
-                self._error_text.value = "Сервер недоступен"
-                self._error_text.visible = True
-                self.update()
+                self._show_error("Сервер недоступен")
         except ApiError as exc:
             if not self._disposed:
                 self._loading.visible = False
-                self._error_text.value = f"Ошибка загрузки: {exc}"
-                self._error_text.visible = True
-                self.update()
+                self._show_error(f"Ошибка загрузки: {exc}")
 
     def _collect_categories(self):
         cats = set()
@@ -208,6 +214,20 @@ class TransactionsView(BaseView):
 
     def _apply_filters(self, e=None):
         self._rebuild_list()
+
+    def _show_error(self, message: str) -> None:
+        self._error_text.value = message
+        self._error_text.visible = True
+        self.update()
+
+    async def _export_csv(self, _event=None) -> None:
+        """Сохранить видимые операции (с учётом фильтра категории и порядка по дате) в CSV-файл."""
+        await export_csv(
+            self.page,
+            kind="transactions",
+            content=transactions_csv(self._get_filtered_transactions(), self._accounts),
+            on_error=self._show_error,
+        )
 
     def _get_filtered_transactions(self) -> list[dict]:
         filtered = self._transactions
@@ -547,9 +567,7 @@ class TransactionsView(BaseView):
                 e.control.disabled = False
                 e.control.text = "Удалить"
                 self.page.pop_dialog()
-                self._error_text.value = f"Ошибка удаления: {exc}"
-                self._error_text.visible = True
-                self.update()
+                self._show_error(f"Ошибка удаления: {exc}")
 
         desc = tx.get("description", "") or "Без описания"
         ConfirmDialog(

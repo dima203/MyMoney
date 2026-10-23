@@ -7,10 +7,12 @@ from application.api import ApiError, BackendUnreachableError, RestClientError
 from application.components import BaseView
 from application.components.account_group import AccountGroup
 from application.components.crypto_summary import CryptoSummary
+from application.components.csv_save import export_csv
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.demo_seed import DemoSeeder
 from application.display import FAB_CLEARANCE, account_display_name
 from core.app_settings import APP_SETTINGS
+from core.csv_export import accounts_csv
 from core.group_totals import build_price_map, format_group_total, group_total_in_base
 from core.onboarding import OnboardingState
 
@@ -109,6 +111,16 @@ class AccountsView(BaseView):
                 self._error_text,
                 self._seed_status,
                 self._loading,
+                ft.Row(
+                    controls=[
+                        ft.Container(expand=True),
+                        ft.IconButton(
+                            ft.Icons.DOWNLOAD_OUTLINED,
+                            tooltip="Экспорт CSV",
+                            on_click=self._export_csv,
+                        ),
+                    ],
+                ),
                 self._accounts_column,
             ],
             expand=True,
@@ -173,15 +185,11 @@ class AccountsView(BaseView):
         except BackendUnreachableError:
             if not self._disposed:
                 self._loading.visible = False
-                self._error_text.value = "Сервер недоступен"
-                self._error_text.visible = True
-                self.update()
+                self._show_error("Сервер недоступен")
         except ApiError as exc:
             if not self._disposed:
                 self._loading.visible = False
-                self._error_text.value = f"Ошибка загрузки: {exc}"
-                self._error_text.visible = True
-                self.update()
+                self._show_error(f"Ошибка загрузки: {exc}")
 
     def _fetch_fx_context(self) -> tuple[str | None, dict[str, Decimal]]:
         try:
@@ -323,6 +331,20 @@ class AccountsView(BaseView):
             content,
             gradient=accent_gradient(APP_SETTINGS.accent_color),
             padding=ft.Padding.symmetric(horizontal=20, vertical=16),
+        )
+
+    def _show_error(self, message: str) -> None:
+        self._error_text.value = message
+        self._error_text.visible = True
+        self.update()
+
+    async def _export_csv(self, _event=None) -> None:
+        """Сохранить счета и балансы в CSV-файл."""
+        await export_csv(
+            self.page,
+            kind="accounts",
+            content=accounts_csv(self._accounts),
+            on_error=self._show_error,
         )
 
     def _make_seeder(self) -> DemoSeeder:
@@ -507,9 +529,7 @@ class AccountsView(BaseView):
                 e.control.disabled = False
                 e.control.text = "Удалить"
                 self.page.pop_dialog()
-                self._error_text.value = f"Ошибка удаления: {exc}"
-                self._error_text.visible = True
-                self.update()
+                self._show_error(f"Ошибка удаления: {exc}")
 
         ConfirmDialog(
             title="Удалить счет?",
