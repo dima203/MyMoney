@@ -18,6 +18,8 @@ from pathlib import Path
 import flet as ft
 from application.app import MyMoneyApp
 
+from MySpaceShared.tools.screenshots import wait_for_route, wait_ready
+
 TABS: list[tuple[str, str]] = [
     ("accounts", "/accounts"),
     ("transactions", "/transactions"),
@@ -28,30 +30,16 @@ OUT_DIR = Path(__file__).resolve().parent / "screenshots"
 BOOT_TIMEOUT = 20.0
 BOOT_SETTLE = 2.5
 NAV_SETTLE = 1.5
+NAV_TIMEOUT = 10.0
 GLOBAL_TIMEOUT = 60.0
 
 RESULTS: list[tuple[str, str, int]] = []
 FAILURES: list[str] = []
 
 
-async def wait_ready(page: ft.Page, deadline: float) -> None:
-    last: tuple[str, int] | None = None
-    stable_since: float | None = None
-    while time.monotonic() < deadline:
-        snapshot = (page.route, len(page.views))
-        if page.views and snapshot == last:
-            if stable_since is None:
-                stable_since = time.monotonic()
-            elif time.monotonic() - stable_since >= 0.5:
-                return
-        else:
-            stable_since = None
-        last = snapshot
-        await asyncio.sleep(0.1)
-
-
 async def capture_tab(page: ft.Page, name: str, route: str, index: int, deadline: float) -> None:
     page.navigate(route)
+    await wait_for_route(page, route, min(deadline, time.monotonic() + NAV_TIMEOUT))
     await asyncio.sleep(min(NAV_SETTLE, max(deadline - time.monotonic(), 0.5)))
     data = await page.take_screenshot()
     path = OUT_DIR / f"{index:02d}-{name}.png"
