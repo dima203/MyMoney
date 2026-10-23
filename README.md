@@ -46,7 +46,7 @@ MyMoney/
 │   └── none_base.py         # Заглушка (офлайн)
 ├── dataview/                # Представления данных (DatabaseView)
 ├── application/             # Flet Desktop UI (главный оркестратор, views, components)
-├── auth/                    # Авторизация (Google OAuth, токены)
+├── auth/                    # Авторизация (Google OAuth)
 ├── test/                    # Тесты (pytest)
 ├── requirements.txt
 └── pyproject.toml           # Конфигурация ruff
