@@ -18,6 +18,7 @@ from application.view.analytics_view import (
     limit_text,
     period_caption,
 )
+from core.goals import goal_progress
 
 TODAY = datetime.date(2026, 10, 22)
 ACCOUNTS = [{"id": 1, "resource": "BYN"}, {"id": 2, "resource": "USD"}]
@@ -54,6 +55,7 @@ def _api(me=None) -> MagicMock:
     api = MagicMock()
     api.me.return_value = {"base_currency": "BYN"} if me is None else me
     api.list_envelopes.return_value = []
+    api.list_goals.return_value = []
     return api
 
 
@@ -64,10 +66,12 @@ def _ready(view: AnalyticsView) -> AnalyticsView:
     return view
 
 
-def _view(rows=None, accounts=None, is_online=True, me=None, envelopes=None) -> AnalyticsView:
+def _view(rows=None, accounts=None, is_online=True, me=None, envelopes=None, goals=None) -> AnalyticsView:
     api = _api(me)
     if envelopes is not None:
         api.list_envelopes.return_value = envelopes
+    if goals is not None:
+        api.list_goals.return_value = goals
     transaction_view = MagicMock()
     transaction_view.is_online = is_online
     transaction_view.get_all.return_value = _rows() if rows is None else rows
@@ -85,6 +89,20 @@ def _view(rows=None, accounts=None, is_online=True, me=None, envelopes=None) -> 
 
 def _envelope(**overrides) -> dict:
     row = {"id": 1, "category": "Еда", "limit_amount": "100.0000", "currency_ticker": "BYN", "currency": None}
+    row.update(overrides)
+    return row
+
+
+def _goal(**overrides) -> dict:
+    row = {
+        "id": 1,
+        "name": "Отпуск",
+        "target_amount": "3000.0000",
+        "saved_amount": "1200.0000",
+        "currency_ticker": "BYN",
+        "currency": None,
+        "deadline": "2027-06-01",
+    }
     row.update(overrides)
     return row
 
@@ -332,3 +350,138 @@ class TestEnvelopeDialog:
         assert fields[2].value == "BYN"
         assert [field.text for field in fields[2].options] == ["BYN", "USD"]
         assert dialog.actions[1].content == "Сохранить"
+
+
+class TestGoalsSection:
+    def test_renders_progress_and_remaining(self) -> None:
+        view = _view()
+        view.api_client.list_goals.return_value = [_goal()]
+
+        asyncio.run(view._load_data())
+
+        texts = _texts(view._content)
+        assert "Цели накоплений" in texts
+        assert "1 200.00 BYN из 3 000.00 BYN" in texts
+        assert "Осталось 1 800.00 BYN" in texts
+        assert "до 01.06.2027 · 222 дн." in texts
+        bars = [item for item in _walk(view._body) if isinstance(item, ft.ProgressBar)]
+        assert any(bar.value == 0.4 and bar.color == ft.Colors.PRIMARY for bar in bars)
+
+    def test_reached_goal(self) -> None:
+        view = _view()
+        view.api_client.list_goals.return_value = [_goal(saved_amount="3500.0000")]
+
+        asyncio.run(view._load_data())
+
+        texts = _texts(view._content)
+        assert "Цель достигнута" in texts
+        assert not [text for text in texts if text.startswith("Осталось")]
+        bars = [item for item in _walk(view._body) if isinstance(item, ft.ProgressBar)]
+        assert any(bar.value == 1.0 and bar.color == ft.Colors.TERTIARY for bar in bars)
+
+    def test_overdue_goal_is_marked(self) -> None:
+        view = _view()
+        view.api_client.list_goals.return_value = [_goal(deadline="2026-01-01")]
+
+        asyncio.run(view._load_data())
+
+        assert "до 01.01.2026 · срок истёк" in _texts(view._content)
+
+    def test_no_deadline_has_no_caption(self) -> None:
+        view = _view()
+        view.api_client.list_goals.return_value = [_goal(deadline=None)]
+
+        asyncio.run(view._load_data())
+
+        texts = _texts(view._content)
+        assert "Осталось 1 800.00 BYN" in texts
+        assert not [text for text in texts if text.startswith("до ")]
+
+    def test_empty_state_has_add_button(self) -> None:
+        view = _view()
+
+        asyncio.run(view._load_data())
+
+        texts = _texts(view._content)
+        assert "Целей нет — добавьте цель, чтобы следить за накоплениями" in texts
+        buttons = [item for item in _walk(view._body) if isinstance(item, ft.TextButton)]
+        assert sum(1 for button in buttons if button.content == "Добавить") == 2
+
+    def test_offline_shows_hint_without_request(self) -> None:
+        view = _view(is_online=False)
+
+        asyncio.run(view._load_data())
+
+        assert "Цели недоступны без подключения к серверу" in _texts(view._content)
+        view.api_client.list_goals.assert_not_called()
+
+    def test_backend_error_keeps_charts_alive(self) -> None:
+        view = _view()
+        view.api_client.list_goals.side_effect = BackendUnreachableError("down")
+
+        asyncio.run(view._load_data())
+
+        texts = _texts(view._content)
+        assert "Цели недоступны без подключения к серверу" in texts
+        assert "680.00 BYN" in texts
+        assert view._error_text.visible is False
+
+    def test_paginated_goals_payload(self) -> None:
+        view = _view()
+        view.api_client.list_goals.return_value = {"results": [_goal()]}
+
+        asyncio.run(view._load_data())
+
+        assert "1 200.00 BYN из 3 000.00 BYN" in _texts(view._content)
+
+
+class TestGoalDialogs:
+    def test_edit_dialog_prefilled(self) -> None:
+        view = _view()
+        asyncio.run(view._load_data())
+        goal = _goal()
+
+        dialog = view._goal_dialog(goal)
+
+        assert dialog.title.value == "Изменить цель"
+        fields = dialog.content.content.controls
+        assert [field.value for field in fields[:5]] == ["Отпуск", "3000", "1200", "2027-06-01", "BYN"]
+        assert dialog.content.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+        assert fields[0].autofocus is True
+
+    def test_new_dialog_defaults(self) -> None:
+        view = _view()
+        asyncio.run(view._load_data())
+
+        dialog = view._goal_dialog({})
+
+        assert dialog.title.value == "Новая цель"
+        fields = dialog.content.content.controls
+        assert [field.value for field in fields[:4]] == ["", "", "", ""]
+        assert fields[4].value == "BYN"
+        assert dialog.actions[1].content == "Сохранить"
+
+    def test_contribution_dialog(self) -> None:
+        view = _view()
+        goal = _goal()
+
+        dialog = view._contribution_dialog(goal)
+
+        assert dialog.title.value == "Пополнить «Отпуск»"
+        fields = dialog.content.content.controls
+        assert fields[0].label == "Сумма пополнения"
+        assert fields[0].autofocus is True
+        assert dialog.actions[1].content == "Пополнить"
+
+    def test_goal_card_actions(self) -> None:
+        view = _view()
+        progress = goal_progress([_goal()])[0]
+
+        card = view._goal_card(progress, None)
+
+        buttons = [item for item in _walk(card) if isinstance(item, ft.IconButton)]
+        assert [button.tooltip for button in buttons] == [
+            "Пополнить цель",
+            "Изменить цель",
+            "Удалить цель",
+        ]

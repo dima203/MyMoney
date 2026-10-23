@@ -1,4 +1,5 @@
-"""Экран «Аналитика» MyMoney: расходы по месяцам и категориям (слайс 3.2a)."""
+"""Экран «Аналитика» MyMoney: расходы по месяцам и категориям, конверты и цели
+(слайсы 3.2a–3.2c)."""
 
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
 from application.components.envelope_card import EnvelopeCard
 from application.components.formatting import UNKNOWN_CURRENCY, format_money
+from application.components.goal_card import GoalCard
 from application.components.navigation_items import NAVIGATION_ITEMS
 from core.analytics import (
     DEFAULT_PERIOD,
@@ -21,6 +23,13 @@ from core.analytics import (
     build_summary,
 )
 from core.envelopes import EnvelopeProgress, envelope_payload, envelope_progress
+from core.goals import (
+    DATE_FORMAT,
+    GoalProgress,
+    contribution_payload,
+    goal_payload,
+    goal_progress,
+)
 
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
@@ -42,8 +51,13 @@ ENVELOPES_TITLE = "Конверты месяца"
 ENVELOPES_KEY = "envelopes"
 ENVELOPES_EMPTY = "Лимиты не заданы — добавьте конверт, чтобы следить за тратами по категории"
 ENVELOPES_OFFLINE = "Конверты недоступны без подключения к серверу"
-ENVELOPES_ADD = "Добавить"
 ENVELOPES_SUBTITLE = "Лимит расходов на текущий месяц по категории"
+GOALS_TITLE = "Цели накоплений"
+GOALS_KEY = "goals"
+GOALS_EMPTY = "Целей нет — добавьте цель, чтобы следить за накоплениями"
+GOALS_OFFLINE = "Цели недоступны без подключения к серверу"
+GOALS_SUBTITLE = "Накопления к целевой сумме; пополнения добавляются вручную"
+SECTION_ADD = "Добавить"
 DIALOG_WIDTH = 350
 
 
@@ -56,7 +70,7 @@ def period_caption(months: int) -> str:
 
 
 def limit_text(value) -> str:
-    """Лимит для поля ввода: «500» вместо «500.0000»."""
+    """Сумма для поля ввода: «500» вместо «500.0000»."""
     if value is None or (isinstance(value, str) and not value.strip()):
         return ""
     try:
@@ -94,6 +108,22 @@ def _hint(text: str, *, size: int = 13) -> ft.Text:
     return ft.Text(text, size=size, color=ft.Colors.ON_SURFACE_VARIANT)
 
 
+def _form_error() -> ft.Text:
+    """Скрытая строка ошибки валидации в диалоге формы."""
+    return ft.Text("", size=12, color=ft.Colors.ERROR, visible=False)
+
+
+def _goal_row(goal: GoalProgress) -> dict:
+    """Строка цели для диалогов, если исходная запись недоступна."""
+    return {
+        "name": goal.name,
+        "target_amount": goal.target_amount,
+        "saved_amount": goal.saved_amount,
+        "currency_ticker": goal.currency,
+        "deadline": goal.deadline.isoformat() if goal.deadline else None,
+    }
+
+
 def _bar_rod(point: MonthTotal, currency: str) -> ftc.BarChartRod:
     return ftc.BarChartRod(
         to_y=point.amount,
@@ -120,6 +150,8 @@ class AnalyticsView(BaseView):
         self._summary: ExpenseSummary | None = None
         self._envelopes: list[dict] = []
         self._envelopes_offline = False
+        self._goals: list[dict] = []
+        self._goals_offline = False
 
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
         self._loading = LoadingState()
@@ -175,6 +207,7 @@ class AnalyticsView(BaseView):
             self._accounts = _dict_rows(accounts)
             self._base_currency = await self._fetch_base_currency()
             await self._load_envelopes()
+            await self._load_goals()
             self._loading.visible = False
             self._sync_banner()
             self._rebuild()
@@ -195,29 +228,41 @@ class AnalyticsView(BaseView):
 
     async def _load_envelopes(self) -> None:
         """Конверты online-only: их сбой не должен ломать графики расходов."""
-        if self._offline:
-            self._mark_envelopes_offline()
-            return
-        try:
-            payload = await asyncio.to_thread(self.api_client.list_envelopes)
-        except (ApiError, BackendUnreachableError):
-            self._mark_envelopes_offline()
-            return
-        self._envelopes_offline = False
-        self._envelopes = _dict_rows(payload)
+        rows = await self._load_online(self.api_client.list_envelopes)
+        self._envelopes = rows or []
+        self._envelopes_offline = rows is None
 
-    def _mark_envelopes_offline(self) -> None:
-        self._envelopes = []
-        self._envelopes_offline = True
+    async def _load_goals(self) -> None:
+        """Цели online-only: их сбой не должен ломать графики расходов."""
+        rows = await self._load_online(self.api_client.list_goals)
+        self._goals = rows or []
+        self._goals_offline = rows is None
+
+    async def _load_online(self, loader) -> list[dict] | None:
+        """Строки online-only секции; None — офлайн или сервер недоступен."""
+        if self._offline:
+            return None
+        try:
+            payload = await asyncio.to_thread(loader)
+        except (ApiError, BackendUnreachableError):
+            return None
+        return _dict_rows(payload)
 
     async def _reload_envelopes(self) -> None:
         await self._load_envelopes()
+        self._rebuild()
+
+    async def _reload_goals(self) -> None:
+        await self._load_goals()
         self._rebuild()
 
     def _fail(self, message: str) -> None:
         if self._disposed:
             return
         self._loading.visible = False
+        self._show_error(message)
+
+    def _show_error(self, message: str) -> None:
         self._error_text.value = message
         self._error_text.visible = True
         self.update()
@@ -260,6 +305,7 @@ class AnalyticsView(BaseView):
             self._total_card(summary),
             *self._details(summary),
             *self._envelopes_section(),
+            *self._goals_section(),
         ]
         self.update()
 
@@ -352,10 +398,21 @@ class AnalyticsView(BaseView):
             )
         return ft.Column(controls=controls, spacing=12)
 
-    # --------------------------------------------------------------- конверты
+    # -------------------------------------------------------- секции и диалоги
+
+    def _section_header(
+        self,
+        title: str,
+        key: str,
+        trailing: ft.Control | None = None,
+    ) -> SectionHeader:
+        """Заголовок секции; `key` нужен для прокрутки к секции."""
+        header = SectionHeader(title, trailing=trailing)
+        header.key = key
+        return header
 
     def _currency_options(self) -> dict[str, int | None]:
-        """Тикер валюты → id ресурса (для FK конверта); базовая может быть без id."""
+        """Тикер валюты → id ресурса (для FK конверта/цели); базовая может быть без id."""
         options: dict[str, int | None] = {}
         for account in self._accounts:
             ticker = account.get("resource")
@@ -366,9 +423,93 @@ class AnalyticsView(BaseView):
             options.setdefault(self._base_currency, None)
         return options
 
+    def _currency_dropdown(self, selected: str, currency_map: dict[str, int | None]) -> ft.Dropdown:
+        options = [ft.DropdownOption(key=ticker, text=ticker) for ticker in sorted(currency_map)]
+        if selected and selected not in currency_map:
+            options.append(ft.DropdownOption(key=selected, text=selected))
+        return ft.Dropdown(label="Валюта", value=selected or None, options=options, width=DIALOG_WIDTH)
+
+    def _dialog_error(self, error_text: ft.Text, message: str) -> None:
+        error_text.value = message
+        error_text.visible = True
+        self.page.update()
+
+    def _form_dialog(
+        self,
+        *,
+        title: str,
+        fields: list[ft.Control],
+        save_text: str,
+        busy_text: str,
+        build_payload,
+        save,
+    ) -> ft.AlertDialog:
+        """Диалог формы: поля и ошибка, «Отмена»/save с общей обвязкой сохранения.
+
+        `build_payload` проверяет ввод и отдаёт тело запроса (ValueError → ошибка в диалоге),
+        `save` отправляет его на сервер, закрывает диалог и перечитывает секцию.
+        """
+        error_text = _form_error()
+
+        async def on_click(_event) -> None:
+            try:
+                payload = build_payload()
+            except ValueError as exc:
+                self._dialog_error(error_text, str(exc))
+                return
+
+            save_button.disabled = True
+            save_button.text = busy_text
+            self.page.update()
+            try:
+                await save(payload)
+            except (ApiError, BackendUnreachableError) as exc:
+                save_button.disabled = False
+                save_button.text = save_text
+                self._dialog_error(error_text, str(exc))
+
+        save_button = ft.Button(save_text, on_click=on_click)
+        return ft.AlertDialog(
+            title=ft.Text(title),
+            content=ft.Container(
+                content=ft.Column(
+                    controls=[*fields, error_text],
+                    spacing=12,
+                    width=DIALOG_WIDTH,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                ),
+            ),
+            actions=[
+                ft.TextButton("Отмена", on_click=lambda _: self.page.pop_dialog()),
+                save_button,
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+    def _confirm_delete(self, *, title: str, message: str, remove, reload) -> None:
+        """Подтверждение удаления: `remove` — вызов сервера, `reload` — перечитывание секции."""
+
+        async def delete(_event) -> None:
+            try:
+                await asyncio.to_thread(remove)
+            except (ApiError, BackendUnreachableError) as exc:
+                self.page.pop_dialog()
+                self._show_error(f"Ошибка удаления: {exc}")
+                return
+            self.page.pop_dialog()
+            await reload()
+
+        ConfirmDialog(
+            title=title,
+            message=message,
+            on_confirm=lambda event: asyncio.create_task(delete(event)),
+        ).show(self.page)
+
+    # --------------------------------------------------------------- конверты
+
     def _envelopes_section(self) -> list[ft.Control]:
         if self._envelopes_offline:
-            return [self._envelopes_header(), _hint(ENVELOPES_OFFLINE)]
+            return [self._section_header(ENVELOPES_TITLE, ENVELOPES_KEY), _hint(ENVELOPES_OFFLINE)]
 
         progress = envelope_progress(
             self._envelopes,
@@ -377,18 +518,12 @@ class AnalyticsView(BaseView):
             today=self._today(),
             base_currency=self._base_currency,
         )
-        add_button = ft.TextButton(ENVELOPES_ADD, icon=ft.Icons.ADD, on_click=self._open_envelope_editor)
-        header = self._envelopes_header(add_button)
+        add_button = ft.TextButton(SECTION_ADD, icon=ft.Icons.ADD, on_click=self._open_envelope_editor)
+        header = self._section_header(ENVELOPES_TITLE, ENVELOPES_KEY, add_button)
         if not progress:
             return [header, _hint(ENVELOPES_EMPTY)]
         cards = self._envelope_cards(progress)
         return [header, _hint(ENVELOPES_SUBTITLE, size=12), ft.Column(cards, spacing=12)]
-
-    def _envelopes_header(self, trailing: ft.Control | None = None) -> SectionHeader:
-        """Заголовок секции; `key` нужен для прокрутки к конвертам."""
-        header = SectionHeader(ENVELOPES_TITLE, trailing=trailing)
-        header.key = ENVELOPES_KEY
-        return header
 
     def _envelope_cards(self, progress: list[EnvelopeProgress]) -> list[ft.Control]:
         raw_by_id = {row.get("id"): row for row in self._envelopes}
@@ -402,20 +537,10 @@ class AnalyticsView(BaseView):
             on_delete=lambda _event, envelope=envelope: self._confirm_delete_envelope(envelope),
         )
 
-    def _currency_dropdown(self, selected: str, currency_map: dict[str, int | None]) -> ft.Dropdown:
-        options = [ft.DropdownOption(key=ticker, text=ticker) for ticker in sorted(currency_map)]
-        if selected and selected not in currency_map:
-            options.append(ft.DropdownOption(key=selected, text=selected))
-        return ft.Dropdown(label="Валюта", value=selected or None, options=options, width=DIALOG_WIDTH)
-
-    def _dialog_error(self, error_text: ft.Text, message: str) -> None:
-        error_text.value = message
-        error_text.visible = True
-        self.page.update()
-
     def _envelope_dialog(self, envelope: dict) -> ft.AlertDialog:
         currency_map = self._currency_options()
         selected_currency = str(envelope.get("currency_ticker") or self._base_currency or "")
+        envelope_id = envelope.get("id")
 
         category_field = ft.TextField(label="Категория", value=str(envelope.get("category") or ""), autofocus=True)
         limit_field = ft.TextField(
@@ -424,75 +549,157 @@ class AnalyticsView(BaseView):
             keyboard_type=ft.KeyboardType.NUMBER,
         )
         currency_dropdown = self._currency_dropdown(selected_currency, currency_map)
-        error_text = ft.Text("", size=12, color=ft.Colors.ERROR, visible=False)
 
-        async def on_submit(_event) -> None:
-            try:
-                payload = envelope_payload(
-                    category_field.value,
-                    limit_field.value,
-                    currency_map.get(currency_dropdown.value or ""),
-                )
-            except ValueError as exc:
-                self._dialog_error(error_text, str(exc))
-                return
+        def build_payload() -> dict:
+            return envelope_payload(
+                category_field.value,
+                limit_field.value,
+                currency_map.get(currency_dropdown.value or ""),
+            )
 
-            save_button.disabled = True
-            save_button.text = "Сохранение..."
-            self.page.update()
-            try:
-                envelope_id = envelope.get("id")
-                if envelope_id:
-                    await asyncio.to_thread(self.api_client.update_envelope, envelope_id, payload)
-                else:
-                    await asyncio.to_thread(self.api_client.create_envelope, payload)
-                self.page.pop_dialog()
-                await self._reload_envelopes()
-            except (ApiError, BackendUnreachableError) as exc:
-                save_button.disabled = False
-                save_button.text = "Сохранить"
-                self._dialog_error(error_text, str(exc))
+        async def save(payload: dict) -> None:
+            if envelope_id:
+                await asyncio.to_thread(self.api_client.update_envelope, envelope_id, payload)
+            else:
+                await asyncio.to_thread(self.api_client.create_envelope, payload)
+            self.page.pop_dialog()
+            await self._reload_envelopes()
 
-        save_button = ft.Button("Сохранить", on_click=on_submit)
-        return ft.AlertDialog(
-            title=ft.Text("Изменить конверт" if envelope.get("id") else "Новый конверт"),
-            content=ft.Container(
-                content=ft.Column(
-                    controls=[category_field, limit_field, currency_dropdown, error_text],
-                    spacing=12,
-                    width=DIALOG_WIDTH,
-                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
-                ),
-            ),
-            actions=[
-                ft.TextButton("Отмена", on_click=lambda _: self.page.pop_dialog()),
-                save_button,
-            ],
-            actions_alignment=ft.MainAxisAlignment.END,
+        return self._form_dialog(
+            title="Изменить конверт" if envelope_id else "Новый конверт",
+            fields=[category_field, limit_field, currency_dropdown],
+            save_text="Сохранить",
+            busy_text="Сохранение...",
+            build_payload=build_payload,
+            save=save,
         )
 
     def _open_envelope_editor(self, envelope: dict | None = None) -> None:
         self.page.show_dialog(self._envelope_dialog(envelope if isinstance(envelope, dict) else {}))
 
     def _confirm_delete_envelope(self, envelope: dict) -> None:
-        async def delete(_event) -> None:
-            try:
-                await asyncio.to_thread(self.api_client.delete_envelope, envelope.get("id"))
-            except (ApiError, BackendUnreachableError) as exc:
-                self.page.pop_dialog()
-                self._error_text.value = f"Ошибка удаления: {exc}"
-                self._error_text.visible = True
-                self.update()
-                return
-            self.page.pop_dialog()
-            await self._reload_envelopes()
-
         category = str(envelope.get("category") or "")
-        ConfirmDialog(
+        self._confirm_delete(
             title="Удалить конверт?",
             message=f"Конверт «{category}» будет удалён.",
-            on_confirm=lambda event: asyncio.create_task(delete(event)),
-        ).show(self.page)
+            remove=lambda: self.api_client.delete_envelope(envelope.get("id")),
+            reload=self._reload_envelopes,
+        )
+
+    # -------------------------------------------------------------------- цели
+
+    def _goals_section(self) -> list[ft.Control]:
+        if self._goals_offline:
+            return [self._section_header(GOALS_TITLE, GOALS_KEY), _hint(GOALS_OFFLINE)]
+
+        progress = goal_progress(self._goals, base_currency=self._base_currency)
+        add_button = ft.TextButton(SECTION_ADD, icon=ft.Icons.ADD, on_click=self._open_goal_editor)
+        header = self._section_header(GOALS_TITLE, GOALS_KEY, add_button)
+        if not progress:
+            return [header, _hint(GOALS_EMPTY)]
+        cards = self._goal_cards(progress)
+        return [header, _hint(GOALS_SUBTITLE, size=12), ft.Column(cards, spacing=12)]
+
+    def _goal_cards(self, progress: list[GoalProgress]) -> list[ft.Control]:
+        raw_by_id = {row.get("id"): row for row in self._goals}
+        return [self._goal_card(item, raw_by_id.get(item.goal_id)) for item in progress]
+
+    def _goal_card(self, item: GoalProgress, raw: dict | None) -> GoalCard:
+        goal = raw or _goal_row(item)
+        return GoalCard(
+            item,
+            today=self._today(),
+            on_contribute=lambda _event, goal=goal: self._open_contribution_dialog(goal),
+            on_edit=lambda _event, goal=goal: self._open_goal_editor(goal),
+            on_delete=lambda _event, goal=goal: self._confirm_delete_goal(goal),
+        )
+
+    def _goal_dialog(self, goal: dict) -> ft.AlertDialog:
+        currency_map = self._currency_options()
+        selected_currency = str(goal.get("currency_ticker") or self._base_currency or "")
+        goal_id = goal.get("id")
+
+        name_field = ft.TextField(label="Название", value=str(goal.get("name") or ""), autofocus=True)
+        target_field = ft.TextField(
+            label="Цель",
+            value=limit_text(goal.get("target_amount")),
+            keyboard_type=ft.KeyboardType.NUMBER,
+        )
+        saved_field = ft.TextField(
+            label="Уже накоплено",
+            value=limit_text(goal.get("saved_amount")),
+            keyboard_type=ft.KeyboardType.NUMBER,
+        )
+        deadline_field = ft.TextField(
+            label=f"Срок ({DATE_FORMAT})",
+            value=str(goal.get("deadline") or ""),
+        )
+        currency_dropdown = self._currency_dropdown(selected_currency, currency_map)
+
+        def build_payload() -> dict:
+            return goal_payload(
+                name_field.value,
+                target_field.value,
+                saved_field.value,
+                currency_map.get(currency_dropdown.value or ""),
+                deadline_field.value,
+            )
+
+        async def save(payload: dict) -> None:
+            if goal_id:
+                await asyncio.to_thread(self.api_client.update_goal, goal_id, payload)
+            else:
+                await asyncio.to_thread(self.api_client.create_goal, payload)
+            self.page.pop_dialog()
+            await self._reload_goals()
+
+        return self._form_dialog(
+            title="Изменить цель" if goal_id else "Новая цель",
+            fields=[name_field, target_field, saved_field, deadline_field, currency_dropdown],
+            save_text="Сохранить",
+            busy_text="Сохранение...",
+            build_payload=build_payload,
+            save=save,
+        )
+
+    def _contribution_dialog(self, goal: dict) -> ft.AlertDialog:
+        amount_field = ft.TextField(
+            label="Сумма пополнения",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            autofocus=True,
+        )
+
+        def build_payload() -> dict:
+            return contribution_payload(goal.get("saved_amount"), amount_field.value)
+
+        async def save(payload: dict) -> None:
+            await asyncio.to_thread(self.api_client.update_goal, goal.get("id"), payload)
+            self.page.pop_dialog()
+            await self._reload_goals()
+
+        return self._form_dialog(
+            title=f"Пополнить «{goal.get('name') or ''}»",
+            fields=[amount_field],
+            save_text="Пополнить",
+            busy_text="Пополнение...",
+            build_payload=build_payload,
+            save=save,
+        )
+
+    def _open_goal_editor(self, goal: dict | None = None) -> None:
+        self.page.show_dialog(self._goal_dialog(goal if isinstance(goal, dict) else {}))
+
+    def _open_contribution_dialog(self, goal: dict) -> None:
+        self.page.show_dialog(self._contribution_dialog(goal))
+
+    def _confirm_delete_goal(self, goal: dict) -> None:
+        name = str(goal.get("name") or "")
+        self._confirm_delete(
+            title="Удалить цель?",
+            message=f"Цель «{name}» будет удалена.",
+            remove=lambda: self.api_client.delete_goal(goal.get("id")),
+            reload=self._reload_goals,
+        )
 
 
 __all__ = ["AnalyticsView", "format_money", "period_caption"]

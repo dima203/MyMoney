@@ -80,6 +80,18 @@ class RestClient(BaseRestClient):
     def delete_envelope(self, envelope_id: int) -> None:
         self._request("DELETE", f"/api/v1/envelopes/{envelope_id}/")
 
+    def list_goals(self, **params) -> list:
+        return self._request("GET", "/api/v1/goals/", params=params)
+
+    def create_goal(self, payload: dict) -> dict:
+        return self._request("POST", "/api/v1/goals/", json=payload)
+
+    def update_goal(self, goal_id: int, payload: dict) -> dict:
+        return self._request("PATCH", f"/api/v1/goals/{goal_id}/", json=payload)
+
+    def delete_goal(self, goal_id: int) -> None:
+        self._request("DELETE", f"/api/v1/goals/{goal_id}/")
+
 
 __all__ = [
     "ApiError",

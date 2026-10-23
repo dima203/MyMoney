@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 import flet as ft
+from application.components.card_actions import action_button
 from application.components.formatting import format_money
 from core.envelopes import EnvelopeProgress
 
 from MySpaceShared.components.elevated_card import ElevatedCard
 
 PROGRESS_HEIGHT = 6
-ICON_SIZE = 18
-ICON_PADDING = 4
-
-
-def _action_button(icon: str, tooltip: str, on_click) -> ft.IconButton:
-    return ft.IconButton(icon, tooltip=tooltip, icon_size=ICON_SIZE, padding=ICON_PADDING, on_click=on_click)
 
 
 class EnvelopeCard(ElevatedCard):
@@ -28,8 +23,8 @@ class EnvelopeCard(ElevatedCard):
             controls=[
                 ft.Text(envelope.category, size=14, weight=ft.FontWeight.W_600, expand=True),
                 ft.Text(f"{spent} из {limit}", size=13),
-                _action_button(ft.Icons.EDIT_OUTLINED, "Изменить конверт", on_edit),
-                _action_button(ft.Icons.DELETE_OUTLINE, "Удалить конверт", on_delete),
+                action_button(ft.Icons.EDIT_OUTLINED, "Изменить конверт", on_edit),
+                action_button(ft.Icons.DELETE_OUTLINE, "Удалить конверт", on_delete),
             ],
             spacing=4,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
