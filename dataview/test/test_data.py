@@ -1,150 +1,146 @@
+"""Тесты JSON-слоя dataview на изолированных копиях фикстур.
+
+Тесты не работают с файлами `dataview/test/*.json` напрямую: каждый из них
+получает свежие копии в `tmp_path`, поэтому файлы репозитория не мутируются,
+а результат не зависит от порядка прогонов (регрессия `test_account_with_group`,
+слайс 3.7 — прежний `teardown_class` мог оставить фикстуры грязными).
+"""
+
 import datetime
-import json
+import shutil
 from pathlib import Path
 
+import pytest
 from core import Account, Resource, Transaction
 from core.journal_entry import JournalEntry
 from database import JSONBase
 
 from dataview import AccountBaseView, ResourceBaseView, TransactionBaseView
 
+FIXTURE_DIR = Path(__file__).resolve().parent
+FIXTURE_FILES = ("test_accounts.json", "test_resources.json", "test_transactions.json")
+
+
+def _load_view[V: (ResourceBaseView, AccountBaseView, TransactionBaseView)](
+    view_type: type[V], fixture_file: str, data_dir: Path, *dependencies
+) -> V:
+    """Вьюха поверх свежей копии фикстуры: база же служит reserve-базой."""
+    database = JSONBase(str(data_dir / fixture_file))
+    view = view_type(database, *dependencies, reserve_database=database)
+    view.load()
+    return view
+
+
+@pytest.fixture
+def data_dir(tmp_path: Path) -> Path:
+    """Копии JSON-фикстур: тесты не трогают файлы репозитория."""
+    for name in FIXTURE_FILES:
+        shutil.copy(FIXTURE_DIR / name, tmp_path / name)
+    return tmp_path
+
+
+@pytest.fixture
+def resource_view(data_dir: Path) -> ResourceBaseView:
+    return _load_view(ResourceBaseView, "test_resources.json", data_dir)
+
+
+@pytest.fixture
+def account_view(data_dir: Path, resource_view: ResourceBaseView) -> AccountBaseView:
+    return _load_view(AccountBaseView, "test_accounts.json", data_dir, resource_view)
+
+
+@pytest.fixture
+def transaction_view(data_dir: Path, account_view: AccountBaseView) -> TransactionBaseView:
+    return _load_view(TransactionBaseView, "test_transactions.json", data_dir, account_view)
+
 
 class TestResourceBaseView:
-    def setup_class(self) -> None:
-        self.data_path = Path.cwd() / "dataview/test/test_resources.json"
-        self.file_data = json.load(self.data_path.open())
-        self.db = JSONBase(str(self.data_path))
-        self.db_view = ResourceBaseView(self.db, reserve_database=self.db)
-        self.db_view.load()
+    def test_get(self, resource_view) -> None:
+        assert resource_view.get(1) is not None
 
-    def teardown_class(self) -> None:
-        json.dump(self.file_data, self.data_path.open("w"), indent=2)
-
-    def test_get(self) -> None:
-        _ = self.db_view.get(1)
-
-    def test_add(self) -> None:
+    def test_add(self, resource_view) -> None:
         resource = Resource(2, "USD")
-        self.db_view.add(resource)
-        assert resource == self.db_view.get(2)
+        resource_view.add(resource)
+        assert resource == resource_view.get(2)
 
-    def test_get_all(self):
-        all_resources = self.db_view.get_all()
+    def test_get_all(self, resource_view) -> None:
+        all_resources = resource_view.get_all()
         assert isinstance(all_resources, dict)
         assert len(all_resources) >= 2
 
-    def test_delete(self):
-        r = Resource(98, "TEMP")
-        self.db_view.add(r)
-        actual_pk = r.pk
-        self.db_view.delete(actual_pk)
-        all_resources = self.db_view.get_all()
-        assert actual_pk not in all_resources
+    def test_delete(self, resource_view) -> None:
+        resource = Resource(98, "TEMP")
+        resource_view.add(resource)
+        actual_pk = resource.pk
+        resource_view.delete(actual_pk)
+        assert actual_pk not in resource_view.get_all()
 
 
 class TestAccountBaseView:
-    def setup_class(self) -> None:
-        self.data_path = Path.cwd() / "dataview/test/test_accounts.json"
-        self.resource_path = Path.cwd() / "dataview/test/test_resources.json"
-        self.file_data = json.load(self.data_path.open())
-        self.db = JSONBase(str(self.data_path))
-        self.resource_db = JSONBase(str(self.resource_path))
-        self.resource_db_view = ResourceBaseView(self.resource_db, reserve_database=self.resource_db)
-        self.db_view = AccountBaseView(self.db, self.resource_db_view, reserve_database=self.db)
-        self.resource_db_view.load()
-        self.db_view.load()
+    def test_get(self, account_view) -> None:
+        assert account_view.get(1) is not None
 
-    def teardown_class(self) -> None:
-        json.dump(self.file_data, self.data_path.open("w"), indent=2)
-
-    def test_get(self) -> None:
-        _ = self.db_view.get(1)
-
-    def test_add(self) -> None:
+    def test_add(self, account_view) -> None:
         account = Account(2, "test2", Resource(1, "BYN"), 15)
-        self.db_view.add(account)
-        assert account == self.db_view.get(2)
+        account_view.add(account)
+        assert account == account_view.get(2)
 
-    def test_get_all(self):
-        all_accounts = self.db_view.get_all()
+    def test_get_all(self, account_view) -> None:
+        all_accounts = account_view.get_all()
         assert isinstance(all_accounts, dict)
         assert len(all_accounts) >= 2
 
-    def test_delete(self):
+    def test_delete(self, account_view) -> None:
         account = Account(98, "temp_account", Resource(1, "BYN"), 0)
-        self.db_view.add(account)
+        account_view.add(account)
         actual_pk = account.pk
-        self.db_view.delete(actual_pk)
-        assert self.db_view.get(actual_pk) is None
+        account_view.delete(actual_pk)
+        assert account_view.get(actual_pk) is None
 
-    def test_get_nonexistent_returns_none(self):
-        assert self.db_view.get(9999) is None
+    def test_get_nonexistent_returns_none(self, account_view) -> None:
+        assert account_view.get(9999) is None
 
-    def test_account_with_group(self):
+    def test_account_with_group(self, account_view) -> None:
         resource = Resource(1, "BYN")
         account = Account(97, "Crypto", resource, 1000, group="investments", account_type="trading")
-        self.db_view.add(account)
+        account_view.add(account)
         actual_pk = account.pk
-        loaded = self.db_view.get(actual_pk)
+        loaded = account_view.get(actual_pk)
         assert loaded.group == "investments"
         assert loaded.account_type == "trading"
-        self.db_view.delete(actual_pk)
+        account_view.delete(actual_pk)
+        assert account_view.get(actual_pk) is None
 
 
 class TestTransactionBaseView:
-    def setup_class(self) -> None:
-        self.data_path = Path.cwd() / "dataview/test/test_transactions.json"
-        self.resource_path = Path.cwd() / "dataview/test/test_resources.json"
-        self.account_path = Path.cwd() / "dataview/test/test_accounts.json"
-        self.file_data = json.load(self.data_path.open())
-        self.account_file_data = json.load(self.account_path.open())
-        self.resources_file_data = json.load(self.resource_path.open())
-        self.resource_db = JSONBase(str(self.resource_path))
-        self.account_db = JSONBase(str(self.account_path))
-        self.db = JSONBase(str(self.data_path))
-        self.resource_db_view = ResourceBaseView(self.resource_db, reserve_database=self.resource_db)
-        self.account_db_view = AccountBaseView(self.account_db, self.resource_db_view, reserve_database=self.account_db)
-        self.db_view = TransactionBaseView(self.db, self.account_db_view, reserve_database=self.db)
-        self.resource_db_view.load()
-        self.account_db_view.load()
-        self.db_view.load()
+    def test_get(self, transaction_view) -> None:
+        assert transaction_view.get(1) is not None
 
-    def teardown_class(self) -> None:
-        json.dump(self.file_data, self.data_path.open("w"), indent=2)
-        json.dump(self.account_file_data, self.account_path.open("w"), indent=2)
-        json.dump(self.resources_file_data, self.resource_path.open("w"), indent=2)
-
-    def test_get(self) -> None:
-        _ = self.db_view.get(1)
-
-    def test_add(self) -> None:
+    def test_add(self, transaction_view) -> None:
         entry = JournalEntry(account_id=1, quantity=5, amount=5)
-        transaction = Transaction(
-            96,
-            datetime.datetime.now(),
-            [entry],
-        )
-        self.db_view.add(transaction)
-        assert transaction == self.db_view.get(96)
+        transaction = Transaction(96, datetime.datetime.now(), [entry])
+        transaction_view.add(transaction)
+        assert transaction == transaction_view.get(96)
 
-    def test_get_all(self):
-        all_transactions = self.db_view.get_all()
+    def test_get_all(self, transaction_view) -> None:
+        all_transactions = transaction_view.get_all()
         assert isinstance(all_transactions, dict)
         assert len(all_transactions) >= 1
 
-    def test_delete(self):
+    def test_delete(self, transaction_view) -> None:
         entry = JournalEntry(account_id=1, quantity=1, amount=1)
-        t = Transaction(95, datetime.datetime.now(), [entry])
-        self.db_view.add(t)
-        actual_pk = t.pk
-        self.db_view.delete(actual_pk)
-        assert self.db_view.get(actual_pk) is None
+        transaction = Transaction(95, datetime.datetime.now(), [entry])
+        transaction_view.add(transaction)
+        actual_pk = transaction.pk
+        transaction_view.delete(actual_pk)
+        assert transaction_view.get(actual_pk) is None
 
-    def test_get_planned(self):
+    def test_get_planned(self, transaction_view) -> None:
         entry = JournalEntry(account_id=1, quantity=10, amount=10)
-        t = Transaction(94, datetime.datetime.now(), [entry], is_planned=True, recurrence_rule="monthly")
-        self.db_view.add(t)
-        actual_pk = t.pk
-        planned = self.db_view.get_planned()
+        transaction = Transaction(94, datetime.datetime.now(), [entry], is_planned=True, recurrence_rule="monthly")
+        transaction_view.add(transaction)
+        actual_pk = transaction.pk
+        planned = transaction_view.get_planned()
         assert actual_pk in planned
-        self.db_view.delete(actual_pk)
+        transaction_view.delete(actual_pk)
+        assert actual_pk not in transaction_view.get_planned()
