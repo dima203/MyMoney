@@ -13,6 +13,7 @@ from application.api import BackendUnreachableError
 from application.view.analytics_view import (
     ENVELOPES_EMPTY,
     ENVELOPES_OFFLINE,
+    PDF_TOOLTIP,
     AnalyticsView,
     format_money,
     limit_text,
@@ -172,7 +173,9 @@ class TestAnalyticsViewLoad:
         assert view._body.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
         first = view._body.controls[0]
         assert isinstance(first, ft.Row)
-        assert first.controls == [view._period_selector]
+        assert first.controls[0] is view._period_selector
+        assert isinstance(first.controls[-1], ft.IconButton)
+        assert first.controls[-1].tooltip == PDF_TOOLTIP
 
     def test_period_change_accepts_list_payload(self) -> None:
         view = _view()
@@ -433,6 +436,57 @@ class TestGoalsSection:
         asyncio.run(view._load_data())
 
         assert "1 200.00 BYN из 3 000.00 BYN" in _texts(view._content)
+
+
+class TestPdfExport:
+    def _ready(
+        self,
+        monkeypatch,
+        *,
+        result="C:/exports/report.pdf",
+        error=None,
+    ) -> tuple[AnalyticsView, dict, MagicMock]:
+        view = _view()
+        asyncio.run(view._load_data())
+        monkeypatch.setattr(type(view), "page", property(lambda self: MagicMock()))
+        state: dict = {}
+
+        async def fake_save(page, *, file_name, content, dialog_title="Сохранить PDF"):
+            state["file_name"] = file_name
+            state["content"] = content
+            if error is not None:
+                raise error
+            return result
+
+        monkeypatch.setattr("application.view.analytics_view.save_bytes_file", fake_save)
+        toast = MagicMock()
+        monkeypatch.setattr("application.view.analytics_view.show_toast", toast)
+        return view, state, toast
+
+    def test_export_writes_pdf(self, monkeypatch) -> None:
+        view, state, toast = self._ready(monkeypatch)
+
+        asyncio.run(view._export_pdf())
+
+        assert state["file_name"] == "mymoney-report-2026-10.pdf"
+        assert state["content"].startswith(b"%PDF")
+        toast.assert_called_once()
+        assert "Сохранено" in toast.call_args.args[1]
+
+    def test_cancelled_dialog_has_no_toast(self, monkeypatch) -> None:
+        view, _state, toast = self._ready(monkeypatch, result=None)
+
+        asyncio.run(view._export_pdf())
+
+        toast.assert_not_called()
+
+    def test_write_error_is_reported(self, monkeypatch) -> None:
+        view, _state, _toast = self._ready(monkeypatch, error=OSError("disk full"))
+
+        asyncio.run(view._export_pdf())
+
+        assert view._error_text.visible is True
+        assert "disk full" in view._error_text.value
 
 
 class TestGoalDialogs:

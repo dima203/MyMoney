@@ -11,6 +11,7 @@ import flet_charts as ftc
 from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
 from application.components.envelope_card import EnvelopeCard
+from application.components.file_save import save_bytes_file, show_toast
 from application.components.formatting import UNKNOWN_CURRENCY, format_money
 from application.components.goal_card import GoalCard
 from application.components.navigation_items import NAVIGATION_ITEMS
@@ -30,6 +31,7 @@ from core.goals import (
     goal_payload,
     goal_progress,
 )
+from core.pdf_report import monthly_report_pdf, pdf_filename
 
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
@@ -58,6 +60,7 @@ GOALS_EMPTY = "Целей нет — добавьте цель, чтобы сл�
 GOALS_OFFLINE = "Цели недоступны без подключения к серверу"
 GOALS_SUBTITLE = "Накопления к целевой сумме; пополнения добавляются вручную"
 SECTION_ADD = "Добавить"
+PDF_TOOLTIP = "PDF-отчёт за месяц"
 DIALOG_WIDTH = 350
 
 
@@ -300,8 +303,7 @@ class AnalyticsView(BaseView):
         )
         self._summary = summary
         self._body.controls = [
-            # Body тянется STRETCH: селектор заворачиваем в Row, иначе он растянется на всю ширину.
-            ft.Row([self._period_selector]),
+            self._period_row(),
             self._total_card(summary),
             *self._details(summary),
             *self._envelopes_section(),
@@ -309,8 +311,41 @@ class AnalyticsView(BaseView):
         ]
         self.update()
 
+    def _period_row(self) -> ft.Row:
+        """Селектор периода и кнопка PDF; Row нужен, чтобы контролы не растянулись на всю ширину."""
+        return ft.Row(
+            controls=[
+                self._period_selector,
+                ft.Container(expand=True),
+                ft.IconButton(
+                    ft.Icons.PICTURE_AS_PDF_OUTLINED,
+                    tooltip=PDF_TOOLTIP,
+                    on_click=self._export_pdf,
+                ),
+            ],
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
     def _today(self) -> datetime.date:
         return datetime.date.today()
+
+    async def _export_pdf(self, _event=None) -> None:
+        """Сохранить PDF-отчёт за текущий месяц (итог, среднее, категории)."""
+        try:
+            today = self._today()
+            content = await asyncio.to_thread(
+                monthly_report_pdf,
+                self._rows,
+                self._accounts,
+                today=today,
+                base_currency=self._base_currency,
+            )
+            target = await save_bytes_file(self.page, file_name=pdf_filename(today), content=content)
+        except (OSError, RuntimeError, ValueError) as exc:
+            self._show_error(f"Ошибка PDF: {exc}")
+            return
+        if target:
+            show_toast(self.page, f"Сохранено: {target}")
 
     def _total_card(self, summary: ExpenseSummary) -> ft.Control:
         return ElevatedCard(
