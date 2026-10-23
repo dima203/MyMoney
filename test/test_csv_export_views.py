@@ -87,14 +87,14 @@ def saved(monkeypatch) -> dict:
         state["content"] = content
         return state["target"]
 
-    monkeypatch.setattr("application.components.csv_save.save_text_file", fake_save)
+    monkeypatch.setattr("application.components.file_save.save_text_file", fake_save)
     return state
 
 
 @pytest.fixture
 def toast(monkeypatch) -> MagicMock:
     toast_mock = MagicMock()
-    monkeypatch.setattr("application.components.csv_save.show_toast", toast_mock)
+    monkeypatch.setattr("application.components.file_save.show_toast", toast_mock)
     return toast_mock
 
 
@@ -104,7 +104,7 @@ class TestTransactionsExport:
 
         buttons = [control for control in view._filter_bar.controls if isinstance(control, ft.IconButton)]
 
-        assert [button.tooltip for button in buttons] == ["Экспорт CSV"]
+        assert [button.tooltip for button in buttons] == ["Экспорт CSV", "Импорт CSV"]
 
     def test_export_writes_csv_and_toasts(self, monkeypatch, saved, toast) -> None:
         view = _transactions_view()
@@ -145,7 +145,7 @@ class TestTransactionsExport:
         async def failing_save(*args, **kwargs):
             raise OSError("disk full")
 
-        monkeypatch.setattr("application.components.csv_save.save_text_file", failing_save)
+        monkeypatch.setattr("application.components.file_save.save_text_file", failing_save)
 
         asyncio.run(view._export_csv())
 

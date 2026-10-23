@@ -1,17 +1,20 @@
 import asyncio
 import datetime
 from collections import defaultdict
+from pathlib import Path
 
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
 from application.components.category_picker import CategoryPicker
-from application.components.csv_save import export_csv
+from application.components.csv_import_dialog import CsvImportDialog
+from application.components.file_save import export_csv, file_picker, show_toast
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.transaction_card import TransactionCard
 from application.display import FAB_CLEARANCE, account_display_name, is_read_only_transaction
 from application.transaction_form import form_state
 from core.csv_export import transactions_csv
+from core.csv_import import Statement, parse_csv
 
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
@@ -132,6 +135,11 @@ class TransactionsView(BaseView):
                     tooltip="Экспорт CSV",
                     on_click=self._export_csv,
                 ),
+                ft.IconButton(
+                    ft.Icons.UPLOAD_FILE_OUTLINED,
+                    tooltip="Импорт CSV",
+                    on_click=self._import_csv,
+                ),
             ],
             alignment=ft.MainAxisAlignment.START,
         )
@@ -228,6 +236,53 @@ class TransactionsView(BaseView):
             content=transactions_csv(self._get_filtered_transactions(), self._accounts),
             on_error=self._show_error,
         )
+
+    async def _import_csv(self, _event=None) -> None:
+        """Выбрать CSV-выписку и открыть предпросмотр импорта."""
+        path = await self._pick_csv_path()
+        if path is None:
+            return
+        if not path:
+            self._show_error("Не удалось прочитать выписку")
+            return
+        statement = await self._read_statement(path)
+        if statement is not None:
+            CsvImportDialog(statement=statement, accounts=self._accounts, on_import=self._apply_import).show(self.page)
+
+    async def _pick_csv_path(self) -> str | None:
+        """Путь выбранного CSV-файла: None — диалог отменён, пустая строка — путь недоступен."""
+        with file_picker(self.page) as picker:
+            files = await picker.pick_files(
+                dialog_title="Выберите CSV-выписку",
+                allowed_extensions=["csv"],
+                file_type=ft.FilePickerFileType.CUSTOM,
+            )
+        return (files[0].path or "") if files else None
+
+    async def _read_statement(self, path: str) -> Statement | None:
+        """Разобрать выписку; None — ошибка уже показана в панели."""
+        try:
+            text = await asyncio.to_thread(Path(path).read_text, encoding="utf-8-sig", errors="replace")
+        except OSError as exc:
+            self._show_error(f"Ошибка чтения файла: {exc}")
+            return None
+        statement = parse_csv(text)
+        if not statement.rows:
+            self._show_error("В выписке нет строк для импорта")
+            return None
+        return statement
+
+    async def _apply_import(self, payloads: list[dict]) -> None:
+        """Записать операции пачкой (через офлайн-слой, если он есть)."""
+        add = self._transaction_adder()
+        for payload in payloads:
+            await asyncio.to_thread(add, payload)
+        show_toast(self.page, f"Импортировано операций: {len(payloads)}")
+        await self._load_data()
+
+    def _transaction_adder(self):
+        """Функция записи операции: офлайн-слой, если он есть, иначе прямой API."""
+        return self._transaction_view.add if self._transaction_view else self.api_client.create_transaction
 
     def _get_filtered_transactions(self) -> list[dict]:
         filtered = self._transactions
@@ -497,10 +552,7 @@ class TransactionsView(BaseView):
                     else:
                         await asyncio.to_thread(self.api_client.update_transaction, tx["id"], payload)
                 else:
-                    if self._transaction_view:
-                        await asyncio.to_thread(self._transaction_view.add, payload)
-                    else:
-                        await asyncio.to_thread(self.api_client.create_transaction, payload)
+                    await asyncio.to_thread(self._transaction_adder(), payload)
 
                 self.page.pop_dialog()
                 await self._load_data()
