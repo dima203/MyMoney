@@ -44,14 +44,7 @@ class TestLegacyMigration:
     def _patch_home(monkeypatch, tmp_path):
         home = tmp_path / "home"
         home.mkdir()
-        base = type(Path(""))
-
-        class _HomePath(base):
-            @classmethod
-            def home(cls):
-                return home
-
-        monkeypatch.setattr("MySpaceShared.api.token_store.Path", _HomePath)
+        monkeypatch.setattr("MySpaceShared.api.token_store.user_data_dir", lambda: home)
         return home
 
     def test_legacy_mymoney_file_is_migrated(self, monkeypatch, tmp_path):
