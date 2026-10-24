@@ -23,6 +23,7 @@ from core.analytics import (
     MonthTotal,
     build_summary,
 )
+from core.budget_templates import template_infos, template_items, template_payload
 from core.envelopes import EnvelopeProgress, envelope_payload, envelope_progress
 from core.goals import (
     DATE_FORMAT,
@@ -54,14 +55,28 @@ ENVELOPES_KEY = "envelopes"
 ENVELOPES_EMPTY = "Лимиты не заданы — добавьте конверт, чтобы следить за тратами по категории"
 ENVELOPES_OFFLINE = "Конверты недоступны без подключения к серверу"
 ENVELOPES_SUBTITLE = "Лимит расходов на текущий месяц по категории"
+TEMPLATES_BUTTON = "Шаблоны"
+TEMPLATES_TITLE = "Шаблоны бюджетов"
+TEMPLATES_SAVE = "Сохранить из текущих"
+TEMPLATES_APPLY = "Применить"
+TEMPLATES_NAME = "Название шаблона"
+TEMPLATES_PUBLIC = "Публичный шаблон"
+TEMPLATES_MINE = "Мои шаблоны"
+TEMPLATES_PUBLIC_SECTION = "Публичные шаблоны"
+TEMPLATES_EMPTY = "Шаблонов нет — сохраните текущие конверты"
+TEMPLATES_SAVED = "Шаблон сохранён"
+TEMPLATES_DELETE = "Удалить шаблон"
 GOALS_TITLE = "Цели накоплений"
 GOALS_KEY = "goals"
 GOALS_EMPTY = "Целей нет — добавьте цель, чтобы следить за накоплениями"
 GOALS_OFFLINE = "Цели недоступны без подключения к серверу"
 GOALS_SUBTITLE = "Накопления к целевой сумме; пополнения добавляются вручную"
 SECTION_ADD = "Добавить"
+SAVE_BUSY = "Сохранение..."
 PDF_TOOLTIP = "PDF-отчёт за месяц"
 DIALOG_WIDTH = 350
+TEMPLATES_DIALOG_HEIGHT = 420
+TEMPLATE_FAILED = object()
 
 
 def period_caption(months: int) -> str:
@@ -469,22 +484,8 @@ class AnalyticsView(BaseView):
         error_text.visible = True
         self.page.update()
 
-    def _form_dialog(
-        self,
-        *,
-        title: str,
-        fields: list[ft.Control],
-        save_text: str,
-        busy_text: str,
-        build_payload,
-        save,
-    ) -> ft.AlertDialog:
-        """Диалог формы: поля и ошибка, «Отмена»/save с общей обвязкой сохранения.
-
-        `build_payload` проверяет ввод и отдаёт тело запроса (ValueError → ошибка в диалоге),
-        `save` отправляет его на сервер, закрывает диалог и перечитывает секцию.
-        """
-        error_text = _form_error()
+    def _save_handler(self, *, save_button, error_text: ft.Text, save_text: str, busy_text: str, build_payload, save):
+        """Обработчик кнопки сохранения: валидация → busy → запрос, ошибки остаются в диалоге."""
 
         async def on_click(_event) -> None:
             try:
@@ -503,7 +504,34 @@ class AnalyticsView(BaseView):
                 save_button.text = save_text
                 self._dialog_error(error_text, str(exc))
 
-        save_button = ft.Button(save_text, on_click=on_click)
+        return on_click
+
+    def _form_dialog(
+        self,
+        *,
+        title: str,
+        fields: list[ft.Control],
+        save_text: str,
+        busy_text: str,
+        build_payload,
+        save,
+    ) -> ft.AlertDialog:
+        """Диалог формы: поля и ошибка, «Отмена»/save с общей обвязкой сохранения.
+
+        `build_payload` проверяет ввод и отдаёт тело запроса (ValueError → ошибка в диалоге),
+        `save` отправляет его на сервер, закрывает диалог и перечитывает секцию.
+        """
+        error_text = _form_error()
+
+        save_button = ft.Button(save_text)
+        save_button.on_click = self._save_handler(
+            save_button=save_button,
+            error_text=error_text,
+            save_text=save_text,
+            busy_text=busy_text,
+            build_payload=build_payload,
+            save=save,
+        )
         return ft.AlertDialog(
             title=ft.Text(title),
             content=ft.Container(
@@ -554,7 +582,16 @@ class AnalyticsView(BaseView):
             base_currency=self._base_currency,
         )
         add_button = ft.TextButton(SECTION_ADD, icon=ft.Icons.ADD, on_click=self._open_envelope_editor)
-        header = self._section_header(ENVELOPES_TITLE, ENVELOPES_KEY, add_button)
+        templates_button = ft.TextButton(
+            TEMPLATES_BUTTON,
+            icon=ft.Icons.BOOKMARKS_OUTLINED,
+            on_click=self._open_templates,
+        )
+        header = self._section_header(
+            ENVELOPES_TITLE,
+            ENVELOPES_KEY,
+            ft.Row(controls=[templates_button, add_button], spacing=4),
+        )
         if not progress:
             return [header, _hint(ENVELOPES_EMPTY)]
         cards = self._envelope_cards(progress)
@@ -604,7 +641,7 @@ class AnalyticsView(BaseView):
             title="Изменить конверт" if envelope_id else "Новый конверт",
             fields=[category_field, limit_field, currency_dropdown],
             save_text="Сохранить",
-            busy_text="Сохранение...",
+            busy_text=SAVE_BUSY,
             build_payload=build_payload,
             save=save,
         )
@@ -620,6 +657,150 @@ class AnalyticsView(BaseView):
             remove=lambda: self.api_client.delete_envelope(envelope.get("id")),
             reload=self._reload_envelopes,
         )
+
+    async def _open_templates(self, _event=None) -> None:
+        """Загрузить свои и публичные шаблоны и открыть диалог."""
+        try:
+            mine, public = await asyncio.gather(
+                asyncio.to_thread(self.api_client.list_budget_templates, scope="mine"),
+                asyncio.to_thread(self.api_client.list_budget_templates, scope="public"),
+            )
+        except (ApiError, BackendUnreachableError) as exc:
+            self._show_error(f"Ошибка шаблонов: {exc}")
+            return
+        self.page.show_dialog(self._templates_dialog(_dict_rows(mine), _dict_rows(public)))
+
+    def _templates_dialog(self, mine, public) -> ft.AlertDialog:
+        name_field = ft.TextField(label=TEMPLATES_NAME, value="")
+        public_switch = ft.Switch(label=TEMPLATES_PUBLIC, value=False)
+        error_text = _form_error()
+        save_button = ft.Button(TEMPLATES_SAVE)
+        save_button.on_click = self._save_handler(
+            save_button=save_button,
+            error_text=error_text,
+            save_text=TEMPLATES_SAVE,
+            busy_text=SAVE_BUSY,
+            build_payload=lambda: template_payload(
+                name_field.value,
+                template_items(self._envelopes),
+                is_public=bool(public_switch.value),
+            ),
+            save=self._create_template,
+        )
+
+        controls: list[ft.Control] = [
+            name_field,
+            public_switch,
+            error_text,
+            ft.Row([save_button]),
+            ft.Divider(height=1),
+            *self._template_lists(mine, public),
+        ]
+        return ft.AlertDialog(
+            title=ft.Text(TEMPLATES_TITLE),
+            content=ft.Container(
+                content=ft.Column(
+                    controls=controls,
+                    spacing=8,
+                    width=DIALOG_WIDTH,
+                    scroll=ft.ScrollMode.AUTO,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                ),
+                height=TEMPLATES_DIALOG_HEIGHT,
+            ),
+            actions=[
+                ft.TextButton("Закрыть", on_click=lambda _event: self.page.pop_dialog()),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+    async def _create_template(self, payload: dict) -> None:
+        """Сохранить шаблон из текущих конвертов, закрыть диалог и подтвердить тостом."""
+        await asyncio.to_thread(self.api_client.create_budget_template, payload)
+        self.page.pop_dialog()
+        show_toast(self.page, TEMPLATES_SAVED)
+
+    def _template_lists(self, mine, public) -> list[ft.Control]:
+        """Разделы «Мои»/«Публичные»; если шаблонов нет — подсказка пустого состояния."""
+        mine_infos = template_infos(mine)
+        public_infos = template_infos(public)
+        if not mine_infos and not public_infos:
+            return [_hint(TEMPLATES_EMPTY, size=12)]
+        return [
+            *self._template_section(TEMPLATES_MINE, mine_infos, own=True),
+            *self._template_section(TEMPLATES_PUBLIC_SECTION, public_infos, own=False),
+        ]
+
+    def _template_section(self, title: str, infos, *, own: bool) -> list[ft.Control]:
+        """Подпись раздела и плитки его шаблонов (пустой раздел не показывается)."""
+        if not infos:
+            return []
+        return [_hint(title, size=12), *(self._template_tile(info, own=own) for info in infos)]
+
+    def _template_tile(self, info, *, own: bool) -> ft.Control:
+        """Строка шаблона: имя с подзаголовком и действия справа."""
+        title = ft.Column(
+            controls=[
+                ft.Text(info.name, size=14),
+                ft.Text(info.subtitle, size=12, color=ft.Colors.ON_SURFACE_VARIANT),
+            ],
+            spacing=2,
+            expand=True,
+        )
+        return ft.Container(
+            content=ft.Row(
+                controls=[title, ft.Row(controls=self._template_actions(info, own=own), spacing=0)],
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            padding=ft.Padding.symmetric(horizontal=4, vertical=2),
+        )
+
+    def _template_actions(self, info, *, own: bool) -> list[ft.Control]:
+        """«Применить» у любого шаблона, удаление — только у своего."""
+        template_id = info.template_id
+        actions: list[ft.Control] = [
+            ft.TextButton(
+                TEMPLATES_APPLY,
+                on_click=lambda _event: asyncio.create_task(self._apply_template(template_id)),
+            )
+        ]
+        if own and template_id is not None:
+            actions.append(
+                ft.IconButton(
+                    ft.Icons.DELETE_OUTLINE,
+                    tooltip=TEMPLATES_DELETE,
+                    icon_size=18,
+                    on_click=lambda _event: asyncio.create_task(self._delete_template(template_id)),
+                )
+            )
+        return actions
+
+    async def _template_request(self, template_id: int | None, label: str, call):
+        """Запрос к API шаблона в потоке; `TEMPLATE_FAILED` — нечего делать или ошибка показана."""
+        if template_id is None:
+            return TEMPLATE_FAILED
+        try:
+            return await asyncio.to_thread(call, template_id)
+        except (ApiError, BackendUnreachableError) as exc:
+            self._show_error(f"Ошибка {label}: {exc}")
+            return TEMPLATE_FAILED
+
+    async def _apply_template(self, template_id: int | None) -> None:
+        result = await self._template_request(template_id, "применения", self.api_client.apply_budget_template)
+        if result is TEMPLATE_FAILED:
+            return
+        self.page.pop_dialog()
+        counts = result if isinstance(result, dict) else {}
+        created, skipped = counts.get("created", 0), counts.get("skipped", 0)
+        show_toast(self.page, f"Создано конвертов: {created}, пропущено: {skipped}")
+        await self._reload_envelopes()
+
+    async def _delete_template(self, template_id: int | None) -> None:
+        removed = await self._template_request(template_id, "удаления шаблона", self.api_client.delete_budget_template)
+        if removed is TEMPLATE_FAILED:
+            return
+        self.page.pop_dialog()
+        await self._open_templates()
 
     # -------------------------------------------------------------------- цели
 
@@ -692,7 +873,7 @@ class AnalyticsView(BaseView):
             title="Изменить цель" if goal_id else "Новая цель",
             fields=[name_field, target_field, saved_field, deadline_field, currency_dropdown],
             save_text="Сохранить",
-            busy_text="Сохранение...",
+            busy_text=SAVE_BUSY,
             build_payload=build_payload,
             save=save,
         )

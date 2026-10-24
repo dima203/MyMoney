@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import datetime
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from typing import ClassVar
+from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import flet_charts as ftc
@@ -14,6 +15,12 @@ from application.view.analytics_view import (
     ENVELOPES_EMPTY,
     ENVELOPES_OFFLINE,
     PDF_TOOLTIP,
+    TEMPLATES_APPLY,
+    TEMPLATES_BUTTON,
+    TEMPLATES_DELETE,
+    TEMPLATES_EMPTY,
+    TEMPLATES_SAVED,
+    TEMPLATES_TITLE,
     AnalyticsView,
     format_money,
     limit_text,
@@ -37,6 +44,20 @@ def _walk(control) -> list:
 
 def _texts(control) -> list[str]:
     return [str(item.value) for item in _walk(control) if isinstance(item, ft.Text)]
+
+
+def _of_type(control, kind) -> list:
+    """Вложенные контролы указанного типа (включая сам control)."""
+    return [item for item in _walk(control) if isinstance(item, kind)]
+
+
+def _loaded_view(monkeypatch, *, envelopes=None) -> tuple[AnalyticsView, MagicMock]:
+    """Загруженный экран с подменённым page: диалоги и тосты не требуют живой Flet-страницы."""
+    view = _view(envelopes=envelopes)
+    asyncio.run(view._load_data())
+    page = MagicMock()
+    monkeypatch.setattr(type(view), "page", property(lambda _self: page))
+    return view, page
 
 
 def _entry(account: int, amount: float) -> dict:
@@ -436,6 +457,109 @@ class TestGoalsSection:
         asyncio.run(view._load_data())
 
         assert "1 200.00 BYN из 3 000.00 BYN" in _texts(view._content)
+
+
+class TestTemplates:
+    MINE: ClassVar[list[dict]] = [
+        {"id": 1, "name": "Мой", "items": [{"category": "Еда"}], "is_public": False, "currency_ticker": "BYN"},
+    ]
+    PUBLIC: ClassVar[list[dict]] = [
+        {"id": 2, "name": "Публичный", "items": [{"category": "Еда"}, {"category": "Кафе"}], "is_public": True},
+    ]
+
+    def test_templates_button_in_section(self) -> None:
+        view = _view()
+
+        asyncio.run(view._load_data())
+
+        assert TEMPLATES_BUTTON in [button.content for button in _of_type(view._body, ft.TextButton)]
+
+    def test_dialog_lists_mine_and_public(self) -> None:
+        view = _view()
+
+        dialog = view._templates_dialog(self.MINE, self.PUBLIC)
+
+        texts = _texts(dialog)
+        assert dialog.title.value == TEMPLATES_TITLE
+        assert "Мой" in texts
+        assert "Публичный" in texts
+        assert "2 категорий · публичный" in texts
+        assert [button.content for button in _of_type(dialog, ft.TextButton)].count(TEMPLATES_APPLY) == 2
+
+    def test_own_tile_has_delete_public_does_not(self) -> None:
+        view = _view()
+
+        dialog = view._templates_dialog(self.MINE, self.PUBLIC)
+
+        delete_buttons = [button for button in _of_type(dialog, ft.IconButton) if button.tooltip == TEMPLATES_DELETE]
+        assert len(delete_buttons) == 1
+
+    def test_empty_state(self) -> None:
+        view = _view()
+
+        dialog = view._templates_dialog([], [])
+
+        assert TEMPLATES_EMPTY in _texts(dialog)
+
+    def test_save_template_uses_current_envelopes(self, monkeypatch) -> None:
+        view, page = _loaded_view(monkeypatch, envelopes=[_envelope()])
+        toast = MagicMock()
+        monkeypatch.setattr("application.view.analytics_view.show_toast", toast)
+
+        dialog = view._templates_dialog([], [])
+        name_field, public_switch = dialog.content.content.controls[:2]
+        name_field.value = "Базовый"
+        public_switch.value = True
+
+        asyncio.run(_of_type(dialog, ft.Button)[0].on_click(None))
+
+        view.api_client.create_budget_template.assert_called_once()
+        payload = view.api_client.create_budget_template.call_args.args[0]
+        assert payload["name"] == "Базовый"
+        assert payload["items"] == [{"category": "Еда", "limit_amount": "100.0000"}]
+        assert payload["is_public"] is True
+        page.pop_dialog.assert_called_once()
+        toast.assert_called_once_with(page, TEMPLATES_SAVED)
+
+    def test_save_without_envelopes_shows_error(self, monkeypatch) -> None:
+        view, page = _loaded_view(monkeypatch)
+
+        dialog = view._templates_dialog([], [])
+        dialog.content.content.controls[0].value = "Пустой"
+
+        asyncio.run(_of_type(dialog, ft.Button)[0].on_click(None))
+
+        error_text = dialog.content.content.controls[2]
+        assert error_text.visible is True
+        assert "Нет конвертов" in error_text.value
+        view.api_client.create_budget_template.assert_not_called()
+        assert page.update.called
+
+    def test_apply_template_reports_counts(self, monkeypatch) -> None:
+        view, page = _loaded_view(monkeypatch)
+        toast = MagicMock()
+        monkeypatch.setattr("application.view.analytics_view.show_toast", toast)
+        reload_mock = AsyncMock()
+        monkeypatch.setattr(view, "_reload_envelopes", reload_mock)
+        view.api_client.apply_budget_template.return_value = {"created": 2, "skipped": 1}
+
+        asyncio.run(view._apply_template(2))
+
+        view.api_client.apply_budget_template.assert_called_once_with(2)
+        page.pop_dialog.assert_called_once()
+        assert "Создано конвертов: 2, пропущено: 1" in toast.call_args.args[1]
+        reload_mock.assert_awaited_once()
+
+    def test_delete_template_reopens_dialog(self, monkeypatch) -> None:
+        view, page = _loaded_view(monkeypatch)
+        reopened = AsyncMock()
+        monkeypatch.setattr(view, "_open_templates", reopened)
+
+        asyncio.run(view._delete_template(1))
+
+        view.api_client.delete_budget_template.assert_called_once_with(1)
+        page.pop_dialog.assert_called_once()
+        reopened.assert_awaited_once()
 
 
 class TestPdfExport:

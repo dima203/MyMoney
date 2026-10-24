@@ -92,6 +92,21 @@ class RestClient(BaseRestClient):
     def delete_goal(self, goal_id: int) -> None:
         self._request("DELETE", f"/api/v1/goals/{goal_id}/")
 
+    def list_budget_templates(self, **params) -> list:
+        return self._request("GET", "/api/v1/budget-templates/", params=params)
+
+    def create_budget_template(self, payload: dict) -> dict:
+        return self._request("POST", "/api/v1/budget-templates/", json=payload)
+
+    def update_budget_template(self, template_id: int, payload: dict) -> dict:
+        return self._request("PATCH", f"/api/v1/budget-templates/{template_id}/", json=payload)
+
+    def delete_budget_template(self, template_id: int) -> None:
+        self._request("DELETE", f"/api/v1/budget-templates/{template_id}/")
+
+    def apply_budget_template(self, template_id: int) -> dict:
+        return self._request("POST", f"/api/v1/budget-templates/{template_id}/apply/")
+
 
 __all__ = [
     "ApiError",
