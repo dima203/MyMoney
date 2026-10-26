@@ -1,6 +1,7 @@
 import datetime
 
 import flet as ft
+from MySpaceShared.core.formatting import format_money
 from application.display import READ_ONLY_BADGE_LABEL
 
 from MySpaceShared.components import ElevatedCard, StatusBadge
@@ -34,7 +35,7 @@ class TransactionCard(ft.Container):
         is_positive = amount >= 0
         amount_color = ft.Colors.GREEN if is_positive else ft.Colors.RED
         amount_prefix = "+" if is_positive else ""
-        amount_str = f"{amount_prefix}{amount:,.2f}"
+        amount_str = f"{amount_prefix}{format_money(amount)}"
         if currency:
             amount_str = f"{amount_str} {currency}"
 
@@ -131,7 +132,7 @@ class TransactionCard(ft.Container):
         is_positive = amount >= 0
         amount_color = ft.Colors.GREEN if is_positive else ft.Colors.RED
         amount_prefix = "+" if is_positive else ""
-        amount_str = f"{amount_prefix}{amount:,.2f}"
+        amount_str = f"{amount_prefix}{format_money(amount)}"
         if self._currency:
             amount_str = f"{amount_str} {self._currency}"
         self._amount_text.value = amount_str

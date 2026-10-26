@@ -1,6 +1,7 @@
 import datetime
 
 import flet as ft
+from MySpaceShared.core.formatting import format_money
 
 from MySpaceShared.components import ElevatedCard, StatusBadge
 from MySpaceShared.core.tokens import RADIUS, SPACING
@@ -15,7 +16,7 @@ def format_amount(amount, currency: str) -> str:
         value = "—"
     else:
         try:
-            value = f"{float(amount):,.2f}"
+            value = format_money(amount)
         except (TypeError, ValueError):
             value = str(amount)
     return f"{value} {currency}" if currency else value

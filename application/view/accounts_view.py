@@ -8,6 +8,7 @@ from application.components import BaseView
 from application.components.account_group import AccountGroup
 from application.components.crypto_summary import CryptoSummary
 from application.components.file_save import export_csv
+from MySpaceShared.core.formatting import format_money
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.demo_seed import DemoSeeder
 from application.display import FAB_CLEARANCE, account_display_name
@@ -222,7 +223,7 @@ class AccountsView(BaseView):
             account_data = {
                 "id": acc["id"],
                 "name": account_display_name(acc, resource["name"] if resource else ""),
-                "balance": f"{balance:,.2f} {resource_name}",
+                "balance": format_money(balance, resource_name),
                 "icon": icon,
                 "on_edit": lambda a=acc: self._show_edit_dialog(a),
                 "on_delete": lambda a=acc: self._show_delete_confirm(a),
@@ -255,7 +256,7 @@ class AccountsView(BaseView):
                 if self._resource_map.get(a.get("resource_definition"), {}).get("resource_type") == "asset"
             )
             crypto_widget = CryptoSummary(
-                total_usd=f"${crypto_total:,.2f}",
+                total_usd=format_money(crypto_total, prefix="$"),
                 accounts=crypto_accounts,
             )
             self._accounts_column.controls.append(crypto_widget)
@@ -289,7 +290,7 @@ class AccountsView(BaseView):
             r = self._resource_map.get(a.get("resource_definition"))
             if r:
                 resource_names.add(r["name"])
-        balance_str = f"{total:,.2f}" if len(resource_names) <= 1 else ""
+        balance_str = format_money(total) if len(resource_names) <= 1 else ""
         if len(resource_names) == 1:
             balance_str += f" {next(iter(resource_names))}"
         return balance_str
@@ -307,7 +308,7 @@ class AccountsView(BaseView):
         if result.converted == 0:
             return None
 
-        value = f"{result.total:,.2f} {self._base_currency}"
+        value = format_money(result.total, self._base_currency)
         delta = f"курс недоступен: {', '.join(result.missing_symbols)}" if result.has_missing else None
         hero_value = HeroValue(
             value,
