@@ -2,6 +2,8 @@
 
 from decimal import Decimal
 
+from core.analytics import SNAPSHOT_PREFIXES, is_snapshot_row
+
 ACCOUNT_TYPE_LABELS: dict[str, str] = {
     "main": "Основной",
     "trading": "Торговый",
@@ -10,21 +12,17 @@ ACCOUNT_TYPE_LABELS: dict[str, str] = {
 
 UNKNOWN_ACCOUNT_NAME = "—"
 FAB_CLEARANCE = 88
-READ_ONLY_DESCRIPTION_PREFIXES: tuple[str, ...] = ("okx: snapshot ", "import: snapshot ")
+READ_ONLY_DESCRIPTION_PREFIXES: tuple[str, ...] = SNAPSHOT_PREFIXES
 READ_ONLY_BADGE_LABEL = "Снимок OKX"
 
 
 def is_read_only_transaction(tx: dict) -> bool:
-    """Снимок OKX: серверный флаг `read_only`, fallback — по префиксу описания.
+    """Снимок OKX/импорта: серверный флаг `read_only`, fallback — по префиксу.
 
-    Серверный флаг авторитетен (он сам считается по префиксу); fallback нужен
-    для строк из офлайн-кэша, сохранённых до появления поля в API.
+    Правило общее с аналитикой (`core.analytics.is_snapshot_row`), чтобы такие
+    записи не попадали ни в ленту по умолчанию, ни в расходы.
     """
-    flag = tx.get("read_only")
-    if isinstance(flag, bool):
-        return flag
-    description = tx.get("description")
-    return isinstance(description, str) and description.startswith(READ_ONLY_DESCRIPTION_PREFIXES)
+    return is_snapshot_row(tx)
 
 
 def account_display_name(account: dict, resource_name: str = "") -> str:

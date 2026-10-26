@@ -20,6 +20,7 @@ PERIOD_MONTHS: dict[str, int] = {key: months for key, _label, months in PERIODS}
 DEFAULT_PERIOD = "3m"
 UNCATEGORIZED = "Без категории"
 TRANSFER_EPSILON = 1e-9
+SNAPSHOT_PREFIXES: tuple[str, ...] = ("okx: snapshot ", "import: snapshot ")
 MONTH_LABELS = (
     "янв",
     "фев",
@@ -128,16 +129,33 @@ def account_currencies(accounts) -> dict[int, str]:
     return result
 
 
+def is_snapshot_row(tx: dict) -> bool:
+    """Техническая запись синхронизации (снимок OKX/импорта).
+
+    Серверный флаг ``read_only`` авторитетен; для строк из офлайн-кэша,
+    сохранённых до появления поля, работает fallback по префиксу описания.
+    Такие записи не являются доходами/расходами и не участвуют в аналитике.
+    """
+    flag = tx.get("read_only")
+    if isinstance(flag, bool):
+        return flag
+    description = tx.get("description")
+    return isinstance(description, str) and description.startswith(SNAPSHOT_PREFIXES)
+
+
 def expense_records(rows, currencies: dict[int, str]) -> list[ExpenseRecord]:
-    """Расходные проводки без плановых транзакций и переводов.
+    """Расходные проводки без плановых транзакций, переводов и снапшотов.
 
     Перевод (сумма проводок ≈ 0) отбрасывается целиком; категория-пустышка
     становится «Без категории»; счёт без валюты даёт пустой тикер (такая
-    запись не попадёт в сводку по валюте).
+    запись не попадёт в сводку по валюте). Технические снимки OKX/импорта
+    не считаются расходами — иначе категория «OKX» перекрывает реальные траты.
     """
     records: list[ExpenseRecord] = []
     for tx in rows or []:
         if not isinstance(tx, dict) or tx.get("is_planned"):
+            continue
+        if is_snapshot_row(tx):
             continue
         day = parse_day(tx.get("date"))
         if day is None:
@@ -243,6 +261,7 @@ __all__ = [
     "DEFAULT_PERIOD",
     "PERIODS",
     "PERIOD_MONTHS",
+    "SNAPSHOT_PREFIXES",
     "UNCATEGORIZED",
     "CategoryTotal",
     "ExpenseRecord",
@@ -253,6 +272,7 @@ __all__ = [
     "build_summary",
     "expense_records",
     "expense_total",
+    "is_snapshot_row",
     "month_sequence",
     "parse_day",
     "period_start",

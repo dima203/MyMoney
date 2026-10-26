@@ -126,9 +126,16 @@ class TransactionsView(BaseView):
             width=160,
             on_select=self._apply_filters,
         )
+        self._show_snapshots = ft.Switch(
+            label="Снапшоты",
+            value=False,
+            tooltip="Показывать технические записи синхронизации (OKX)",
+            on_change=self._apply_filters,
+        )
         self._filter_bar = ft.Row(
             controls=[
                 self._filter_category,
+                self._show_snapshots,
                 ft.Container(expand=True),
                 ft.IconButton(
                     ft.Icons.DOWNLOAD_OUTLINED,
@@ -286,6 +293,8 @@ class TransactionsView(BaseView):
 
     def _get_filtered_transactions(self) -> list[dict]:
         filtered = self._transactions
+        if not self._show_snapshots.value:
+            filtered = [tx for tx in filtered if not is_read_only_transaction(tx)]
         cat_filter = self._filter_category.value
         if cat_filter and cat_filter != "Все":
             filtered = [tx for tx in filtered if tx.get("category") == cat_filter]

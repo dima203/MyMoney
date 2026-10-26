@@ -14,6 +14,7 @@ from core.analytics import (
     build_summary,
     expense_records,
     expense_total,
+    is_snapshot_row,
     month_sequence,
     parse_day,
     period_start,
@@ -141,6 +142,39 @@ class TestExpenseRecords:
             (UNCATEGORIZED, "", 5.0),
             (UNCATEGORIZED, "BYN", 7.0),
         ]
+
+
+class TestSnapshots:
+    """2.12: технические снимки OKX не считаются расходами."""
+
+    def test_snapshot_by_server_flag_is_skipped(self) -> None:
+        rows = [tx("2026-10-05", "OKX", [entry(1, -15)], read_only=True)]
+
+        assert expense_records(rows, {1: "BYN"}) == []
+
+    def test_snapshot_by_description_prefix_is_skipped(self) -> None:
+        rows = [tx("2026-10-05", "OKX", [entry(1, -15)], description="okx: snapshot 2026-10-05 07:00")]
+
+        assert expense_records(rows, {1: "BYN"}) == []
+
+    def test_import_snapshot_is_skipped(self) -> None:
+        rows = [tx("2026-10-05", "OKX", [entry(1, -15)], description="import: snapshot 2026-08-02 12:00")]
+
+        assert expense_records(rows, {1: "BYN"}) == []
+
+    def test_regular_row_is_not_snapshot(self) -> None:
+        assert is_snapshot_row(tx("2026-10-05", "Еда", [entry(1, -5)])) is False
+
+    def test_snapshot_does_not_create_okx_category_in_summary(self) -> None:
+        rows = [
+            tx("2026-10-05", "Еда", [entry(1, -100)]),
+            tx("2026-10-06", "OKX", [entry(1, -500)], description="okx: snapshot 2026-10-06 07:00"),
+        ]
+
+        summary = summary_for(rows)
+
+        assert [c.category for c in summary.categories] == ["Еда"]
+        assert summary.total == 100.0
 
 
 class TestPreferredCurrency:
