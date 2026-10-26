@@ -236,7 +236,7 @@ class TransactionsView(BaseView):
         self.update()
 
     async def _export_csv(self, _event=None) -> None:
-        """Сохранить видимые операции (с учётом фильтра категории и порядка по дате) в CSV-файл."""
+        """Сохранить видимые операции (фильтр категории, скрытые снимки, порядок по дате) в CSV-файл."""
         await export_csv(
             self.page,
             kind="transactions",

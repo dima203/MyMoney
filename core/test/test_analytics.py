@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import datetime
 
+import pytest
+
 from core.analytics import (
     DEFAULT_PERIOD,
     PERIOD_MONTHS,
@@ -147,20 +149,25 @@ class TestExpenseRecords:
 class TestSnapshots:
     """2.12: технические снимки OKX не считаются расходами."""
 
-    def test_snapshot_by_server_flag_is_skipped(self) -> None:
-        rows = [tx("2026-10-05", "OKX", [entry(1, -15)], read_only=True)]
+    @pytest.mark.parametrize(
+        "extra",
+        [
+            pytest.param({"read_only": True}, id="server-flag"),
+            pytest.param({"description": "okx: snapshot 2026-10-05 07:00"}, id="okx-prefix"),
+            pytest.param({"description": "import: snapshot 2026-08-02 12:00"}, id="import-prefix"),
+            pytest.param({"read_only": None, "description": "okx: snapshot "}, id="null-flag-falls-back"),
+        ],
+    )
+    def test_snapshot_is_not_an_expense(self, extra: dict) -> None:
+        rows = [tx("2026-10-05", "OKX", [entry(1, -15)], **extra)]
 
         assert expense_records(rows, {1: "BYN"}) == []
 
-    def test_snapshot_by_description_prefix_is_skipped(self) -> None:
-        rows = [tx("2026-10-05", "OKX", [entry(1, -15)], description="okx: snapshot 2026-10-05 07:00")]
+    def test_server_flag_false_wins_over_prefix(self) -> None:
+        row = tx("2026-10-05", "OKX", [entry(1, -15)], description="okx: snapshot ", read_only=False)
 
-        assert expense_records(rows, {1: "BYN"}) == []
-
-    def test_import_snapshot_is_skipped(self) -> None:
-        rows = [tx("2026-10-05", "OKX", [entry(1, -15)], description="import: snapshot 2026-08-02 12:00")]
-
-        assert expense_records(rows, {1: "BYN"}) == []
+        assert is_snapshot_row(row) is False
+        assert [(r.category, r.amount) for r in expense_records([row], {1: "BYN"})] == [("OKX", 15.0)]
 
     def test_regular_row_is_not_snapshot(self) -> None:
         assert is_snapshot_row(tx("2026-10-05", "Еда", [entry(1, -5)])) is False

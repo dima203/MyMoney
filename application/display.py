@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 
-from core.analytics import SNAPSHOT_PREFIXES, is_snapshot_row
+from core.analytics import is_snapshot_row
 
 ACCOUNT_TYPE_LABELS: dict[str, str] = {
     "main": "Основной",
@@ -12,7 +12,6 @@ ACCOUNT_TYPE_LABELS: dict[str, str] = {
 
 UNKNOWN_ACCOUNT_NAME = "—"
 FAB_CLEARANCE = 88
-READ_ONLY_DESCRIPTION_PREFIXES: tuple[str, ...] = SNAPSHOT_PREFIXES
 READ_ONLY_BADGE_LABEL = "Снимок OKX"
 
 
@@ -56,7 +55,6 @@ __all__ = [
     "ACCOUNT_TYPE_LABELS",
     "FAB_CLEARANCE",
     "READ_ONLY_BADGE_LABEL",
-    "READ_ONLY_DESCRIPTION_PREFIXES",
     "UNKNOWN_ACCOUNT_NAME",
     "account_display_name",
     "format_amount_input",

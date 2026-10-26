@@ -300,21 +300,21 @@ class TestReadOnlyCard:
 
 
 class TestReadOnlyRows:
-    def _load(self, tx: dict, *, show_snapshots: bool = True) -> TransactionsView:
+    def _load(self, tx: dict, *, show_snapshots: bool = False) -> TransactionsView:
         view = _make_transactions_view(accounts=[BTC_ACCOUNT], transactions=[tx])
         view._show_snapshots.value = show_snapshots
         asyncio.run(view._load_data())
         return view
 
     def test_row_with_server_flag_is_read_only(self) -> None:
-        view = self._load(_row_tx(description="Покупка", read_only=True))
+        view = self._load(_row_tx(description="Покупка", read_only=True), show_snapshots=True)
         cards = _cards(view)
         assert len(cards) == 1
         assert not _find_controls(cards[0], ft.PopupMenuButton)
         assert "Снимок OKX" in _texts(view._tx_list)
 
     def test_row_with_prefix_fallback_is_read_only(self) -> None:
-        view = self._load(_row_tx(description="okx: snapshot 2026-10-09 07:09"))
+        view = self._load(_row_tx(description="okx: snapshot 2026-10-09 07:09"), show_snapshots=True)
         cards = _cards(view)
         assert len(cards) == 1
         assert not _find_controls(cards[0], ft.PopupMenuButton)
@@ -322,13 +322,13 @@ class TestReadOnlyRows:
 
     def test_snapshots_hidden_by_default(self) -> None:
         """2.12: технические записи не засоряют ленту, пока не включён тумблер."""
-        view = self._load(_row_tx(description="okx: snapshot 2026-10-09 07:09"), show_snapshots=False)
+        view = self._load(_row_tx(description="okx: snapshot 2026-10-09 07:09"))
         assert _cards(view) == []
         assert "Нет транзакций" in _texts(view._tx_list)
         assert view._show_snapshots.value is False
 
     def test_regular_row_keeps_menu_and_no_badge(self) -> None:
-        view = self._load(_row_tx(), show_snapshots=False)
+        view = self._load(_row_tx())
         cards = _cards(view)
         assert len(cards) == 1
         assert len(_find_controls(cards[0], ft.PopupMenuButton)) == 1
