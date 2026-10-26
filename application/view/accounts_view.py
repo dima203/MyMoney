@@ -8,7 +8,6 @@ from application.components import BaseView
 from application.components.account_group import AccountGroup
 from application.components.crypto_summary import CryptoSummary
 from application.components.file_save import export_csv
-from MySpaceShared.core.formatting import format_money
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.demo_seed import DemoSeeder
 from application.display import FAB_CLEARANCE, account_display_name
@@ -22,6 +21,7 @@ from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
 from MySpaceShared.components.loading_state import LoadingState
+from MySpaceShared.core.formatting import format_money
 from MySpaceShared.core.tokens import SPACING, accent_gradient
 
 

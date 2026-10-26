@@ -1,10 +1,10 @@
 import datetime
 
 import flet as ft
-from MySpaceShared.core.formatting import format_money
 from core.recurrence import RecurrenceRule
 
 from MySpaceShared.components import ElevatedCard
+from MySpaceShared.core.formatting import format_money
 from MySpaceShared.core.tokens import PILL_RADIUS, RADIUS, SPACING
 
 
@@ -28,10 +28,8 @@ class PlannedTransactionCard(ft.Container):
         self._on_edit = on_edit
         self._on_delete = on_delete
 
-        is_positive = amount >= 0
-        amount_color = ft.Colors.GREEN if is_positive else ft.Colors.RED
-        amount_prefix = "+" if is_positive else ""
-        amount_str = f"{amount_prefix}{format_money(amount)}"
+        amount_color = ft.Colors.GREEN if amount >= 0 else ft.Colors.RED
+        amount_str = format_money(amount, signed=True)
 
         date_str = ""
         if planned_date:

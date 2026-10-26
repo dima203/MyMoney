@@ -1,10 +1,10 @@
 import datetime
 
 import flet as ft
-from MySpaceShared.core.formatting import format_money
 from application.display import READ_ONLY_BADGE_LABEL
 
 from MySpaceShared.components import ElevatedCard, StatusBadge
+from MySpaceShared.core.formatting import format_money
 from MySpaceShared.core.tokens import PILL_RADIUS, RADIUS, SPACING
 
 
@@ -32,12 +32,8 @@ class TransactionCard(ft.Container):
         self._read_only = read_only
         self._currency = currency
 
-        is_positive = amount >= 0
-        amount_color = ft.Colors.GREEN if is_positive else ft.Colors.RED
-        amount_prefix = "+" if is_positive else ""
-        amount_str = f"{amount_prefix}{format_money(amount)}"
-        if currency:
-            amount_str = f"{amount_str} {currency}"
+        amount_color = ft.Colors.GREEN if amount >= 0 else ft.Colors.RED
+        amount_str = format_money(amount, currency, signed=True)
 
         time_str = ""
         if timestamp and (timestamp.hour, timestamp.minute, timestamp.second) != (0, 0, 0):
@@ -129,12 +125,7 @@ class TransactionCard(ft.Container):
         )
 
     def update_amount(self, amount: float):
-        is_positive = amount >= 0
-        amount_color = ft.Colors.GREEN if is_positive else ft.Colors.RED
-        amount_prefix = "+" if is_positive else ""
-        amount_str = f"{amount_prefix}{format_money(amount)}"
-        if self._currency:
-            amount_str = f"{amount_str} {self._currency}"
-        self._amount_text.value = amount_str
+        amount_color = ft.Colors.GREEN if amount >= 0 else ft.Colors.RED
+        self._amount_text.value = format_money(amount, self._currency, signed=True)
         self._amount_text.color = amount_color
         self.update()

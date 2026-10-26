@@ -1,9 +1,9 @@
 import datetime
 
 import flet as ft
-from MySpaceShared.core.formatting import format_money
 
 from MySpaceShared.components import ElevatedCard, StatusBadge
+from MySpaceShared.core.formatting import format_money
 from MySpaceShared.core.tokens import RADIUS, SPACING
 
 SOURCE_LABELS: dict[str, str] = {"task": "Задача", "calendar": "Событие"}
