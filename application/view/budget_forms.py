@@ -1,7 +1,7 @@
 """Общая обвязка форм MyMoney: диалог с валидацией, сохранением и удалением.
 
-Используется экранами «Бюджеты» и «Аналитика»: поля + строка ошибки, кнопка
-блокируется на время запроса, ошибки сервера остаются в диалоге.
+Используется экраном «Бюджеты»: поля + строка ошибки, кнопка блокируется на время
+запроса, ошибки сервера остаются в диалоге.
 """
 
 from __future__ import annotations
@@ -14,17 +14,6 @@ from application.api import ApiError, BackendUnreachableError
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 
 DIALOG_WIDTH = 350
-
-
-def dict_rows(payload) -> list[dict]:
-    """Строки ответа API (список или `{results: [...]}`), только dict-элементы."""
-    if isinstance(payload, list):
-        items = payload
-    elif isinstance(payload, dict):
-        items = payload.get("results", [])
-    else:
-        items = []
-    return [item for item in items or [] if isinstance(item, dict)]
 
 
 def hint(text: str, *, size: int = 13) -> ft.Text:
@@ -133,4 +122,4 @@ class FormDialogMixin:
         ).show(self.page)
 
 
-__all__ = ["DIALOG_WIDTH", "FormDialogMixin", "dict_rows", "form_error", "hint"]
+__all__ = ["DIALOG_WIDTH", "FormDialogMixin", "form_error", "hint"]

@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import asyncio
-import datetime
 
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
@@ -16,7 +15,8 @@ from application.components.envelope_card import EnvelopeCard
 from application.components.file_save import show_toast
 from application.components.goal_card import GoalCard
 from application.components.navigation_items import NAVIGATION_ITEMS
-from application.view.budget_forms import DIALOG_WIDTH, FormDialogMixin, dict_rows, form_error, hint
+from application.view.budget_forms import DIALOG_WIDTH, FormDialogMixin, form_error, hint
+from application.view.data_loading import DataLoadingMixin, dict_rows
 from core.budget_templates import template_infos, template_items, template_payload
 from core.envelopes import EnvelopeProgress, envelope_payload, envelope_progress
 from core.goals import (
@@ -27,8 +27,6 @@ from core.goals import (
     goal_progress,
 )
 
-from MySpaceShared.components.connection_status import ConnectionBanner
-from MySpaceShared.components.loading_state import LoadingState
 from MySpaceShared.components.section_header import SectionHeader
 
 BUDGETS_INDEX = 3
@@ -60,7 +58,7 @@ TEMPLATES_DIALOG_HEIGHT = 420
 TEMPLATE_FAILED = object()
 
 
-def limit_text(value) -> str:
+def amount_text(value) -> str:
     """Сумма для поля ввода: «500» вместо «500.0000»."""
     if value is None or (isinstance(value, str) and not value.strip()):
         return ""
@@ -82,32 +80,19 @@ def _goal_row(goal: GoalProgress) -> dict:
     }
 
 
-class BudgetsView(FormDialogMixin, BaseView):
+class BudgetsView(FormDialogMixin, DataLoadingMixin, BaseView):
     """Конверты месяца, цели накоплений и шаблоны бюджетов."""
 
     def __init__(self, route: str, api_client, transaction_view=None, account_view=None, connection_banner=None):
-        self.api_client = api_client
-        self._transaction_view = transaction_view
-        self._account_view = account_view
-        self._connection_banner = connection_banner or ConnectionBanner()
-        self._disposed = False
-        self._rows: list[dict] = []
-        self._accounts: list[dict] = []
-        self._base_currency = ""
         self._envelopes: list[dict] = []
         self._envelopes_offline = False
         self._goals: list[dict] = []
         self._goals_offline = False
-
-        self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
-        self._loading = LoadingState()
-        self._loading.visible = True
-        self._body = ft.Column(spacing=16, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
-        self._content = ft.Column(
-            controls=[self._connection_banner, self._error_text, self._loading, self._body],
-            spacing=12,
-            expand=True,
-            scroll=ft.ScrollMode.AUTO,
+        self._init_data_loading(
+            api_client,
+            transaction_view=transaction_view,
+            account_view=account_view,
+            connection_banner=connection_banner,
         )
 
         super().__init__(
@@ -118,55 +103,11 @@ class BudgetsView(FormDialogMixin, BaseView):
             navigation_items=NAVIGATION_ITEMS,
         )
 
-    def did_mount(self):
-        super().did_mount()
-        self._load_task = asyncio.create_task(self._load_data())
-
-    def dispose(self):
-        self._disposed = True
-
     # ------------------------------------------------------------- загрузка
 
-    async def _load_data(self) -> None:
-        try:
-            self._error_text.visible = False
-            self._loading.visible = True
-            self.update()
-
-            if self._transaction_view and self._account_view:
-                rows = await asyncio.to_thread(self._transaction_view.get_all)
-                accounts = await asyncio.to_thread(self._account_view.get_all)
-            else:
-                rows, accounts = await asyncio.gather(
-                    asyncio.to_thread(self.api_client.list_transactions),
-                    asyncio.to_thread(self.api_client.list_accounts),
-                )
-                rows = rows if isinstance(rows, list) else rows.get("results", [])
-            if self._disposed:
-                return
-
-            self._rows = dict_rows(rows)
-            self._accounts = dict_rows(accounts)
-            self._base_currency = await self._fetch_base_currency()
-            await self._load_envelopes()
-            await self._load_goals()
-            self._loading.visible = False
-            self._sync_banner()
-            self._rebuild()
-        except BackendUnreachableError:
-            self._fail("Сервер недоступен")
-        except ApiError as exc:
-            self._fail(f"Ошибка загрузки: {exc}")
-
-    async def _fetch_base_currency(self) -> str:
-        try:
-            profile = await asyncio.to_thread(self.api_client.me)
-        except Exception:
-            return ""
-        if isinstance(profile, dict):
-            currency = profile.get("base_currency")
-            return currency.strip() if isinstance(currency, str) else ""
-        return ""
+    async def _load_sections(self) -> None:
+        await self._load_envelopes()
+        await self._load_goals()
 
     async def _load_envelopes(self) -> None:
         """Конверты online-only: их сбой не должен ломать остальные секции."""
@@ -197,30 +138,6 @@ class BudgetsView(FormDialogMixin, BaseView):
     async def _reload_goals(self) -> None:
         await self._load_goals()
         self._rebuild()
-
-    def _fail(self, message: str) -> None:
-        if self._disposed:
-            return
-        self._loading.visible = False
-        self._show_error(message)
-
-    def _show_error(self, message: str) -> None:
-        self._error_text.value = message
-        self._error_text.visible = True
-        self.update()
-
-    @property
-    def _offline(self) -> bool:
-        return self._transaction_view is not None and not self._transaction_view.is_online
-
-    def _sync_banner(self) -> None:
-        if self._offline:
-            self._connection_banner.show()
-        else:
-            self._connection_banner.hide()
-
-    def _today(self) -> datetime.date:
-        return datetime.date.today()
 
     # --------------------------------------------------------------- рендер
 
@@ -256,6 +173,10 @@ class BudgetsView(FormDialogMixin, BaseView):
         if selected and selected not in currency_map:
             options.append(ft.DropdownOption(key=selected, text=selected))
         return ft.Dropdown(label="Валюта", value=selected or None, options=options, width=DIALOG_WIDTH)
+
+    def _selected_currency(self, row: dict) -> str:
+        """Валюта строки для формы: сохранённый тикер, иначе базовая валюта."""
+        return str(row.get("currency_ticker") or self._base_currency or "")
 
     # -------------------------------------------------------------- конверты
 
@@ -300,16 +221,15 @@ class BudgetsView(FormDialogMixin, BaseView):
 
     def _envelope_dialog(self, envelope: dict) -> ft.AlertDialog:
         currency_map = self._currency_options()
-        selected_currency = str(envelope.get("currency_ticker") or self._base_currency or "")
         envelope_id = envelope.get("id")
 
         category_field = ft.TextField(label="Категория", value=str(envelope.get("category") or ""), autofocus=True)
         limit_field = ft.TextField(
             label="Лимит на месяц",
-            value=limit_text(envelope.get("limit_amount")),
+            value=amount_text(envelope.get("limit_amount")),
             keyboard_type=ft.KeyboardType.NUMBER,
         )
-        currency_dropdown = self._currency_dropdown(selected_currency, currency_map)
+        currency_dropdown = self._currency_dropdown(self._selected_currency(envelope), currency_map)
 
         def build_payload() -> dict:
             return envelope_payload(
@@ -523,25 +443,24 @@ class BudgetsView(FormDialogMixin, BaseView):
 
     def _goal_dialog(self, goal: dict) -> ft.AlertDialog:
         currency_map = self._currency_options()
-        selected_currency = str(goal.get("currency_ticker") or self._base_currency or "")
         goal_id = goal.get("id")
 
         name_field = ft.TextField(label="Название", value=str(goal.get("name") or ""), autofocus=True)
         target_field = ft.TextField(
             label="Цель",
-            value=limit_text(goal.get("target_amount")),
+            value=amount_text(goal.get("target_amount")),
             keyboard_type=ft.KeyboardType.NUMBER,
         )
         saved_field = ft.TextField(
             label="Уже накоплено",
-            value=limit_text(goal.get("saved_amount")),
+            value=amount_text(goal.get("saved_amount")),
             keyboard_type=ft.KeyboardType.NUMBER,
         )
         deadline_field = ft.TextField(
             label=f"Срок ({DATE_FORMAT})",
             value=str(goal.get("deadline") or ""),
         )
-        currency_dropdown = self._currency_dropdown(selected_currency, currency_map)
+        currency_dropdown = self._currency_dropdown(self._selected_currency(goal), currency_map)
 
         def build_payload() -> dict:
             return goal_payload(
@@ -609,4 +528,4 @@ class BudgetsView(FormDialogMixin, BaseView):
         )
 
 
-__all__ = ["BUDGETS_INDEX", "BudgetsView", "limit_text"]
+__all__ = ["BUDGETS_INDEX", "BudgetsView", "amount_text"]

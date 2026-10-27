@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 from application.api import BackendUnreachableError
+from application.components.navigation_items import NAVIGATION_ITEMS
 from application.view.budgets_view import (
     ENVELOPES_EMPTY,
     ENVELOPES_OFFLINE,
@@ -21,7 +22,7 @@ from application.view.budgets_view import (
     TEMPLATES_SAVED,
     TEMPLATES_TITLE,
     BudgetsView,
-    limit_text,
+    amount_text,
 )
 from core.goals import goal_progress
 
@@ -145,24 +146,18 @@ class TestViewShell:
         assert not [item for item in _walk(view._body) if isinstance(item, ft.ProgressBar) and item.height == 6]
 
     def test_navigation_has_budgets_between_plan_and_analytics(self) -> None:
-        labels = [item.label for item in view_navigation_items()]
+        labels = [item.label for item in NAVIGATION_ITEMS]
 
         assert labels == ["Счета", "Транзакции", "План", "Бюджеты", "Аналитика", "Настройки"]
 
 
-def view_navigation_items():
-    from application.components.navigation_items import NAVIGATION_ITEMS
-
-    return NAVIGATION_ITEMS
-
-
 class TestFormatting:
-    def test_limit_text_strips_trailing_zeros(self) -> None:
-        assert limit_text("500.0000") == "500"
-        assert limit_text("650.50") == "650.5"
-        assert limit_text(0) == "0"
-        assert limit_text(None) == ""
-        assert limit_text("oops") == ""
+    def test_amount_text_strips_trailing_zeros(self) -> None:
+        assert amount_text("500.0000") == "500"
+        assert amount_text("650.50") == "650.5"
+        assert amount_text(0) == "0"
+        assert amount_text(None) == ""
+        assert amount_text("oops") == ""
 
 
 class TestEnvelopesSection:
