@@ -208,6 +208,19 @@ class TestAppHotkey:
         assert HOTKEY_HINT in action.tooltip
         app.page.views.append.assert_called_once_with(view)
 
+    def test_mount_adds_notifications_badge_and_loads_it(self) -> None:
+        app = self._app()
+        app.page.run_task = MagicMock()
+        view = MagicMock()
+
+        app._mount(view)
+
+        badge = view.app_bar.actions[1]
+        assert badge.tooltip == "Уведомления"
+        assert badge.visible is False
+        assert view.notifications.badge is badge
+        assert app.page.run_task.call_args[0][0] == view.notifications.load
+
     def test_palette_rows_return_lists(self) -> None:
         app = self._app()
         app._transaction_view = MagicMock()

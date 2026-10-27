@@ -18,6 +18,7 @@ from core.config import SETTINGS
 from database.views import AccountView, ResourceView, TransactionView
 
 from MySpaceShared.components.connection_status import ConnectionBanner
+from MySpaceShared.components.notifications import NotificationsCenter
 from MySpaceShared.components.utils import is_mobile_page
 
 logger = logging.getLogger(__name__)
@@ -44,15 +45,20 @@ class MyMoneyApp:
         self._transaction_view = TransactionView(self.api_client, DATA_DIR)
 
     def _mount(self, view) -> None:
-        """Добавить раздел с действием «Поиск» в шапке."""
+        """Добавить раздел с действиями «Поиск» и «Уведомления» в шапке."""
+        notifications = NotificationsCenter(self.api_client)
+        notifications.attach(self.page)
+        view.notifications = notifications
         view.app_bar.actions = [
             ft.IconButton(
                 ft.Icons.SEARCH,
                 tooltip=f"Поиск ({HOTKEY_HINT})",
                 on_click=lambda _event: self._open_palette(),
-            )
+            ),
+            notifications.badge,
         ]
         self.page.views.append(view)
+        self.page.run_task(notifications.load)
 
     def _palette_rows(self) -> tuple[list[dict], list[dict]]:
         transactions = self._transaction_view.get_all() if self._transaction_view is not None else []
