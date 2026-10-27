@@ -186,6 +186,18 @@ class MyMoneyApp:
                     connection_banner=self._connection_banner,
                 )
             )
+        elif self.page.route == "/budgets":
+            from application.view.budgets_view import BudgetsView
+
+            self._mount(
+                BudgetsView(
+                    route="/budgets",
+                    api_client=self.api_client,
+                    transaction_view=self._transaction_view,
+                    account_view=self._account_view,
+                    connection_banner=self._connection_banner,
+                )
+            )
         elif self.page.route == "/analytics":
             from application.view.analytics_view import AnalyticsView
 

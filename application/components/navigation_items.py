@@ -22,6 +22,12 @@ NAVIGATION_ITEMS = [
         selected_icon=ft.Icons.CALENDAR_MONTH_OUTLINED,
     ),
     NavigationItem(
+        label="Бюджеты",
+        route="/budgets",
+        icon=ft.Icons.SAVINGS,
+        selected_icon=ft.Icons.SAVINGS_OUTLINED,
+    ),
+    NavigationItem(
         label="Аналитика",
         route="/analytics",
         icon=ft.Icons.INSIGHTS,
