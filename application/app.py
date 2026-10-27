@@ -10,13 +10,13 @@ from application.api import (
     BackendUnreachableError,
     RestClient,
 )
-from application.components.command_palette import HOTKEY_HINT, HOTKEY_KEY, CommandPalette, as_rows
 from application.screens import LoginView
 from application.view import SplashView
 from core import APP_SETTINGS, build_theme, theme_mode_value
 from core.config import SETTINGS
 from database.views import AccountView, ResourceView, TransactionView
 
+from MySpaceShared.components.command_palette import HOTKEY_HINT, PaletteController
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.notifications import NotificationsCenter
 from MySpaceShared.components.utils import is_mobile_page
@@ -34,7 +34,7 @@ class MyMoneyApp:
         self._account_view: AccountView | None = None
         self._transaction_view: TransactionView | None = None
         self._connection_banner = ConnectionBanner()
-        self._palette: CommandPalette | None = None
+        self.palette = PaletteController(self.api_client, "money")
 
     def _init_offline_views(self) -> None:
         if self._resource_view is not None:
@@ -60,30 +60,12 @@ class MyMoneyApp:
         self.page.views.append(view)
         self.page.run_task(notifications.load)
 
-    def _palette_rows(self) -> tuple[list[dict], list[dict]]:
-        transactions = self._transaction_view.get_all() if self._transaction_view is not None else []
-        accounts = self._account_view.get_all() if self._account_view is not None else []
-        return as_rows(transactions), as_rows(accounts)
-
     def _open_palette(self) -> None:
-        """Открыть палитру: только на рабочем маршруте и не поверх уже открытой."""
-        if self.page is None or self._palette is not None:
-            return
-        if getattr(self.page, "route", None) in (None, "", "/login"):
-            return
-        self._palette = CommandPalette(
-            load_rows=self._palette_rows,
-            on_navigate=self.page.navigate,
-            on_close=self._palette_closed,
-        )
-        self._palette.show(self.page)
-
-    def _palette_closed(self) -> None:
-        self._palette = None
+        """Открыть кросс-палитру Ctrl+K (счета, операции, задачи, события, коллекции)."""
+        self.palette.open(self.page)
 
     def _on_keyboard(self, event: ft.KeyboardEvent) -> None:
-        if getattr(event, "ctrl", False) and str(getattr(event, "key", "")).lower() == HOTKEY_KEY:
-            self._open_palette()
+        self.palette.handle_key(event, self.page)
 
     def _has_stored_token(self) -> bool:
         return self.api_client.token_store.load().is_authenticated
