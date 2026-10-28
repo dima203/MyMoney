@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 
 import flet as ft
 import flet_charts as ftc
@@ -29,13 +30,19 @@ from MySpaceShared.components.elevated_card import ElevatedCard
 from MySpaceShared.components.empty_state import EmptyState
 from MySpaceShared.components.hero_value import HeroValue
 from MySpaceShared.components.section_header import SectionHeader
+from MySpaceShared.core.charts import axis_label_width, chart_palette, nice_ticks
+from MySpaceShared.core.formatting import format_percent
 
 ANALYTICS_INDEX = 4
 CHART_HEIGHT = 220
-CHART_HEADROOM = 1.2
-CHART_GRID_LINES = 4
+CHART_TICKS = 4
+MIN_TICK_GAP = 44
 BAR_WIDTH = 22
 BAR_RADIUS = 4
+CATEGORY_BAR_HEIGHT = 6
+CATEGORY_BAR_RADIUS = 3
+GRID_OPACITY = 0.25
+TRACK_OPACITY = 0.15
 NO_EXPENSES_TITLE = "Нет расходов за период"
 NO_EXPENSES_SUBTITLE = "Добавьте транзакции — здесь появятся графики и разбивка по категориям"
 PDF_TOOLTIP = "PDF-отчёт за месяц"
@@ -47,6 +54,18 @@ def period_caption(months: int) -> str:
     if months == 12:
         return "за год"
     return f"за {months} мес."
+
+
+def axis_label(value: float, step: float = 1.0) -> str:
+    """Подпись деления оси: целое с пробелом между тысячами, дробное — по шагу."""
+    decimals = 0 if step >= 1 else min(6, max(0, -math.floor(math.log10(step))))
+    return f"{value:,.{decimals}f}".replace(",", " ")
+
+
+def chart_ticks(max_amount: float) -> list[float]:
+    """Круглые деления оси Y с учётом высоты графика (подписи не наезжают)."""
+    target = max(1, min(CHART_TICKS, int(CHART_HEIGHT // MIN_TICK_GAP)))
+    return nice_ticks(max_amount, target=target)
 
 
 def _event_period(event) -> str | None:
@@ -68,6 +87,27 @@ def _bar_rod(point: MonthTotal, currency: str) -> ftc.BarChartRod:
         color=ft.Colors.PRIMARY,
         border_radius=BAR_RADIUS,
         tooltip=format_money(point.amount, currency),
+    )
+
+
+def _value_axis(ticks: list[float], labels: list[str]) -> ftc.ChartAxis:
+    """Левая ось: подпись на каждом круглом делении, ширина — по самой длинной."""
+    return ftc.ChartAxis(
+        labels=[
+            ftc.ChartAxisLabel(
+                value=value,
+                label=ft.Text(
+                    text,
+                    size=10,
+                    no_wrap=True,
+                    color=ft.Colors.ON_SURFACE_VARIANT,
+                ),
+            )
+            for value, text in zip(ticks, labels, strict=True)
+        ],
+        label_size=axis_label_width(labels),
+        show_labels=True,
+        title_size=0,
     )
 
 
@@ -185,6 +225,9 @@ class AnalyticsView(DataLoadingMixin, BaseView):
 
     def _chart_card(self, summary: ExpenseSummary) -> ft.Control:
         max_amount = max((point.amount for point in summary.months), default=0.0)
+        ticks = chart_ticks(max_amount)
+        step = ticks[1] - ticks[0]
+        labels = [axis_label(value, step) for value in ticks]
         groups = [
             ftc.BarChartGroup(x=index, rods=[_bar_rod(point, summary.currency)])
             for index, point in enumerate(summary.months)
@@ -196,12 +239,15 @@ class AnalyticsView(DataLoadingMixin, BaseView):
             groups=groups,
             height=CHART_HEIGHT,
             interactive=True,
-            max_y=max_amount * CHART_HEADROOM if max_amount else 1,
-            group_alignment=ft.MainAxisAlignment.SPACE_AROUND,
+            min_y=0,
+            max_y=ticks[-1],
+            group_alignment=ft.MainAxisAlignment.SPACE_EVENLY,
             horizontal_grid_lines=ftc.ChartGridLines(
-                interval=max(max_amount / CHART_GRID_LINES, 1), color=ft.Colors.OUTLINE_VARIANT
+                interval=step,
+                color=ft.Colors.with_opacity(GRID_OPACITY, ft.Colors.ON_SURFACE),
+                width=1,
             ),
-            left_axis=ftc.ChartAxis(label_size=48, title_size=0, show_labels=True),
+            left_axis=_value_axis(ticks, labels),
             bottom_axis=ftc.ChartAxis(
                 labels=month_labels,
                 label_size=28,
@@ -225,25 +271,48 @@ class AnalyticsView(DataLoadingMixin, BaseView):
         )
 
     def _category_list(self, summary: ExpenseSummary) -> ft.Control:
+        categories = [category for category in summary.categories if category.amount > 0]
         controls: list[ft.Control] = []
-        for category in summary.categories:
+        for color, category in zip(chart_palette(len(categories)), categories, strict=True):
             share = category.amount / summary.total if summary.total else 0.0
-            controls.append(
-                ft.Column(
-                    controls=[
-                        ft.Row(
-                            controls=[
-                                ft.Text(category.category, size=13, expand=True),
-                                ft.Text(format_money(category.amount, summary.currency), size=13),
-                            ],
-                            spacing=8,
-                        ),
-                        ft.ProgressBar(value=min(max(share, 0.0), 1.0), color=ft.Colors.PRIMARY, height=6),
-                    ],
-                    spacing=4,
-                )
-            )
+            controls.append(self._category_row(category.category, category.amount, share, color, summary.currency))
         return ft.Column(controls=controls, spacing=12)
+
+    @staticmethod
+    def _category_row(name: str, amount: float, share: float, color: str, currency: str) -> ft.Control:
+        return ft.Column(
+            controls=[
+                ft.Row(
+                    controls=[
+                        ft.Container(width=8, height=8, border_radius=4, bgcolor=color),
+                        ft.Text(
+                            name,
+                            size=13,
+                            expand=True,
+                            no_wrap=True,
+                            overflow=ft.TextOverflow.ELLIPSIS,
+                        ),
+                        ft.Text(
+                            format_percent(share * 100),
+                            size=12,
+                            no_wrap=True,
+                            color=ft.Colors.ON_SURFACE_VARIANT,
+                        ),
+                        ft.Text(format_money(amount, currency), size=13, no_wrap=True),
+                    ],
+                    spacing=8,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                ft.ProgressBar(
+                    value=min(max(share, 0.0), 1.0),
+                    color=color,
+                    bgcolor=ft.Colors.with_opacity(TRACK_OPACITY, color),
+                    height=CATEGORY_BAR_HEIGHT,
+                    border_radius=CATEGORY_BAR_RADIUS,
+                ),
+            ],
+            spacing=4,
+        )
 
 
 __all__ = ["AnalyticsView", "format_money", "period_caption"]

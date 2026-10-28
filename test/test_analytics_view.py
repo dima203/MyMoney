@@ -9,13 +9,20 @@ from unittest.mock import MagicMock
 
 import flet as ft
 import flet_charts as ftc
+import pytest
 from application.api import BackendUnreachableError
 from application.view.analytics_view import (
+    BAR_WIDTH,
     PDF_TOOLTIP,
     AnalyticsView,
+    axis_label,
+    chart_ticks,
     format_money,
     period_caption,
 )
+from core.analytics import CategoryTotal, ExpenseSummary
+
+from MySpaceShared.core.charts import chart_palette
 
 TODAY = datetime.date(2026, 10, 22)
 ACCOUNTS = [{"id": 1, "resource": "BYN"}, {"id": 2, "resource": "USD"}]
@@ -33,6 +40,10 @@ def _walk(control) -> list:
 
 def _texts(control) -> list[str]:
     return [str(item.value) for item in _walk(control) if isinstance(item, ft.Text)]
+
+
+def _charts(control) -> list[ftc.BarChart]:
+    return [item for item in _walk(control) if isinstance(item, ftc.BarChart)]
 
 
 def _entry(account: int, amount: float) -> dict:
@@ -226,6 +237,98 @@ class TestFormatting:
         assert period_caption(1) == "за месяц"
         assert period_caption(3) == "за 3 мес."
         assert period_caption(12) == "за год"
+
+
+class TestChartAxis:
+    def test_ticks_are_round_and_cover_max(self) -> None:
+        assert chart_ticks(500) == [0.0, 200.0, 400.0, 600.0]
+        assert chart_ticks(680) == [0.0, 200.0, 400.0, 600.0, 800.0]
+        assert chart_ticks(21.3) == [0.0, 10.0, 20.0, 30.0]
+
+    @pytest.mark.parametrize("max_amount", [0, 1, 7, 21.3, 150, 500, 680, 12345])
+    def test_tick_labels_have_no_duplicates(self, max_amount: float) -> None:
+        ticks = chart_ticks(max_amount)
+        step = ticks[1] - ticks[0]
+        labels = [axis_label(value, step) for value in ticks]
+
+        assert len(set(labels)) == len(labels)
+
+    def test_axis_label_groups_thousands(self) -> None:
+        assert axis_label(12345) == "12 345"
+        assert axis_label(0.0) == "0"
+
+    def test_chart_uses_last_tick_as_max_y(self) -> None:
+        view = _view()
+        asyncio.run(view._load_data())
+
+        chart = _charts(view._body)[0]
+
+        assert chart.min_y == 0
+        assert chart.max_y == 600.0
+        assert chart.horizontal_grid_lines.interval == 200.0
+        assert [label.label.value for label in chart.left_axis.labels] == ["0", "200", "400", "600"]
+        assert chart.left_axis.label_size == 36.0
+
+    def test_single_month_keeps_fixed_rod_width(self) -> None:
+        view = _view()
+        view._period = "1m"
+        asyncio.run(view._load_data())
+
+        chart = _charts(view._body)[0]
+
+        assert len(chart.groups) == 1
+        assert chart.groups[0].rods[0].width == BAR_WIDTH
+        assert chart.max_y == 150.0
+
+
+class TestCategoryList:
+    @staticmethod
+    def _summary(*categories: CategoryTotal) -> ExpenseSummary:
+        total = sum(category.amount for category in categories if category.amount > 0)
+        return ExpenseSummary("BYN", 1, total, (), tuple(categories))
+
+    def test_bars_use_distinct_palette_colors(self) -> None:
+        view = _view()
+        asyncio.run(view._load_data())
+
+        bars = [item for item in _walk(view._body) if isinstance(item, ft.ProgressBar)]
+        colors = [bar.color for bar in bars]
+
+        assert len(colors) == 3
+        assert len(set(colors)) == 3
+        assert colors == chart_palette(3)
+        assert all(bar.height == 6 and bar.border_radius == 3 for bar in bars)
+
+    def test_category_shows_share_percent(self) -> None:
+        view = _view()
+        asyncio.run(view._load_data())
+
+        texts = _texts(view._content)
+
+        assert "73.53%" in texts
+        assert "22.06%" in texts
+        assert "4.41%" in texts
+
+    def test_zero_share_category_hidden(self) -> None:
+        view = _view()
+        summary = self._summary(CategoryTotal("Еда", 100.0), CategoryTotal("Пусто", 0.0))
+
+        control = view._category_list(summary)
+        texts = _texts(control)
+
+        assert "Еда" in texts
+        assert "Пусто" not in texts
+        assert "100.00%" in texts
+        assert len([item for item in _walk(control) if isinstance(item, ft.ProgressBar)]) == 1
+
+    def test_negative_category_hidden(self) -> None:
+        view = _view()
+        summary = self._summary(CategoryTotal("Еда", 100.0), CategoryTotal("Возврат", -20.0))
+
+        texts = _texts(view._category_list(summary))
+
+        assert "Еда" in texts
+        assert "Возврат" not in texts
 
 
 class TestPdfExport:

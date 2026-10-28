@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
@@ -17,7 +17,7 @@ PDF_EXTENSION = "pdf"
 
 
 @contextmanager
-def file_picker(page) -> Iterator[ft.FilePicker]:
+def file_picker(page) -> Generator[ft.FilePicker]:
     """Временный `FilePicker` в сервисах страницы — только на время нативного диалога."""
     picker = ft.FilePicker()
     page.services.append(picker)
