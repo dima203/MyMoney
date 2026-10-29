@@ -6,8 +6,6 @@ import os
 
 import flet as ft
 from application.api import (
-    ApiError,
-    BackendUnreachableError,
     RestClient,
 )
 from application.screens import LoginView
@@ -16,6 +14,7 @@ from core import APP_SETTINGS, build_theme, theme_mode_value
 from core.config import SETTINGS
 from database.views import AccountView, ResourceView, TransactionView
 
+from MySpaceShared.api.session import SESSION_NO_TOKEN, SESSION_OFFLINE, session_state
 from MySpaceShared.components.command_palette import HOTKEY_HINT, PaletteController
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.notifications import NotificationsCenter
@@ -71,24 +70,23 @@ class MyMoneyApp:
         return self.api_client.token_store.load().is_authenticated
 
     async def _validate_session(self) -> bool:
-        if not self._has_stored_token():
-            logger.info("No stored token found")
-            return False
+        """Проверить сессию общим хелпером Shared (2.85): online / offline / нет токена."""
         try:
-            await asyncio.to_thread(self.api_client.me)
-            logger.info("Session validated successfully")
-            self._init_offline_views()
-            await self._sync_pending()
-            return True
-        except ApiError:
-            logger.warning("Session validation failed: ApiError")
-            self.api_client.logout()
+            state = await asyncio.to_thread(session_state, self.api_client)
+        except Exception:
+            logger.exception("Session state check failed")
             return False
-        except BackendUnreachableError:
-            logger.warning("Session validation failed: backend unreachable")
-            self._init_offline_views()
+        if state == SESSION_NO_TOKEN:
+            logger.info("No valid session — login required")
+            return False
+        self._init_offline_views()
+        if state == SESSION_OFFLINE:
+            logger.warning("Backend unreachable — starting offline")
             self._connection_banner.show()
             return True
+        logger.info("Session validated successfully")
+        await self._sync_pending()
+        return True
 
     async def _sync_pending(self) -> None:
         if self._resource_view is None:
