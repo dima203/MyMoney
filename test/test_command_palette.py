@@ -49,6 +49,16 @@ class TestAppHotkey:
 
         app.page.show_dialog.assert_not_called()
 
+    def test_palette_reopens_after_dismiss(self) -> None:
+        """2.44: Esc/клик по фону не блокируют повторный Ctrl+K."""
+        app = self._app()
+
+        app._on_keyboard(SimpleNamespace(key="k", ctrl=True))
+        app.palette.palette.dialog.on_dismiss(None)
+        app._on_keyboard(SimpleNamespace(key="k", ctrl=True))
+
+        assert app.page.show_dialog.call_count == 2
+
     def test_mount_adds_search_action_with_hotkey_hint(self) -> None:
         app = self._app()
         view = MagicMock()
