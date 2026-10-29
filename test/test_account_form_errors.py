@@ -38,7 +38,8 @@ class TestFieldErrors:
         assert field_error(fields["account_type"]) == "Неверный тип"
         assert field_error(fields["name"]) is None
         assert error_text.visible is True
-        assert "выделен" in error_text.value.lower()
+        assert "Тип счёта: Неверный тип" in error_text.value
+        assert "Валюта/ресурс:" in error_text.value
 
     def test_field_errors_use_visible_error_property(self) -> None:
         """В Flet 1.0.3 подпись ошибки — `error`, а не несуществующий `error_text`."""
@@ -51,7 +52,7 @@ class TestFieldErrors:
         assert hasattr(type(fields["name"]), "error")
         assert not hasattr(type(fields["name"]), "error_text")
 
-    def test_default_field_labels_exist(self) -> None:
+    def test_field_labels_cover_form_fields(self) -> None:
         assert set(FIELD_LABELS) >= {"name", "resource_definition", "group", "account_type"}
 
     def test_field_error_can_be_cleared_for_dropdown(self) -> None:

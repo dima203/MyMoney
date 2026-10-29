@@ -33,6 +33,12 @@ FIELD_LABELS = {
 CHECK_FIELDS = "Проверьте выделенные поля"
 
 
+def describe_field_errors(errors: dict[str, str]) -> str:
+    """Текст общей строки из ошибок полей: «Название: обязательное поле; …»."""
+    parts = [f"{FIELD_LABELS.get(field, field)}: {message}" for field, message in errors.items()]
+    return "; ".join(parts)
+
+
 def set_field_error(control: ft.Control, message: str | None) -> None:
     """Подпись ошибки под полем: у TextField это `error`, у Dropdown — `error_text`."""
     if hasattr(type(control), "error"):
@@ -62,7 +68,10 @@ def apply_api_error(
         if message := errors.get(field):
             set_field_error(control, message)
     mapped_all = bool(errors) and set(errors) <= set(fields)
-    error_text.value = CHECK_FIELDS if mapped_all else str(exc)
+    if mapped_all:
+        error_text.value = describe_field_errors(errors)
+    else:
+        error_text.value = str(exc)
     error_text.visible = True
 
 
