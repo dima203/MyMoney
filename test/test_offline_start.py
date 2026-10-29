@@ -7,7 +7,7 @@ import application.app as app_module
 import pytest
 from application.app import MyMoneyApp
 
-from MySpaceShared.api.session import SESSION_OFFLINE, SESSION_NO_TOKEN, SESSION_ONLINE
+from MySpaceShared.api.session import SESSION_NO_TOKEN, SESSION_OFFLINE, SESSION_ONLINE
 
 
 def _app(monkeypatch, state: str) -> MyMoneyApp:
