@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
-from application.view.accounts_view import FIELD_LABELS, apply_api_error, field_error
+from application.view.accounts_view import FIELD_LABELS, apply_api_error, field_error, set_field_error
 
 
 def _fields() -> dict[str, ft.Control]:
@@ -53,6 +53,16 @@ class TestFieldErrors:
 
     def test_default_field_labels_exist(self) -> None:
         assert set(FIELD_LABELS) >= {"name", "resource_definition", "group", "account_type"}
+
+    def test_field_error_can_be_cleared_for_dropdown(self) -> None:
+        """Сброс ошибки работает и у Dropdown: у него только `error_text`, `error` нет."""
+        dropdown = ft.Dropdown(label="Тип счёта")
+
+        set_field_error(dropdown, "Неверный тип")
+        assert field_error(dropdown) == "Неверный тип"
+
+        set_field_error(dropdown, None)
+        assert field_error(dropdown) is None
 
 
 class TestGeneralErrors:

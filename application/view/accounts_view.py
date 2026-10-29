@@ -44,25 +44,24 @@ def set_field_error(control: ft.Control, message: str | None) -> None:
 def field_error(control: ft.Control) -> str | None:
     """Текущая подпись ошибки поля (для тестов и повторного использования)."""
     if hasattr(type(control), "error"):
-        return getattr(control, "error", None)
+        return control.error
     return getattr(control, "error_text", None)
 
 
-def apply_api_error(error_text: ft.Text, exc: Exception, fields: dict[str, ft.Control]) -> None:
+def apply_api_error(
+    error_text: ft.Text, exc: ApiError | BackendUnreachableError, fields: dict[str, ft.Control]
+) -> None:
     """Ошибки DRF — по полям формы, общий текст — в строку ошибки (2.41).
 
     Полевые ошибки подсвечиваются на месте, а строка над кнопкой показывает
     либо «Проверьте выделенные поля», либо полный читаемый текст ошибки
     (общие ошибки, недоступный сервер, неизвестные поля).
     """
-    errors = getattr(exc, "field_errors", None) or {}
-    matched = False
+    errors = exc.field_errors if isinstance(exc, ApiError) else {}
     for field, control in fields.items():
-        message = errors.get(field)
-        if message:
+        if message := errors.get(field):
             set_field_error(control, message)
-            matched = True
-    mapped_all = matched and set(errors) <= set(fields)
+    mapped_all = bool(errors) and set(errors) <= set(fields)
     error_text.value = CHECK_FIELDS if mapped_all else str(exc)
     error_text.visible = True
 
@@ -496,7 +495,13 @@ class AccountsView(BaseView):
 
         def clear_field_errors() -> None:
             for control in form_fields.values():
-                control.error = None
+                set_field_error(control, None)
+
+        def show_validation_error(field: ft.Control, message: str) -> None:
+            set_field_error(field, message)
+            error_text.value = message
+            error_text.visible = True
+            self.update()
 
         async def on_submit(e):
             clear_field_errors()
@@ -506,16 +511,10 @@ class AccountsView(BaseView):
             account_type = account_type_dropdown.value or "main"
 
             if not name:
-                name_field.error = "Введите название"
-                error_text.value = "Введите название"
-                error_text.visible = True
-                self.update()
+                show_validation_error(name_field, "Введите название")
                 return
             if not resource_id:
-                resource_dropdown.error = "Выберите валюту"
-                error_text.value = "Выберите валюту"
-                error_text.visible = True
-                self.update()
+                show_validation_error(resource_dropdown, "Выберите валюту")
                 return
 
             save_button.disabled = True
