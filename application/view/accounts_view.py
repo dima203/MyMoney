@@ -24,6 +24,48 @@ from MySpaceShared.components.loading_state import LoadingState
 from MySpaceShared.core.formatting import format_money
 from MySpaceShared.core.tokens import SPACING, accent_gradient
 
+FIELD_LABELS = {
+    "name": "Название",
+    "resource_definition": "Валюта/ресурс",
+    "group": "Группа",
+    "account_type": "Тип счёта",
+}
+CHECK_FIELDS = "Проверьте выделенные поля"
+
+
+def set_field_error(control: ft.Control, message: str | None) -> None:
+    """Подпись ошибки под полем: у TextField это `error`, у Dropdown — `error_text`."""
+    if hasattr(type(control), "error"):
+        control.error = message
+    if hasattr(type(control), "error_text"):
+        control.error_text = message
+
+
+def field_error(control: ft.Control) -> str | None:
+    """Текущая подпись ошибки поля (для тестов и повторного использования)."""
+    if hasattr(type(control), "error"):
+        return getattr(control, "error", None)
+    return getattr(control, "error_text", None)
+
+
+def apply_api_error(error_text: ft.Text, exc: Exception, fields: dict[str, ft.Control]) -> None:
+    """Ошибки DRF — по полям формы, общий текст — в строку ошибки (2.41).
+
+    Полевые ошибки подсвечиваются на месте, а строка над кнопкой показывает
+    либо «Проверьте выделенные поля», либо полный читаемый текст ошибки
+    (общие ошибки, недоступный сервер, неизвестные поля).
+    """
+    errors = getattr(exc, "field_errors", None) or {}
+    matched = False
+    for field, control in fields.items():
+        message = errors.get(field)
+        if message:
+            set_field_error(control, message)
+            matched = True
+    mapped_all = matched and set(errors) <= set(fields)
+    error_text.value = CHECK_FIELDS if mapped_all else str(exc)
+    error_text.visible = True
+
 
 def build_empty_state(show_welcome: bool, on_seed, on_start_fresh) -> ft.Control:
     seed_button = ft.Button("Заполнить примерами", on_click=on_seed)
@@ -445,26 +487,39 @@ class AccountsView(BaseView):
         )
 
         error_text = ft.Text("", size=12, color=ft.Colors.ERROR, visible=False)
+        form_fields = {
+            "name": name_field,
+            "resource_definition": resource_dropdown,
+            "group": group_field,
+            "account_type": account_type_dropdown,
+        }
+
+        def clear_field_errors() -> None:
+            for control in form_fields.values():
+                control.error = None
 
         async def on_submit(e):
+            clear_field_errors()
             name = name_field.value.strip() if name_field.value else ""
             resource_id = resource_dropdown.value
             group = group_field.value.strip() if group_field.value else ""
             account_type = account_type_dropdown.value or "main"
 
             if not name:
+                name_field.error = "Введите название"
                 error_text.value = "Введите название"
                 error_text.visible = True
                 self.update()
                 return
             if not resource_id:
+                resource_dropdown.error = "Выберите валюту"
                 error_text.value = "Выберите валюту"
                 error_text.visible = True
                 self.update()
                 return
 
             save_button.disabled = True
-            save_button.text = "Сохранение..."
+            save_button.content = "Сохранение..."
             self.page.update()
 
             try:
@@ -489,9 +544,8 @@ class AccountsView(BaseView):
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 save_button.disabled = False
-                save_button.text = "Сохранить"
-                error_text.value = str(exc)
-                error_text.visible = True
+                save_button.content = "Сохранить"
+                apply_api_error(error_text, exc, form_fields)
                 self.page.update()
 
         save_button = ft.Button("Сохранить", on_click=on_submit)
@@ -516,7 +570,7 @@ class AccountsView(BaseView):
     def _show_delete_confirm(self, account: dict):
         async def delete(e):
             e.control.disabled = True
-            e.control.text = "Удаление..."
+            e.control.content = "Удаление..."
             self.page.update()
 
             try:
@@ -528,7 +582,7 @@ class AccountsView(BaseView):
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 e.control.disabled = False
-                e.control.text = "Удалить"
+                e.control.content = "Удалить"
                 self.page.pop_dialog()
                 self._show_error(f"Ошибка удаления: {exc}")
 
