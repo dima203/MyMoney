@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
-from application.view.accounts_view import FIELD_LABELS, apply_api_error, field_error, set_field_error
+from application.view.accounts_view import FIELD_LABELS, apply_api_error
+
+from MySpaceShared.components.form_kit import field_error, set_field_error
 
 
 def _fields() -> dict[str, ft.Control]:

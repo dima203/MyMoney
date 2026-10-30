@@ -20,6 +20,7 @@ from MySpaceShared.components import AccentIcon, GradientSurface, HeroValue
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
+from MySpaceShared.components.form_kit import apply_field_errors, set_field_error
 from MySpaceShared.components.loading_state import LoadingState
 from MySpaceShared.core.formatting import format_money
 from MySpaceShared.core.tokens import SPACING, accent_gradient
@@ -30,7 +31,6 @@ FIELD_LABELS = {
     "group": "Группа",
     "account_type": "Тип счёта",
 }
-CHECK_FIELDS = "Проверьте выделенные поля"
 
 
 def describe_field_errors(errors: dict[str, str]) -> str:
@@ -39,36 +39,18 @@ def describe_field_errors(errors: dict[str, str]) -> str:
     return "; ".join(parts)
 
 
-def set_field_error(control: ft.Control, message: str | None) -> None:
-    """Подпись ошибки под полем: у TextField это `error`, у Dropdown — `error_text`."""
-    if hasattr(type(control), "error"):
-        control.error = message
-    if hasattr(type(control), "error_text"):
-        control.error_text = message
-
-
-def field_error(control: ft.Control) -> str | None:
-    """Текущая подпись ошибки поля (для тестов и повторного использования)."""
-    if hasattr(type(control), "error"):
-        return control.error
-    return getattr(control, "error_text", None)
-
-
 def apply_api_error(
     error_text: ft.Text, exc: ApiError | BackendUnreachableError, fields: dict[str, ft.Control]
 ) -> None:
-    """Ошибки DRF — по полям формы, общий текст — в строку ошибки (2.41).
+    """Ошибки DRF — по полям формы, общий текст — в строку ошибки (2.41/2.42).
 
     Полевые ошибки подсвечиваются на месте, а строка над кнопкой показывает
-    либо «Проверьте выделенные поля», либо полный читаемый текст ошибки
-    (общие ошибки, недоступный сервер, неизвестные поля).
+    перечень «Название: сообщение» для разобранных полей либо полный читаемый
+    текст ошибки (общие ошибки, недоступный сервер, неизвестные поля).
     """
     errors = exc.field_errors if isinstance(exc, ApiError) else {}
-    for field, control in fields.items():
-        if message := errors.get(field):
-            set_field_error(control, message)
-    mapped_all = bool(errors) and set(errors) <= set(fields)
-    if mapped_all:
+    leftovers = apply_field_errors(fields, exc)
+    if errors and not leftovers:
         error_text.value = describe_field_errors(errors)
     else:
         error_text.value = str(exc)
@@ -503,8 +485,7 @@ class AccountsView(BaseView):
         }
 
         def clear_field_errors() -> None:
-            for control in form_fields.values():
-                set_field_error(control, None)
+            apply_field_errors(form_fields, {})
 
         def show_validation_error(field: ft.Control, message: str) -> None:
             set_field_error(field, message)
