@@ -1,8 +1,14 @@
 import flet as ft
 
 from MySpaceShared.components import AccentIcon
+from MySpaceShared.core.formatting import plural_ru
 
 from .account_card import AccountCard
+
+
+def account_count_text(count: int) -> str:
+    """«1 счёт / 2 счёта / 5 счетов»."""
+    return f"{count} {plural_ru(count, 'счёт', 'счёта', 'счетов')}"
 
 
 class AccountGroup(ft.ExpansionTile):
@@ -29,7 +35,7 @@ class AccountGroup(ft.ExpansionTile):
         self.subtitle = ft.Column(
             [
                 self._total_text,
-                ft.Text(f"{len(accounts)} счетов", size=12, color=ft.Colors.ON_SURFACE_VARIANT),
+                ft.Text(account_count_text(len(accounts)), size=12, color=ft.Colors.ON_SURFACE_VARIANT),
             ],
             spacing=2,
         )
