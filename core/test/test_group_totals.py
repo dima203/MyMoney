@@ -186,7 +186,7 @@ class TestFormatGroupTotal:
     def test_full_conversion(self) -> None:
         accounts = [{"resource_definition": 1, "current_balance_qty": "1234.5"}]
         result = group_total_in_base(accounts, FORMAT_RESOURCES, "USDT", FORMAT_PRICES)
-        assert format_group_total(result, "USDT") == "Итого: 1,234.50 USDT"
+        assert format_group_total(result, "USDT") == "Итого: 1 234.50 USDT"
 
     def test_fully_missing(self) -> None:
         accounts = [{"resource_definition": 2, "current_balance_qty": "50"}]

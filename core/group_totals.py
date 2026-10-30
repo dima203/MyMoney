@@ -45,6 +45,26 @@ def build_price_map(rows) -> dict[str, Decimal]:
     return prices
 
 
+def build_rate_map(price_rows, fx_rows=None) -> dict[str, Decimal]:
+    """Единая карта «символ → стоимость в USD/USDT»: крипта из PriceCache, фиат из FX.
+
+    Оба источника приводятся к одному якорю (USDT ≈ USD), поэтому ``rate_to_base``
+    работает одинаково для крипты, фиата и их комбинаций.
+    """
+    values = build_price_map(price_rows)
+    if isinstance(fx_rows, list):
+        for row in fx_rows:
+            if not isinstance(row, dict):
+                continue
+            symbol = str(row.get("quote") or row.get("symbol") or "").strip().upper()
+            rate = _to_decimal(row.get("rate") if row.get("rate") is not None else row.get("price"))
+            if symbol and rate is not None and rate > 0:
+                values[symbol] = rate
+    values.setdefault(QUOTE_CURRENCY, Decimal(1))
+    values.setdefault("USD", Decimal(1))
+    return values
+
+
 def rate_to_base(symbol: str, base_currency: str, prices: dict[str, Decimal]) -> Decimal | None:
     if not symbol or not base_currency:
         return None
@@ -102,11 +122,16 @@ def group_total_in_base(
     return GroupBaseTotal(total=total, converted=converted, missing_symbols=tuple(sorted(missing)))
 
 
+def format_amount(value: Decimal) -> str:
+    """Сумма в формате экосистемы: пробел как разделитель тысяч."""
+    return f"{value:,.2f}".replace(",", " ")
+
+
 def format_group_total(result: GroupBaseTotal, base_currency: str) -> str:
     base = (base_currency or "").strip().upper()
     if result.is_fully_missing:
         return "Итого: курс недоступен"
-    text = f"Итого: {result.total:,.2f} {base}".rstrip()
+    text = f"Итого: {format_amount(result.total)} {base}".rstrip()
     if result.has_missing:
         text += f" (курс недоступен: {', '.join(result.missing_symbols)})"
     return text
@@ -116,6 +141,8 @@ __all__ = [
     "QUOTE_CURRENCY",
     "GroupBaseTotal",
     "build_price_map",
+    "build_rate_map",
+    "format_amount",
     "format_group_total",
     "group_total_in_base",
     "price_symbol_for_resource",

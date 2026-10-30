@@ -11,10 +11,11 @@ from application.components.file_save import export_csv
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.demo_seed import DemoSeeder
 from application.display import FAB_CLEARANCE, account_display_name
+from application.fx_rates import FxRateStore, load_fx_rows, resolve_profile_base
 from application.view.dialogs import dialog_width, full_width, half_width
 from core.app_settings import APP_SETTINGS
 from core.csv_export import accounts_csv
-from core.group_totals import build_price_map, format_group_total, group_total_in_base
+from core.group_totals import build_rate_map, format_group_total, group_total_in_base
 from core.onboarding import OnboardingState
 
 from MySpaceShared.components import AccentIcon, GradientSurface, HeroValue
@@ -142,6 +143,7 @@ class AccountsView(BaseView):
         connection_banner=None,
         onboarding: OnboardingState | None = None,
         seeder_factory=None,
+        fx_store: FxRateStore | None = None,
     ):
         self.api_client = api_client
         self._resource_view = resource_view
@@ -155,6 +157,7 @@ class AccountsView(BaseView):
         self._prices: dict[str, Decimal] = {}
         self._onboarding = onboarding if onboarding is not None else OnboardingState()
         self._seeder_factory = seeder_factory
+        self._fx_store = fx_store or FxRateStore()
         self._seeding = False
         self._seed_busy = False
 
@@ -233,7 +236,7 @@ class AccountsView(BaseView):
             if online:
                 self._base_currency, self._prices = await asyncio.to_thread(self._fetch_fx_context)
             else:
-                self._base_currency, self._prices = None, {}
+                self._base_currency, self._prices = self._cached_fx_context()
 
             self._loading.visible = False
             if self._resource_view and not self._resource_view.is_online:
@@ -250,19 +253,23 @@ class AccountsView(BaseView):
                 self._loading.visible = False
                 self._show_error(f"Ошибка загрузки: {exc}")
 
-    def _fetch_fx_context(self) -> tuple[str | None, dict[str, Decimal]]:
-        try:
-            profile = self.api_client.me()
-        except RestClientError:
+    def _cached_fx_context(self) -> tuple[str | None, dict[str, Decimal]]:
+        """Офлайн: базовая валюта и последние известные фиатные курсы из кэша (2.50)."""
+        base = self._fx_store.load_profile_base()
+        if base is None:
             return None, {}
-        base = profile.get("base_currency") if isinstance(profile, dict) else None
-        if not isinstance(base, str) or not base.strip():
+        return base, build_rate_map([], self._fx_store.load())
+
+    def _fetch_fx_context(self) -> tuple[str | None, dict[str, Decimal]]:
+        """Базовая валюта профиля и единая карта курсов (крипта → USDT → базовая, 2.50)."""
+        base = resolve_profile_base(self.api_client, self._fx_store)
+        if base is None:
             return None, {}
         try:
             prices_rows = self.api_client.get_prices()
         except RestClientError:
-            return base.strip().upper(), {}
-        return base.strip().upper(), build_price_map(prices_rows)
+            prices_rows = []
+        return base, build_rate_map(prices_rows, load_fx_rows(self.api_client, self._fx_store))
 
     def _rebuild_ui(self):
         self._accounts_column.controls.clear()

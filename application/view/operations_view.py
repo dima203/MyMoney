@@ -8,6 +8,7 @@ import flet as ft
 from application.api import RestClientError
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.display import FAB_CLEARANCE, is_read_only_transaction
+from application.fx_rates import FxRateStore, load_fx_rows, resolve_profile_base
 from application.planned_actions import execute_planned
 from application.view.planned_sections import build_plan_card, load_cross_app_budgets
 from application.view.transactions_view import TransactionsView
@@ -36,12 +37,15 @@ class OperationsView(TransactionsView):
         account_view=None,
         connection_banner=None,
         initial_mode: str = MODE_ACTUAL,
+        fx_store: FxRateStore | None = None,
     ):
         self._mode = initial_mode if initial_mode in MODES else MODE_ACTUAL
         self._budgets: list[dict] = []
         self._budget_hint = ""
         self._base_currency: str | None = None
         self._prices: list[dict] = []
+        self._fx_rows: list[dict] = []
+        self._fx_store = fx_store or FxRateStore()
         super().__init__(
             route=route,
             api_client=api_client,
@@ -86,22 +90,18 @@ class OperationsView(TransactionsView):
     async def _load_sections(self) -> None:
         """Кросс-планы из задач/событий и контекст курсов для итогов периода."""
         self._budgets, self._budget_hint = await load_cross_app_budgets(self.api_client, self._transaction_view)
-        self._base_currency, self._prices = await asyncio.to_thread(self._fetch_fx)
+        self._base_currency, self._prices, self._fx_rows = await asyncio.to_thread(self._fetch_fx)
 
-    def _fetch_fx(self) -> tuple[str | None, list]:
-        """Базовая валюта профиля и курсы для итогов периода (сетевые вызовы — вне event loop)."""
-        try:
-            profile = self.api_client.me()
-        except RestClientError:
-            return None, []
-        base = profile.get("base_currency") if isinstance(profile, dict) else None
-        if not isinstance(base, str) or not base.strip():
-            return None, []
+    def _fetch_fx(self) -> tuple[str | None, list, list]:
+        """База профиля, цены крипты и фиатные курсы для итогов (сеть — вне event loop)."""
+        base = resolve_profile_base(self.api_client, self._fx_store)
+        if base is None:
+            return None, [], []
         try:
             prices = self.api_client.get_prices() or []
         except RestClientError:
             prices = []
-        return base.strip().upper(), prices
+        return base, prices, load_fx_rows(self.api_client, self._fx_store)
 
     # ------------------------------------------------------------------ выборка
 
@@ -137,7 +137,7 @@ class OperationsView(TransactionsView):
         if self._mode == MODE_PLANNED:
             self._totals.value = f"Планов: {len(rows)}"
         elif self._base_currency:
-            totals = period_totals(rows, self._account_map, self._base_currency, self._prices)
+            totals = period_totals(rows, self._account_map, self._base_currency, self._prices, self._fx_rows)
             self._totals.value = format_period_totals(totals, self._base_currency)
         else:
             self._totals.value = ""

@@ -323,3 +323,35 @@ def test_get_prices_with_symbols_filter():
     client, _ = _client(handler)
     client.get_prices(["BTC", "ETH"])
     assert seen["symbols"] == "BTC,ETH"
+
+
+# ------------------------------------------------------------------ fx rates
+
+
+def test_get_fx_rates_public_defaults_to_usd():
+    seen = {}
+
+    def handler(request):
+        seen["path"] = request.url.path
+        seen["base"] = request.url.params.get("base")
+        seen["auth"] = request.headers.get("Authorization")
+        return _ok_json([{"base": "USD", "quote": "BYN", "rate": "0.3125"}])
+
+    client, _ = _client(handler, token_store=TokenStore(os.path.join(tempfile.mkdtemp(), "tokens.json")))
+    result = client.get_fx_rates()
+    assert seen["path"] == "/api/v1/fx-rates/"
+    assert seen["base"] == "USD"
+    assert seen["auth"] is None
+    assert result == [{"base": "USD", "quote": "BYN", "rate": "0.3125"}]
+
+
+def test_get_fx_rates_custom_base():
+    seen = {}
+
+    def handler(request):
+        seen["base"] = request.url.params.get("base")
+        return _ok_json([])
+
+    client, _ = _client(handler)
+    client.get_fx_rates("BYN")
+    assert seen["base"] == "BYN"

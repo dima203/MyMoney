@@ -68,6 +68,10 @@ class RestClient(BaseRestClient):
         params = {"symbols": ",".join(symbols)} if symbols else {}
         return self._request("GET", "/api/v1/prices/", params=params, auth=False)
 
+    def get_fx_rates(self, base: str = "USD") -> list:
+        """Курсы фиатных валют (2.50): строка — 1 ``quote`` = ``rate`` ``base`` (публично)."""
+        return self._request("GET", "/api/v1/fx-rates/", params={"base": base}, auth=False)
+
     def list_envelopes(self, **params) -> list:
         return self._request("GET", "/api/v1/envelopes/", params=params)
 

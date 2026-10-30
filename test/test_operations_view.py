@@ -1,6 +1,8 @@
 """Экран «Операции»: режимы, фильтры, итоги и кросс-планы (2.48b)."""
 
 import asyncio
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import flet as ft
@@ -8,6 +10,7 @@ from application.api import RestClientError
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.components.planned_transaction_card import PlannedTransactionCard
 from application.components.recurrence_fields import RecurrenceEditor
+from application.fx_rates import FxRateStore
 from application.view.operations_view import MODE_ACTUAL, MODE_PLANNED, OperationsView
 
 from MySpaceShared.components.empty_state import EmptyState
@@ -15,6 +18,7 @@ from MySpaceShared.components.empty_state import EmptyState
 ACCOUNTS = [
     {"id": 1, "name": "Основной", "resource": "BYN", "account_type": "main"},
     {"id": 2, "name": "Валютный", "resource": "EUR", "account_type": "main"},
+    {"id": 4, "name": "Долларовый", "resource": "USD", "account_type": "main"},
 ]
 PRICES = [
     {"symbol": "USDT", "price": 1.0},
@@ -64,7 +68,7 @@ CALENDAR_BUDGET = {
 }
 
 
-def _view(transactions=None, budgets=None, base_currency="BYN", prices=None, mode=MODE_ACTUAL):
+def _view(transactions=None, budgets=None, base_currency="BYN", prices=None, mode=MODE_ACTUAL, fx_rows=None):
     transaction_view = MagicMock()
     transaction_view.is_online = True
     transaction_view.get_all.return_value = list(transactions or [])
@@ -75,12 +79,14 @@ def _view(transactions=None, budgets=None, base_currency="BYN", prices=None, mod
     api_client.list_budgets.return_value = list(budgets or [])
     api_client.me.return_value = {"base_currency": base_currency} if base_currency else {}
     api_client.get_prices.return_value = prices if prices is not None else list(PRICES)
+    api_client.get_fx_rates.return_value = list(fx_rows or [])
     view = OperationsView(
         route="/operations",
         api_client=api_client,
         transaction_view=transaction_view,
         account_view=account_view,
         initial_mode=mode,
+        fx_store=FxRateStore(Path(tempfile.mkdtemp()) / "fx.json"),
     )
     view.update = MagicMock()
     return view
@@ -277,6 +283,20 @@ class TestTotals:
 
         assert view._day_groups == []
         assert view._pinned_header.visible is False
+
+    def test_totals_convert_fiat_via_fx(self):
+        usd_income = {
+            "id": 7,
+            "date": "2026-10-27T10:00:00",
+            "description": "Фриланс в USD",
+            "is_planned": False,
+            "entries": [{"account": 4, "amount": 100.0, "unit_price": 1}],
+        }
+        view = _view([usd_income], prices=[], fx_rows=[{"base": "USD", "quote": "BYN", "rate": "0.3125"}])
+
+        asyncio.run(view._load_data())
+
+        assert "Доход +320.00" in view._totals.value
 
     def test_totals_hidden_without_base_currency(self):
         view = _view([SALARY], base_currency=None)

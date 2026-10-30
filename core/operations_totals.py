@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
-from core.group_totals import build_price_map, rate_to_base
+from core.group_totals import build_rate_map, format_amount, rate_to_base
 from core.transaction_filters import transaction_type
 
 
@@ -47,10 +47,11 @@ def period_totals(
     account_map: dict[int, dict],
     base_currency: str,
     price_rows,
+    fx_rows=None,
 ) -> PeriodTotals:
-    """Суммы доходов и расходов периода, пересчитанные в базовую валюту через USDT-курсы."""
+    """Суммы доходов и расходов периода в базовой валюте (крипта через USDT, фиат через FX)."""
     base = (base_currency or "").strip().upper()
-    prices = build_price_map(price_rows)
+    prices = build_rate_map(price_rows, fx_rows)
     income = Decimal(0)
     expense = Decimal(0)
     missing: set[str] = set()
@@ -76,14 +77,9 @@ def period_totals(
     return PeriodTotals(income=income, expense=expense, missing_symbols=tuple(sorted(missing)))
 
 
-def _amount_text(value: Decimal) -> str:
-    """Сумма в формате экосистемы: пробел как разделитель тысяч."""
-    return f"{value:,.2f}".replace(",", " ")
-
-
 def format_period_totals(result: PeriodTotals, base_currency: str) -> str:
     base = (base_currency or "").strip().upper()
-    text = f"Доход +{_amount_text(result.income)} · Расход −{_amount_text(result.expense)}"
+    text = f"Доход +{format_amount(result.income)} · Расход −{format_amount(result.expense)}"
     if base:
         text += f" {base}"
     if result.has_missing:

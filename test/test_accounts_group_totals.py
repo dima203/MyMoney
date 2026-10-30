@@ -3,6 +3,7 @@
 import asyncio
 from unittest.mock import MagicMock
 
+from application.fx_rates import FxRateStore
 from application.view.accounts_view import AccountsView
 from core.onboarding import OnboardingState
 
@@ -62,6 +63,7 @@ def _make_view(tmp_path, *, resources, accounts, base_currency="USDT", prices=No
         resource_view=resource_view,
         account_view=account_view,
         onboarding=onboarding,
+        fx_store=FxRateStore(tmp_path / "fx.json"),
     )
     view.update = MagicMock()
     return view
@@ -109,12 +111,12 @@ class TestGroupTotalMissingRates:
         texts = _texts(view._accounts_column)
         assert "Итого: курс недоступен" in texts
 
-    def test_empty_prices_fully_missing(self, tmp_path) -> None:
+    def test_usd_is_known_anchor_without_prices(self, tmp_path) -> None:
         accounts = [_acc(1, "100", group="Наличные")]
         view = _make_view(tmp_path, resources=[USD_RESOURCE], accounts=accounts, base_currency="USDT", prices=[])
         asyncio.run(view._load_data())
         texts = _texts(view._accounts_column)
-        assert "Итого: курс недоступен" in texts
+        assert "Итого: 100.00 USDT" in texts
 
 
 class TestGroupTotalDegradation:
