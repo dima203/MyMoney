@@ -129,7 +129,7 @@ class CsvImportDialog:
 
     def _set_busy(self, busy: bool) -> None:
         self._import_button.disabled = busy
-        self._import_button.text = BUSY_TEXT if busy else IMPORT_TEXT
+        self._import_button.content = BUSY_TEXT if busy else IMPORT_TEXT
 
     def _update_page(self) -> None:
         if self._page is not None:

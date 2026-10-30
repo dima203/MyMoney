@@ -19,6 +19,7 @@ from application.display import (
 )
 from application.transaction_form import form_state
 from application.view.amount_currency import AmountCurrencyMixin
+from application.view.dialogs import dialog_width, full_width, half_width
 from core.csv_export import transactions_csv
 from core.csv_import import Statement, parse_csv
 
@@ -562,7 +563,7 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
             }
 
             save_button.disabled = True
-            save_button.text = "Сохранение..."
+            save_button.content = "Сохранение..."
             self.page.update()
 
             try:
@@ -578,7 +579,7 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 save_button.disabled = False
-                save_button.text = "Сохранить"
+                save_button.content = "Сохранить"
                 error_text.value = str(exc)
                 error_text.visible = True
                 self.page.update()
@@ -588,19 +589,21 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
         dialog = ft.AlertDialog(
             title=ft.Text(title),
             content=ft.Container(
-                content=ft.Column(
+                content=ft.ResponsiveRow(
                     [
-                        type_group,
-                        account_dropdown,
-                        to_account_dropdown,
-                        amount_field,
-                        description_field,
-                        category_picker,
-                        date_field,
-                        error_text,
+                        *full_width(type_group),
+                        *half_width(account_dropdown),
+                        *half_width(to_account_dropdown),
+                        *half_width(amount_field),
+                        *full_width(description_field),
+                        *full_width(category_picker),
+                        *half_width(date_field),
+                        *full_width(error_text),
                     ],
                     spacing=12,
-                    width=350,
+                    run_spacing=12,
+                    columns=12,
+                    width=dialog_width(self),
                 ),
             ),
             actions=[
@@ -625,7 +628,7 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
     def _show_delete_confirm(self, tx: dict):
         async def delete(e):
             e.control.disabled = True
-            e.control.text = "Удаление..."
+            e.control.content = "Удаление..."
             self.page.update()
 
             try:
@@ -637,7 +640,7 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 e.control.disabled = False
-                e.control.text = "Удалить"
+                e.control.content = "Удалить"
                 self.page.pop_dialog()
                 self._show_error(f"Ошибка удаления: {exc}")
 

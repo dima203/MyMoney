@@ -16,8 +16,9 @@ from application.components.envelope_card import EnvelopeCard
 from application.components.file_save import show_toast
 from application.components.goal_card import GoalCard
 from application.components.navigation_items import NAVIGATION_ITEMS
-from application.view.budget_forms import DIALOG_WIDTH, FormDialogMixin, form_error, hint
+from application.view.budget_forms import FormDialogMixin, form_error, hint
 from application.view.data_loading import DataLoadingMixin, dict_rows
+from application.view.dialogs import dialog_width
 from core.budget_templates import template_infos, template_items, template_payload
 from core.envelopes import EnvelopeProgress, envelope_payload, envelope_progress
 from core.goals import (
@@ -173,7 +174,7 @@ class BudgetsView(FormDialogMixin, DataLoadingMixin, BaseView):
         options = [ft.DropdownOption(key=ticker, text=ticker) for ticker in sorted(currency_map)]
         if selected and selected not in currency_map:
             options.append(ft.DropdownOption(key=selected, text=selected))
-        return ft.Dropdown(label="Валюта", value=selected or None, options=options, width=DIALOG_WIDTH)
+        return ft.Dropdown(label="Валюта", value=selected or None, options=options, width=dialog_width(self))
 
     def _selected_currency(self, row: dict) -> str:
         """Валюта строки для формы: сохранённый тикер, иначе базовая валюта."""
@@ -328,7 +329,7 @@ class BudgetsView(FormDialogMixin, DataLoadingMixin, BaseView):
                 content=ft.Column(
                     controls=controls,
                     spacing=8,
-                    width=DIALOG_WIDTH,
+                    width=dialog_width(self),
                     scroll=ft.ScrollMode.AUTO,
                     horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                 ),

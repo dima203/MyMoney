@@ -70,7 +70,7 @@ class SettingsView(BaseSettingsView):
         self._profile_status.value = ""
         self._profile_error.visible = False
         self._save_profile_button.disabled = True
-        self._save_profile_button.text = "Сохранение..."
+        self._save_profile_button.content = "Сохранение..."
         self.page.update()
 
         try:
@@ -80,13 +80,13 @@ class SettingsView(BaseSettingsView):
                 base_currency=str(self._currency_dropdown.value or "USDT"),
             )
             self._save_profile_button.disabled = False
-            self._save_profile_button.text = "Сохранить"
+            self._save_profile_button.content = "Сохранить"
             self._name_field.value = data.get("username", "")
             self._profile_status.value = "Сохранено"
             self.page.update()
         except ApiError as exc:
             self._save_profile_button.disabled = False
-            self._save_profile_button.text = "Сохранить"
+            self._save_profile_button.content = "Сохранить"
             detail = getattr(exc, "detail", None)
             if isinstance(detail, dict):
                 error_str = "; ".join(f"{k}: {v}" for k, v in detail.items())
@@ -97,7 +97,7 @@ class SettingsView(BaseSettingsView):
             self.page.update()
         except BackendUnreachableError:
             self._save_profile_button.disabled = False
-            self._save_profile_button.text = "Сохранить"
+            self._save_profile_button.content = "Сохранить"
             self._profile_error.value = "Сервер недоступен"
             self._profile_error.visible = True
             self.page.update()

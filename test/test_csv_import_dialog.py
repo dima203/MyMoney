@@ -181,6 +181,6 @@ class TestImport:
 
         page.pop_dialog.assert_not_called()
         assert dialog._import_button.disabled is False
-        assert dialog._import_button.text == IMPORT_TEXT
+        assert dialog._import_button.content == IMPORT_TEXT
         assert "Ошибка импорта:" in dialog._status.value
         assert "boom" in dialog._status.value

@@ -16,6 +16,7 @@ from application.display import (
 )
 from application.transaction_form import form_state
 from application.view.amount_currency import AmountCurrencyMixin
+from application.view.dialogs import dialog_width, full_width, half_width
 from core.recurrence import Frequency, RecurrenceRule
 
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
@@ -439,7 +440,7 @@ class PlannedView(AmountCurrencyMixin, BaseView):
             }
 
             save_button.disabled = True
-            save_button.text = "Сохранение..."
+            save_button.content = "Сохранение..."
             self.page.update()
 
             try:
@@ -458,7 +459,7 @@ class PlannedView(AmountCurrencyMixin, BaseView):
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 save_button.disabled = False
-                save_button.text = "Сохранить"
+                save_button.content = "Сохранить"
                 error_text.value = str(exc)
                 error_text.visible = True
                 self.page.update()
@@ -468,21 +469,23 @@ class PlannedView(AmountCurrencyMixin, BaseView):
         dialog = ft.AlertDialog(
             title=ft.Text(title),
             content=ft.Container(
-                content=ft.Column(
+                content=ft.ResponsiveRow(
                     [
-                        type_group,
-                        account_dropdown,
-                        amount_field,
-                        description_field,
-                        category_picker,
-                        date_field,
-                        recurrence_switch,
-                        frequency_dropdown,
-                        interval_field,
-                        error_text,
+                        *full_width(type_group),
+                        *half_width(account_dropdown),
+                        *half_width(amount_field),
+                        *full_width(description_field),
+                        *full_width(category_picker),
+                        *half_width(date_field),
+                        *full_width(recurrence_switch),
+                        *half_width(frequency_dropdown),
+                        *half_width(interval_field),
+                        *full_width(error_text),
                     ],
                     spacing=12,
-                    width=350,
+                    run_spacing=12,
+                    columns=12,
+                    width=dialog_width(self),
                 ),
             ),
             actions=[
@@ -523,7 +526,7 @@ class PlannedView(AmountCurrencyMixin, BaseView):
     def _show_delete_confirm(self, tx: dict):
         async def delete(e):
             e.control.disabled = True
-            e.control.text = "Удаление..."
+            e.control.content = "Удаление..."
             self.page.update()
 
             try:
@@ -535,7 +538,7 @@ class PlannedView(AmountCurrencyMixin, BaseView):
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 e.control.disabled = False
-                e.control.text = "Удалить"
+                e.control.content = "Удалить"
                 self.page.pop_dialog()
                 self._error_text.value = f"Ошибка удаления: {exc}"
                 self._error_text.visible = True

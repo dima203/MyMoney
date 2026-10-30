@@ -11,6 +11,7 @@ from application.components.file_save import export_csv
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.demo_seed import DemoSeeder
 from application.display import FAB_CLEARANCE, account_display_name
+from application.view.dialogs import dialog_width, full_width, half_width
 from core.app_settings import APP_SETTINGS
 from core.csv_export import accounts_csv
 from core.group_totals import build_price_map, format_group_total, group_total_in_base
@@ -104,6 +105,31 @@ def build_empty_state(show_welcome: bool, on_seed, on_start_fresh) -> ft.Control
         ),
         height=360,
     )
+
+
+RESOURCE_KIND_LABELS = {"currency": "валюта", "asset": "крипта", "custom": "ресурс"}
+RESOURCE_KIND_ORDER = {"currency": 0, "asset": 2}
+
+
+def resource_option_text(resource: dict) -> str:
+    """Подпись опции ресурса: «Название (TICKER) · тип»."""
+    name = str(resource.get("name") or "").strip()
+    ticker = str(resource.get("ticker") or "").strip()
+    label = f"{name} ({ticker})" if ticker else name
+    kind = RESOURCE_KIND_LABELS.get(str(resource.get("resource_type") or ""), "ресурс")
+    return f"{label} · {kind}"
+
+
+def resource_sort_key(resource: dict) -> tuple[int, str]:
+    """Порядок: фиатные валюты → свои ресурсы → крипта → прочее."""
+    kind = str(resource.get("resource_type") or "")
+    if kind == "currency":
+        rank = 0
+    elif resource.get("owner"):
+        rank = 1
+    else:
+        rank = RESOURCE_KIND_ORDER.get(kind, 3)
+    return rank, str(resource.get("name") or "").casefold()
 
 
 class AccountsView(BaseView):
@@ -446,7 +472,8 @@ class AccountsView(BaseView):
         )
 
         resource_options = [
-            ft.dropdown.Option(key=str(r["id"]), text=f"{r['name']} ({r.get('ticker', '')})") for r in self._resources
+            ft.dropdown.Option(key=str(resource["id"]), text=resource_option_text(resource))
+            for resource in sorted(self._resources, key=resource_sort_key)
         ]
         resource_dropdown = ft.Dropdown(
             label="Валюта/Ресурс",
@@ -455,6 +482,7 @@ class AccountsView(BaseView):
             if is_edit and account.get("resource_definition")
             else None,
             border=ft.OutlineInputBorder(border_radius=8),
+            enable_filter=True,
             disabled=is_edit,
         )
 
@@ -542,10 +570,16 @@ class AccountsView(BaseView):
         dialog = ft.AlertDialog(
             title=ft.Text(title),
             content=ft.Container(
-                content=ft.Column(
-                    [name_field, resource_dropdown, group_field, account_type_dropdown, error_text],
+                content=ft.ResponsiveRow(
+                    [
+                        *full_width(name_field, resource_dropdown),
+                        *half_width(group_field, account_type_dropdown),
+                        *full_width(error_text),
+                    ],
                     spacing=12,
-                    width=350,
+                    run_spacing=12,
+                    columns=12,
+                    width=dialog_width(self),
                 ),
             ),
             actions=[

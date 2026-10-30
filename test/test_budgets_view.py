@@ -244,7 +244,7 @@ class TestEnvelopeDialog:
         assert dialog.title.value == "Изменить конверт"
         fields = dialog.content.content.controls
         assert [field.value for field in fields[:3]] == ["Еда", "300", "BYN"]
-        assert dialog.content.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+        assert dialog.content.content.columns == 12
         assert fields[0].autofocus is True
 
     def test_new_dialog_defaults(self) -> None:
@@ -454,7 +454,7 @@ class TestGoalDialogs:
         assert dialog.title.value == "Изменить цель"
         fields = dialog.content.content.controls
         assert [field.value for field in fields[:5]] == ["Отпуск", "3000", "1200", "01.06.2027", "BYN"]
-        assert dialog.content.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+        assert dialog.content.content.columns == 12
         assert fields[0].autofocus is True
         assert fields[1].label == "Целевая сумма"
         assert fields[1].suffix.value == "BYN"

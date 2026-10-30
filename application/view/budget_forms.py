@@ -10,10 +10,11 @@ import asyncio
 
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
+from application.view.dialogs import DIALOG_MAX_WIDTH, dialog_width
 
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 
-DIALOG_WIDTH = 350
+DIALOG_WIDTH = DIALOG_MAX_WIDTH
 
 
 def hint(text: str, *, size: int = 13) -> ft.Text:
@@ -88,11 +89,12 @@ class FormDialogMixin:
         return ft.AlertDialog(
             title=ft.Text(title),
             content=ft.Container(
-                content=ft.Column(
+                content=ft.ResponsiveRow(
                     controls=[*fields, error_text],
                     spacing=12,
-                    width=DIALOG_WIDTH,
-                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                    run_spacing=12,
+                    columns=12,
+                    width=dialog_width(self),
                 ),
             ),
             actions=[
