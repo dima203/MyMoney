@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 from collections import defaultdict
+from itertools import starmap
 from pathlib import Path
 
 import flet as ft
@@ -22,6 +23,13 @@ from application.view.amount_currency import AmountCurrencyMixin
 from application.view.dialogs import dialog_width, full_width, half_width
 from core.csv_export import transactions_csv
 from core.csv_import import Statement, parse_csv
+from core.transaction_filters import (
+    ALL_CATEGORY,
+    PERIOD_OPTIONS,
+    TYPE_OPTIONS,
+    filter_transactions,
+    has_active_filters,
+)
 
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
@@ -140,10 +148,43 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
             tooltip="Показывать технические записи синхронизации (OKX)",
             on_change=self._apply_filters,
         )
-        self._filter_bar = ft.Row(
+        self._filter_period = ft.Dropdown(
+            label="Период",
+            options=list(starmap(ft.dropdown.Option, PERIOD_OPTIONS)),
+            value="all",
+            border=ft.OutlineInputBorder(border_radius=8),
+            on_select=self._apply_filters,
+        )
+        self._filter_account = ft.Dropdown(
+            label="Счёт",
+            options=[ft.dropdown.Option("all", text="Все счета")],
+            value="all",
+            border=ft.OutlineInputBorder(border_radius=8),
+            on_select=self._apply_filters,
+        )
+        self._filter_type = ft.Dropdown(
+            label="Тип",
+            options=list(starmap(ft.dropdown.Option, TYPE_OPTIONS)),
+            value="all",
+            border=ft.OutlineInputBorder(border_radius=8),
+            on_select=self._apply_filters,
+        )
+        for field in (self._filter_period, self._filter_account, self._filter_type, self._filter_category):
+            field.col = {"xs": 12, "sm": 6, "md": 3}
+        self._filters_row = ft.ResponsiveRow(
             controls=[
+                self._filter_period,
+                self._filter_account,
+                self._filter_type,
                 self._filter_category,
                 self._show_snapshots,
+            ],
+            spacing=8,
+            run_spacing=8,
+            columns=12,
+        )
+        self._filter_bar = ft.Row(
+            controls=[
                 ft.Container(expand=True),
                 ft.IconButton(
                     ft.Icons.DOWNLOAD_OUTLINED,
@@ -164,6 +205,7 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
                 self._connection_banner,
                 self._error_text,
                 self._loading,
+                self._filters_row,
                 self._filter_bar,
                 ft.Stack(controls=[self._tx_list, self._pinned_header], expand=True),
             ],
@@ -232,8 +274,13 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
             if cat:
                 cats.add(cat)
         self._categories = sorted(cats)
-        options = [ft.dropdown.Option("Все")] + [ft.dropdown.Option(c) for c in self._categories]
+        options = [ft.dropdown.Option(ALL_CATEGORY)] + [ft.dropdown.Option(c) for c in self._categories]
         self._filter_category.options = options
+        account_options = [ft.dropdown.Option("all", text="Все счета")]
+        account_options += [
+            ft.dropdown.Option(str(account["id"]), text=account_display_name(account)) for account in self._accounts
+        ]
+        self._filter_account.options = account_options
 
     def _apply_filters(self, e=None):
         self._rebuild_list()
@@ -244,7 +291,7 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
         self.update()
 
     async def _export_csv(self, _event=None) -> None:
-        """Сохранить видимые операции (фильтр категории, скрытые снимки, порядок по дате) в CSV-файл."""
+        """Сохранить видимые операции (все фильтры ленты, скрытые снимки, порядок по дате) в CSV-файл."""
         await export_csv(
             self.page,
             kind="transactions",
@@ -303,11 +350,23 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
         filtered = self._transactions
         if not self._show_snapshots.value:
             filtered = [tx for tx in filtered if not is_read_only_transaction(tx)]
-        cat_filter = self._filter_category.value
-        if cat_filter and cat_filter != "Все":
-            filtered = [tx for tx in filtered if tx.get("category") == cat_filter]
+        filtered = filter_transactions(
+            filtered,
+            period=self._filter_period.value or "all",
+            account_id=self._filter_account.value,
+            tx_type=self._filter_type.value or "all",
+            category=self._filter_category.value or ALL_CATEGORY,
+        )
         filtered.sort(key=lambda tx: tx.get("date", ""), reverse=True)
         return filtered
+
+    def _has_active_filters(self) -> bool:
+        return has_active_filters(
+            period=self._filter_period.value or "all",
+            account_id=self._filter_account.value,
+            tx_type=self._filter_type.value or "all",
+            category=self._filter_category.value or ALL_CATEGORY,
+        )
 
     def _rebuild_list(self):
         self._tx_list.controls.clear()
@@ -317,11 +376,12 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
         filtered = self._get_filtered_transactions()
 
         if not filtered:
+            active = self._has_active_filters()
             self._tx_list.controls.append(
                 EmptyState(
                     icon=ft.Icons.RECEIPT_LONG,
-                    title="Нет транзакций",
-                    subtitle="Нажмите + чтобы добавить",
+                    title="Ничего не найдено" if active else "Нет транзакций",
+                    subtitle="Измените фильтры или добавьте операцию" if active else "Нажмите + чтобы добавить",
                 )
             )
             self.update()

@@ -20,6 +20,7 @@ APP = AppSpec(
         Screen("transactions", "/transactions"),
         Screen("planned", "/planned"),
         Screen("budgets", "/budgets"),
+        Screen("analytics", "/analytics"),
         Screen("settings", "/settings"),
     ),
     dialogs=(

@@ -380,3 +380,22 @@ class TestPdfExport:
 
         assert view._error_text.visible is True
         assert "disk full" in view._error_text.value
+
+
+class TestCompositionHint:
+    def test_hint_lists_inclusions_and_exclusions(self) -> None:
+        view = _view()
+        summary = ExpenseSummary("BYN", 3, 100.0, (), ())
+
+        text = view._composition_hint(summary).value
+
+        assert "BYN" in text
+        assert "за 3 мес." in text
+        assert "переводы" in text
+        assert "OKX" in text
+
+    def test_hint_falls_back_to_account_currencies(self) -> None:
+        view = _view()
+        summary = ExpenseSummary("", 1, 0.0, (), ())
+
+        assert "валюте счетов" in view._composition_hint(summary).value

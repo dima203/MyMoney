@@ -162,9 +162,22 @@ class AnalyticsView(DataLoadingMixin, BaseView):
         self._body.controls = [
             self._period_row(),
             self._total_card(summary),
+            self._composition_hint(summary),
             *self._details(summary),
         ]
         self.update()
+
+    def _composition_hint(self, summary: ExpenseSummary) -> ft.Text:
+        """Пояснение состава аналитики (2.36): что входит в расчёт, а что нет."""
+        currency = summary.currency or "валюте счетов"
+        return ft.Text(
+            (
+                f"В расчёт входят расходы в {currency} {period_caption(summary.period_months)}; "
+                "переводы, плановые операции и технические записи OKX не учитываются."
+            ),
+            size=12,
+            color=ft.Colors.ON_SURFACE_VARIANT,
+        )
 
     def _period_row(self) -> ft.Row:
         """Селектор периода и кнопка PDF; Row нужен, чтобы контролы не растянулись на всю ширину."""
