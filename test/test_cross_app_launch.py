@@ -3,10 +3,11 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from application.apps_launcher import app_key_for_source, launch_source_app
+from application.apps_launcher import app_key_for_source, launch_source_app, open_cross_plan, source_app_title
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 
 TASK_ITEM = {"source_app": "task", "title": "Сдать отчёт", "date": "2026-11-03", "amount": None, "currency": ""}
+LAUNCH_COMMAND = (["python", "main.py"], Path("C:/repo/MyList"))
 
 
 class TestAppKey:
@@ -20,17 +21,20 @@ class TestAppKey:
         assert app_key_for_source("money") is None
         assert app_key_for_source(None) is None
 
+    def test_source_title_uses_registry(self):
+        assert source_app_title("task") == "MyList"
+        assert source_app_title("calendar") == "MyCalendar"
+
 
 class TestLaunch:
     def test_launches_process_in_app_directory(self):
-        directory = Path("C:/repo/MyList")
         with (
-            patch("application.apps_launcher.launch_command", return_value=(["python", "main.py"], directory)),
+            patch("application.apps_launcher.launch_command", return_value=LAUNCH_COMMAND),
             patch("application.apps_launcher.subprocess.Popen") as popen,
         ):
             assert launch_source_app("task") is True
 
-        popen.assert_called_once_with(["python", "main.py"], cwd=str(directory))
+        popen.assert_called_once_with(LAUNCH_COMMAND[0], cwd=str(LAUNCH_COMMAND[1]))
 
     def test_missing_app_returns_false(self):
         with patch("application.apps_launcher.launch_command", return_value=None):
@@ -38,7 +42,7 @@ class TestLaunch:
 
     def test_os_error_returns_false(self):
         with (
-            patch("application.apps_launcher.launch_command", return_value=(["python", "main.py"], Path("C:/repo"))),
+            patch("application.apps_launcher.launch_command", return_value=LAUNCH_COMMAND),
             patch("application.apps_launcher.subprocess.Popen", side_effect=OSError("boom")),
         ):
             assert launch_source_app("task") is False
@@ -48,6 +52,27 @@ class TestLaunch:
             assert launch_source_app("crypto") is False
 
         command.assert_not_called()
+
+
+class TestOpenCrossPlan:
+    def test_success_shows_toast(self):
+        errors: list[str] = []
+        page = object()
+        with (
+            patch("application.apps_launcher.launch_source_app", return_value=True),
+            patch("application.components.file_save.show_toast") as toast,
+        ):
+            open_cross_plan(page, TASK_ITEM, errors.append)
+
+        toast.assert_called_once_with(page, "Открываю MyList")
+        assert errors == []
+
+    def test_failure_reports_error(self):
+        errors: list[str] = []
+        with patch("application.apps_launcher.launch_source_app", return_value=False):
+            open_cross_plan(object(), TASK_ITEM, errors.append)
+
+        assert errors == ["MyList не найден рядом с MyMoney"]
 
 
 class TestCardClick:

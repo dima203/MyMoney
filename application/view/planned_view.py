@@ -3,7 +3,7 @@ import datetime
 
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
-from application.apps_launcher import launch_source_app
+from application.apps_launcher import open_cross_plan
 from application.components import BaseView
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.components.navigation_items import NAVIGATION_ITEMS
@@ -171,16 +171,13 @@ class PlannedView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
         self.update()
 
     def _open_cross_plan(self, item: dict) -> None:
-        from application.components.file_save import show_toast
+        """Открыть задачу в MyList или событие в MyCalendar (2.51)."""
+        open_cross_plan(self.page, item, self._show_error)
 
-        source = str(item.get("source_app") or "")
-        title = "MyList" if source == "task" else "MyCalendar"
-        if launch_source_app(source):
-            show_toast(self.page, f"Открываю {title}")
-        else:
-            self._error_text.value = f"{title} не найден рядом с MyMoney"
-            self._error_text.visible = True
-            self.update()
+    def _show_error(self, message: str) -> None:
+        self._error_text.value = message
+        self._error_text.visible = True
+        self.update()
 
     def _rebuild_list(self):
         self._tx_list.controls.clear()

@@ -6,7 +6,7 @@ import asyncio
 
 import flet as ft
 from application.api import RestClientError
-from application.apps_launcher import launch_source_app
+from application.apps_launcher import open_cross_plan
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.display import FAB_CLEARANCE, is_read_only_transaction
 from application.fx_rates import FxRateStore, load_fx_rows, resolve_profile_base
@@ -177,14 +177,7 @@ class OperationsView(TransactionsView):
 
     def _open_cross_plan(self, item: dict) -> None:
         """Открыть задачу в MyList или событие в MyCalendar (2.51)."""
-        from application.components.file_save import show_toast
-
-        source = str(item.get("source_app") or "")
-        title = "MyList" if source == "task" else "MyCalendar"
-        if launch_source_app(source):
-            show_toast(self.page, f"Открываю {title}")
-        else:
-            self._show_error(f"{title} не найден рядом с MyMoney")
+        open_cross_plan(self.page, item, self._show_error)
 
     def _build_plan_card(self, tx: dict) -> ft.Control:
         return build_plan_card(

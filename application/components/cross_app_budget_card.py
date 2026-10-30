@@ -23,11 +23,7 @@ def format_amount(amount, currency: str) -> str:
 def format_budget_date(value) -> str:
     if not value:
         return "Без даты"
-    text = str(value)[:10]
-    try:
-        return format_date(text)
-    except ValueError:
-        return str(value)
+    return format_date(value)
 
 
 class CrossAppBudgetCard(ft.Container):
