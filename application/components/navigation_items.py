@@ -10,16 +10,10 @@ NAVIGATION_ITEMS = [
         selected_icon=ft.Icons.ACCOUNT_BALANCE_WALLET_OUTLINED,
     ),
     NavigationItem(
-        label="Транзакции",
-        route="/transactions",
+        label="Операции",
+        route="/operations",
         icon=ft.Icons.RECEIPT_LONG,
         selected_icon=ft.Icons.RECEIPT_LONG_OUTLINED,
-    ),
-    NavigationItem(
-        label="План",
-        route="/planned",
-        icon=ft.Icons.CALENDAR_MONTH,
-        selected_icon=ft.Icons.CALENDAR_MONTH_OUTLINED,
     ),
     NavigationItem(
         label="Бюджеты",

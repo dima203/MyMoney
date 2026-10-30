@@ -95,7 +95,7 @@ class TestAnalyticsViewLoad:
 
         assert view._loading.visible is True
         assert view._body.controls == []
-        assert view.selected_index == 4
+        assert view.selected_index == 3
         assert view.route == "/analytics"
 
     def test_load_totals_average_and_categories(self) -> None:

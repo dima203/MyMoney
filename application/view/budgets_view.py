@@ -31,7 +31,7 @@ from core.goals import (
 from MySpaceShared.components.form_kit import DateField, MoneyField, parse_date
 from MySpaceShared.components.section_header import SectionHeader
 
-BUDGETS_INDEX = 3
+BUDGETS_INDEX = 2
 TITLE = "Бюджеты"
 ENVELOPES_TITLE = "Конверты месяца"
 ENVELOPES_KEY = "envelopes"

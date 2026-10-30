@@ -11,6 +11,7 @@ from application.components.category_picker import CategoryPicker
 from application.components.csv_import_dialog import CsvImportDialog
 from application.components.file_save import export_csv, file_picker, show_toast
 from application.components.navigation_items import NAVIGATION_ITEMS
+from application.components.recurrence_fields import RecurrenceEditor
 from application.components.transaction_card import TransactionCard
 from application.display import (
     FAB_CLEARANCE,
@@ -257,6 +258,9 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
                 self._connection_banner.show()
             else:
                 self._connection_banner.hide()
+            await self._load_sections()
+            if self._disposed:
+                return
             self._rebuild_list()
         except BackendUnreachableError:
             if not self._disposed:
@@ -266,6 +270,16 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
             if not self._disposed:
                 self._loading.visible = False
                 self._show_error(f"Ошибка загрузки: {exc}")
+
+    async def _load_sections(self) -> None:
+        """Хук наследников: дополнительные данные экрана после основных списков."""
+
+    async def _delete_transaction(self, tx: dict) -> None:
+        """Удалить операцию через офлайн-слой, если он есть, иначе напрямую API."""
+        if self._transaction_view:
+            await asyncio.to_thread(self._transaction_view.delete, tx["id"])
+        else:
+            await asyncio.to_thread(self.api_client.delete_transaction, tx["id"])
 
     def _collect_categories(self):
         cats = set()
@@ -481,19 +495,21 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
     def _show_edit_dialog(self, tx: dict):
         self._open_transaction_dialog(tx=tx)
 
-    def _open_transaction_dialog(self, tx: dict | None = None):
+    def _open_transaction_dialog(self, tx: dict | None = None, planned: bool = False):
         is_edit = tx is not None
-        title = "Редактировать транзакцию" if is_edit else "Новая транзакция"
+        if planned:
+            title = "Редактировать план" if is_edit else "Новый план"
+        else:
+            title = "Редактировать транзакцию" if is_edit else "Новая транзакция"
 
+        type_options = [
+            ft.Radio(value="expense", label="Расход"),
+            ft.Radio(value="income", label="Доход"),
+        ]
+        if not planned:
+            type_options.append(ft.Radio(value="transfer", label="Перевод"))
         type_group = ft.RadioGroup(
-            content=ft.Row(
-                [
-                    ft.Radio(value="expense", label="Расход"),
-                    ft.Radio(value="income", label="Доход"),
-                    ft.Radio(value="transfer", label="Перевод"),
-                ],
-                spacing=16,
-            ),
+            content=ft.Row(type_options, spacing=16),
             value="expense",
         )
 
@@ -528,7 +544,7 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
                 now = datetime.datetime.now()
 
         date_field = ft.TextField(
-            label="Дата",
+            label="Плановая дата" if planned else "Дата",
             value=now.strftime("%Y-%m-%d"),
             border=ft.OutlineInputBorder(border_radius=8),
             read_only=True,
@@ -538,6 +554,8 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
                 on_click=lambda _: self._open_date_picker(date_field),
             ),
         )
+
+        recurrence_editor = RecurrenceEditor(tx.get("recurrence_rule", "") if is_edit and planned else "")
 
         error_text = ft.Text("", size=12, color=ft.Colors.ERROR, visible=False)
 
@@ -619,7 +637,8 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
                 "entries": entries,
                 "category": category,
                 "description": description,
-                "is_planned": False,
+                "is_planned": planned,
+                "recurrence_rule": self._recurrence_payload(recurrence_editor, planned, tx, is_edit),
             }
 
             save_button.disabled = True
@@ -646,20 +665,24 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
 
         save_button = ft.Button("Сохранить", on_click=on_submit)
 
+        form_controls = [
+            *full_width(type_group),
+            *half_width(account_dropdown),
+            *half_width(to_account_dropdown),
+            *half_width(amount_field),
+            *full_width(description_field),
+            *full_width(category_picker),
+            *half_width(date_field),
+        ]
+        if planned:
+            form_controls.extend(full_width(recurrence_editor))
+        form_controls.extend(full_width(error_text))
+
         dialog = ft.AlertDialog(
             title=ft.Text(title),
             content=ft.Container(
                 content=ft.ResponsiveRow(
-                    [
-                        *full_width(type_group),
-                        *half_width(account_dropdown),
-                        *half_width(to_account_dropdown),
-                        *half_width(amount_field),
-                        *full_width(description_field),
-                        *full_width(category_picker),
-                        *half_width(date_field),
-                        *full_width(error_text),
-                    ],
+                    form_controls,
                     spacing=12,
                     run_spacing=12,
                     columns=12,
@@ -673,6 +696,13 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
             actions_alignment=ft.MainAxisAlignment.END,
         )
         self.page.show_dialog(dialog)
+
+    @staticmethod
+    def _recurrence_payload(editor, planned: bool, tx: dict | None, is_edit: bool) -> str:
+        """Правило из редактора для плана; у фактической операции правило сохраняется при правке."""
+        if planned:
+            return editor.value
+        return (tx or {}).get("recurrence_rule", "") if is_edit else ""
 
     def _open_date_picker(self, date_field):
         picker = ft.DatePicker(
@@ -692,10 +722,7 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
             self.page.update()
 
             try:
-                if self._transaction_view:
-                    await asyncio.to_thread(self._transaction_view.delete, tx["id"])
-                else:
-                    await asyncio.to_thread(self.api_client.delete_transaction, tx["id"])
+                await self._delete_transaction(tx)
                 self.page.pop_dialog()
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:

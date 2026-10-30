@@ -69,7 +69,7 @@ def test_single_plan_is_deleted_after_execution():
 
 def test_finished_series_is_deleted(monkeypatch):
     view, transaction_view = _view()
-    monkeypatch.setattr("application.view.planned_view.next_planned_date", lambda *_args: None)
+    monkeypatch.setattr("application.planned_actions.next_planned_date", lambda *_args: None)
 
     asyncio.run(view._execute_transaction(_tx(recurrence_rule="daily until 2026-01-02")))
 

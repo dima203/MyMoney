@@ -142,28 +142,18 @@ class MyMoneyApp:
                     connection_banner=self._connection_banner,
                 )
             )
-        elif self.page.route == "/transactions":
-            from application.view.transactions_view import TransactionsView
+        elif self.page.route in ("/operations", "/transactions", "/planned"):
+            from application.view.operations_view import MODE_ACTUAL, MODE_PLANNED, OperationsView
 
+            initial_mode = MODE_PLANNED if self.page.route == "/planned" else MODE_ACTUAL
             self._mount(
-                TransactionsView(
-                    route="/transactions",
+                OperationsView(
+                    route="/operations",
                     api_client=self.api_client,
                     transaction_view=self._transaction_view,
                     account_view=self._account_view,
                     connection_banner=self._connection_banner,
-                )
-            )
-        elif self.page.route == "/planned":
-            from application.view.planned_view import PlannedView
-
-            self._mount(
-                PlannedView(
-                    route="/planned",
-                    api_client=self.api_client,
-                    transaction_view=self._transaction_view,
-                    account_view=self._account_view,
-                    connection_banner=self._connection_banner,
+                    initial_mode=initial_mode,
                 )
             )
         elif self.page.route == "/budgets":

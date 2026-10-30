@@ -135,7 +135,7 @@ class TestViewShell:
 
         assert view.title == "Бюджеты"
         assert view.route == "/budgets"
-        assert view.selected_index == 3
+        assert view.selected_index == 2
 
     def test_loads_without_analytics_charts(self) -> None:
         view = _view()
@@ -145,10 +145,10 @@ class TestViewShell:
         assert view._loading.visible is False
         assert not [item for item in _walk(view._body) if isinstance(item, ft.ProgressBar) and item.height == 6]
 
-    def test_navigation_has_budgets_between_plan_and_analytics(self) -> None:
+    def test_navigation_has_budgets_between_operations_and_analytics(self) -> None:
         labels = [item.label for item in NAVIGATION_ITEMS]
 
-        assert labels == ["Счета", "Транзакции", "План", "Бюджеты", "Аналитика", "Настройки"]
+        assert labels == ["Счета", "Операции", "Бюджеты", "Аналитика", "Настройки"]
 
 
 class TestFormatting:

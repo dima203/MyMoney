@@ -2,22 +2,24 @@ import asyncio
 import datetime
 
 import flet as ft
-from application.api import ApiError, BackendUnreachableError, RestClientError
+from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
 from application.components.category_picker import CategoryPicker
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.planned_transaction_card import PlannedTransactionCard
-from application.display import (
-    FAB_CLEARANCE,
-    account_currency,
-    account_display_name,
-    is_read_only_transaction,
-)
+from application.components.recurrence_fields import DEFAULT_FREQUENCY, FREQUENCY_OPTIONS, recurrence_rule_text
+from application.display import FAB_CLEARANCE, account_currency, account_display_name, is_read_only_transaction
+from application.planned_actions import execute_planned
 from application.transaction_form import form_state
 from application.view.amount_currency import AmountCurrencyMixin
 from application.view.dialogs import dialog_width, full_width, half_width
-from core.recurrence import Frequency, RecurrenceRule, next_planned_date
+from application.view.planned_sections import (
+    build_plan_card,
+    filter_cross_app_budgets,
+    load_cross_app_budgets,
+)
+from core.recurrence import RecurrenceRule
 
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
@@ -26,40 +28,7 @@ from MySpaceShared.components.form_kit import MoneyField, parse_money
 from MySpaceShared.components.loading_state import LoadingState
 from MySpaceShared.components.section_header import SectionHeader
 
-FREQUENCY_OPTIONS = [
-    ft.dropdown.Option(key="daily", text="Ежедневно"),
-    ft.dropdown.Option(key="weekly", text="Еженедельно"),
-    ft.dropdown.Option(key="monthly", text="Ежемесячно"),
-    ft.dropdown.Option(key="yearly", text="Ежегодно"),
-]
-
 BUDGETS_SECTION_TITLE = "Запланировано из задач/событий"
-CROSS_APP_BUDGET_SOURCES = ("task", "calendar")
-
-
-def filter_cross_app_budgets(items: list[dict]) -> list[dict]:
-    """Keep task/calendar budget rows, drop own transactions and duplicates, sort by date."""
-    seen: set[tuple] = set()
-    result: list[dict] = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        if item.get("source_app") not in CROSS_APP_BUDGET_SOURCES:
-            continue
-        key = (
-            item.get("source_app"),
-            item.get("source_id"),
-            item.get("title"),
-            str(item.get("date")),
-            str(item.get("amount")),
-            item.get("currency"),
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        result.append(item)
-    result.sort(key=lambda entry: str(entry.get("date") or "9999-12-31"))
-    return result
 
 
 class PlannedView(AmountCurrencyMixin, BaseView):
@@ -73,7 +42,6 @@ class PlannedView(AmountCurrencyMixin, BaseView):
         self._budgets: list[dict] = []
         self._accounts: list[dict] = []
         self._account_map: dict[int, dict] = {}
-        self._recurrence_dialog: ft.AlertDialog | None = None
 
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
         self._loading = LoadingState()
@@ -113,7 +81,7 @@ class PlannedView(AmountCurrencyMixin, BaseView):
         )
 
         super().__init__(
-            content=content, title="Запланированные", route=route, selected_index=2, navigation_items=NAVIGATION_ITEMS
+            content=content, title="Запланированные", route=route, selected_index=1, navigation_items=NAVIGATION_ITEMS
         )
         self.floating_action_button = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
@@ -176,25 +144,12 @@ class PlannedView(AmountCurrencyMixin, BaseView):
             await self._load_budgets()
 
     async def _load_budgets(self) -> None:
-        self._budgets = []
-        self._budget_hint.value = ""
         if self._disposed:
             return
-        if self._transaction_view is not None and not self._transaction_view.is_online:
-            self._budget_hint.value = "Нет подключения: планы из задач и событий недоступны"
-            self._render_budget_section()
-            return
-        try:
-            raw = await asyncio.to_thread(self.api_client.list_budgets)
-        except (RestClientError, AttributeError):
-            if not self._disposed:
-                self._budget_hint.value = "Не удалось загрузить планы из задач и событий"
-                self._render_budget_section()
-            return
+        self._budgets, hint = await load_cross_app_budgets(self.api_client, self._transaction_view)
         if self._disposed:
             return
-        items = raw.get("results", []) if isinstance(raw, dict) else raw
-        self._budgets = filter_cross_app_budgets(items if isinstance(items, list) else [])
+        self._budget_hint.value = hint
         self._render_budget_section()
 
     def _render_budget_section(self) -> None:
@@ -238,86 +193,23 @@ class PlannedView(AmountCurrencyMixin, BaseView):
         self.update()
 
     def _build_card(self, tx: dict) -> PlannedTransactionCard:
-        entries = tx.get("entries", [])
-        total = sum(float(e.get("amount", 0)) for e in entries)
-        first_entry = entries[0] if entries else {}
-        account_id = first_entry.get("account")
-        account = self._account_map.get(account_id, {})
-        account_name = account_display_name(account)
-
-        planned_date = None
-        date_str = tx.get("date", "")
-        try:
-            planned_date = datetime.datetime.fromisoformat(date_str).date()
-        except (ValueError, TypeError):
-            pass
-
-        return PlannedTransactionCard(
-            description=tx.get("description", ""),
-            amount=total,
-            account_name=account_name,
-            category=tx.get("category", ""),
-            planned_date=planned_date,
-            recurrence_rule=tx.get("recurrence_rule", ""),
-            on_execute=lambda t=tx: self._execute_transaction(t),
-            on_edit=lambda t=tx: self._show_edit_dialog(t),
-            on_delete=lambda t=tx: self._show_delete_confirm(t),
+        return build_plan_card(
+            tx,
+            self._account_map,
+            on_execute=self._execute_transaction,
+            on_edit=self._show_edit_dialog,
+            on_delete=self._show_delete_confirm,
         )
 
     async def _execute_transaction(self, tx: dict):
         try:
-            payload = {
-                "date": datetime.datetime.now().isoformat(),
-                "entries": tx.get("entries", []),
-                "category": tx.get("category", ""),
-                "description": tx.get("description", ""),
-                "is_planned": False,
-                "recurrence_rule": tx.get("recurrence_rule", ""),
-            }
-            if self._transaction_view:
-                await asyncio.to_thread(self._transaction_view.add, payload)
-            else:
-                await asyncio.to_thread(self.api_client.create_transaction, payload)
-
-            rule = tx.get("recurrence_rule", "")
-            next_date = next_planned_date(self._planned_date(tx), rule) if rule else None
-            if next_date is None:
-                await self._delete_planned(tx)
-            else:
-                await self._update_planned_date(tx, next_date)
-
+            await execute_planned(self._transaction_view, self.api_client, tx)
             await self._load_data()
         except (ApiError, BackendUnreachableError) as exc:
             if not self._disposed:
                 self._error_text.value = f"Ошибка: {exc}"
                 self._error_text.visible = True
                 self.update()
-
-    def _planned_date(self, tx: dict) -> datetime.date:
-        raw = str(tx.get("date") or "")[:10]
-        try:
-            return datetime.date.fromisoformat(raw)
-        except ValueError:
-            return datetime.date.today()
-
-    async def _delete_planned(self, tx: dict) -> None:
-        if self._transaction_view:
-            await asyncio.to_thread(self._transaction_view.delete, tx["id"])
-        else:
-            await asyncio.to_thread(self.api_client.delete_transaction, tx["id"])
-
-    async def _update_planned_date(self, tx: dict, next_date: datetime.date) -> None:
-        """Сдвинуть повторяющийся план на следующую дату (время суток сохраняется)."""
-        time_part = datetime.time(9, 0)
-        try:
-            time_part = datetime.datetime.fromisoformat(str(tx.get("date") or "")).time()
-        except (ValueError, TypeError):
-            pass
-        payload = {"date": datetime.datetime.combine(next_date, time_part).isoformat()}
-        if self._transaction_view:
-            await asyncio.to_thread(self._transaction_view.update, tx["id"], payload)
-        else:
-            await asyncio.to_thread(self.api_client.update_transaction, tx["id"], payload)
 
     def _show_add_dialog(self, e):
         self._open_transaction_dialog()
@@ -373,11 +265,11 @@ class PlannedView(AmountCurrencyMixin, BaseView):
             ),
         )
 
-        recurrence_switch = ft.Switch(label="Повторяющаяся", value=False, on_change=self._on_recurrence_toggle)
+        recurrence_switch = ft.Switch(label="Повторяющаяся", value=False)
         frequency_dropdown = ft.Dropdown(
             label="Частота",
             options=FREQUENCY_OPTIONS,
-            value="monthly",
+            value=DEFAULT_FREQUENCY.value,
             border=ft.OutlineInputBorder(border_radius=8),
             visible=False,
         )
@@ -389,6 +281,14 @@ class PlannedView(AmountCurrencyMixin, BaseView):
             visible=False,
             width=100,
         )
+
+        def on_recurrence_toggle(event) -> None:
+            visible = bool(event.control.value)
+            frequency_dropdown.visible = visible
+            interval_field.visible = visible
+            dialog.update()
+
+        recurrence_switch.on_change = on_recurrence_toggle
 
         error_text = ft.Text("", size=12, color=ft.Colors.ERROR, visible=False)
 
@@ -403,7 +303,8 @@ class PlannedView(AmountCurrencyMixin, BaseView):
             description_field.value = tx.get("description", "")
             if tx.get("recurrence_rule"):
                 recurrence_switch.value = True
-                self._show_recurrence_fields(True, frequency_dropdown, interval_field)
+                frequency_dropdown.visible = True
+                interval_field.visible = True
                 rule = RecurrenceRule.parse(tx["recurrence_rule"])
                 if rule:
                     frequency_dropdown.value = rule.frequency.value
@@ -449,13 +350,7 @@ class PlannedView(AmountCurrencyMixin, BaseView):
 
             recurrence_rule = ""
             if recurrence_switch.value:
-                freq = frequency_dropdown.value
-                try:
-                    interval = int(interval_field.value)
-                except ValueError:
-                    interval = 1
-                rule = RecurrenceRule(Frequency(freq), interval)
-                recurrence_rule = rule.to_string()
+                recurrence_rule = recurrence_rule_text(frequency_dropdown.value, interval_field.value)
 
             payload = {
                 "date": date_val.isoformat(),
@@ -524,21 +419,6 @@ class PlannedView(AmountCurrencyMixin, BaseView):
         self._recurrence_dialog = dialog
         self.page.show_dialog(dialog)
 
-    def _on_recurrence_toggle(self, e):
-        dialog = self._recurrence_dialog
-        if dialog and isinstance(dialog, ft.AlertDialog) and dialog.open:
-            content = dialog.content.content
-            for control in content.controls:
-                if isinstance(control, ft.Dropdown) and control.label == "Частота":
-                    control.visible = e.control.value
-                if isinstance(control, ft.TextField) and control.label == "Интервал":
-                    control.visible = e.control.value
-            dialog.update()
-
-    def _show_recurrence_fields(self, visible: bool, freq_dd, interval_tf):
-        freq_dd.visible = visible
-        interval_tf.visible = visible
-
     def _open_date_picker(self, date_field):
         picker = ft.DatePicker(
             on_change=lambda e: self._on_date_picked(e, date_field),
@@ -577,3 +457,6 @@ class PlannedView(AmountCurrencyMixin, BaseView):
             message=f'Удалить "{desc}"?',
             on_confirm=lambda e: asyncio.create_task(delete(e)),
         ).show(self.page)
+
+
+__all__ = ["PlannedView", "filter_cross_app_budgets"]

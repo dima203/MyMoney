@@ -33,7 +33,7 @@ from MySpaceShared.components.section_header import SectionHeader
 from MySpaceShared.core.charts import axis_label_width, chart_palette, nice_ticks
 from MySpaceShared.core.formatting import format_percent
 
-ANALYTICS_INDEX = 4
+ANALYTICS_INDEX = 3
 CHART_HEIGHT = 220
 CHART_TICKS = 4
 MIN_TICK_GAP = 44

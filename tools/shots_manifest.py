@@ -11,13 +11,20 @@ from application.app import MyMoneyApp  # ruff: ignore[module-import-not-at-top-
 
 from MySpaceShared.tools.shots import AppSpec, Dialog, Screen  # ruff: ignore[module-import-not-at-top-of-file]
 
+
+def _open_plan_dialog(view) -> None:
+    """Открыть диалог плана на объединённом экране (2.48b)."""
+    view.set_mode("planned")
+    view._open_transaction_dialog(planned=True)
+
+
 APP = AppSpec(
     key="MyMoney",
     title="MyMoney",
     boot=lambda page: MyMoneyApp().main(page),
     screens=(
         Screen("accounts", "/accounts"),
-        Screen("transactions", "/transactions"),
+        Screen("operations", "/operations"),
         Screen("planned", "/planned"),
         Screen("budgets", "/budgets"),
         Screen("analytics", "/analytics"),
@@ -25,8 +32,13 @@ APP = AppSpec(
     ),
     dialogs=(
         Dialog("account", "/accounts", lambda view: view._open_account_dialog(), "Сохранить"),
-        Dialog("plan", "/planned", lambda view: view._open_transaction_dialog(), "Сохранить"),
-        Dialog("transaction", "/transactions", lambda view: view._open_transaction_dialog(), "Сохранить"),
+        Dialog("plan", "/operations", _open_plan_dialog, "Сохранить"),
+        Dialog(
+            "transaction",
+            "/operations",
+            lambda view: view._open_transaction_dialog(),
+            "Сохранить",
+        ),
         Dialog("goal", "/budgets", lambda view: view._open_goal_editor(), "Сохранить"),
         Dialog("envelope", "/budgets", lambda view: view._open_envelope_editor(), "Сохранить"),
     ),

@@ -34,6 +34,8 @@ def tx_date(tx: dict) -> date | None:
 def tx_total(tx: dict) -> float:
     total = 0.0
     for entry in tx.get("entries") or []:
+        if not isinstance(entry, dict):
+            continue
         try:
             total += float(entry.get("amount") or 0)
         except (TypeError, ValueError):
@@ -44,6 +46,8 @@ def tx_total(tx: dict) -> float:
 def tx_account_ids(tx: dict) -> set[int]:
     ids: set[int] = set()
     for entry in tx.get("entries") or []:
+        if not isinstance(entry, dict):
+            continue
         account = entry.get("account")
         if isinstance(account, int):
             ids.add(account)
