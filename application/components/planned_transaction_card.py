@@ -45,7 +45,7 @@ class PlannedTransactionCard(ft.Container):
                 date_str = "Завтра"
                 date_color = ft.Colors.ORANGE
             else:
-                date_str = planned_date.strftime("%d %b")
+                date_str = planned_date.strftime("%d.%m")
                 date_color = ft.Colors.ON_SURFACE_VARIANT
         else:
             date_color = ft.Colors.ON_SURFACE_VARIANT
