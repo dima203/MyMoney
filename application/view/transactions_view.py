@@ -38,6 +38,7 @@ from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
 from MySpaceShared.components.form_kit import MoneyField, parse_money
 from MySpaceShared.components.loading_state import LoadingState
+from MySpaceShared.core.formatting import format_date
 
 DAY_HEADER_HEIGHT = 36
 SCROLL_EPSILON = 0.5
@@ -440,7 +441,7 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
             elif d == yesterday:
                 label = "Вчера"
             else:
-                label = d.strftime("%d %b %Y")
+                label = format_date(d)
             groups[label].append(tx)
 
         return dict(groups)

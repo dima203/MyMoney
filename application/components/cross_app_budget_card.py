@@ -1,9 +1,7 @@
-import datetime
-
 import flet as ft
 
 from MySpaceShared.components import ElevatedCard, StatusBadge
-from MySpaceShared.core.formatting import format_money
+from MySpaceShared.core.formatting import format_date, format_money
 from MySpaceShared.core.tokens import RADIUS, SPACING
 
 SOURCE_LABELS: dict[str, str] = {"task": "Задача", "calendar": "Событие"}
@@ -27,7 +25,7 @@ def format_budget_date(value) -> str:
         return "Без даты"
     text = str(value)[:10]
     try:
-        return datetime.date.fromisoformat(text).strftime("%d.%m.%Y")
+        return format_date(text)
     except ValueError:
         return str(value)
 
