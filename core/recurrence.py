@@ -100,6 +100,26 @@ class RecurrenceRule:
         return f"RecurrenceRule({self.to_string()!r})"
 
 
+def next_planned_date(
+    current: datetime.date,
+    rule_str: str,
+    today: datetime.date | None = None,
+) -> datetime.date | None:
+    """Следующая дата повтора после *current*, строго позже *today* (None — серия кончилась)."""
+    rule = RecurrenceRule.parse(rule_str)
+    if rule is None:
+        return None
+    after = today or datetime.date.today()
+    next_date = rule.next_date(current)
+    guard = 0
+    while next_date <= after and guard < 1000:
+        next_date = rule.next_date(next_date)
+        guard += 1
+    if rule.until and next_date > rule.until:
+        return None
+    return next_date
+
+
 def _days_in_month(year: int, month: int) -> int:
     if month == 12:
         return 31

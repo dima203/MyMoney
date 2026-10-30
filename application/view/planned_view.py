@@ -17,7 +17,7 @@ from application.display import (
 from application.transaction_form import form_state
 from application.view.amount_currency import AmountCurrencyMixin
 from application.view.dialogs import dialog_width, full_width, half_width
-from core.recurrence import Frequency, RecurrenceRule
+from core.recurrence import Frequency, RecurrenceRule, next_planned_date
 
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
@@ -279,11 +279,12 @@ class PlannedView(AmountCurrencyMixin, BaseView):
             else:
                 await asyncio.to_thread(self.api_client.create_transaction, payload)
 
-            if not tx.get("recurrence_rule"):
-                if self._transaction_view:
-                    await asyncio.to_thread(self._transaction_view.delete, tx["id"])
-                else:
-                    await asyncio.to_thread(self.api_client.delete_transaction, tx["id"])
+            rule = tx.get("recurrence_rule", "")
+            next_date = next_planned_date(self._planned_date(tx), rule) if rule else None
+            if next_date is None:
+                await self._delete_planned(tx)
+            else:
+                await self._update_planned_date(tx, next_date)
 
             await self._load_data()
         except (ApiError, BackendUnreachableError) as exc:
@@ -291,6 +292,32 @@ class PlannedView(AmountCurrencyMixin, BaseView):
                 self._error_text.value = f"Ошибка: {exc}"
                 self._error_text.visible = True
                 self.update()
+
+    def _planned_date(self, tx: dict) -> datetime.date:
+        raw = str(tx.get("date") or "")[:10]
+        try:
+            return datetime.date.fromisoformat(raw)
+        except ValueError:
+            return datetime.date.today()
+
+    async def _delete_planned(self, tx: dict) -> None:
+        if self._transaction_view:
+            await asyncio.to_thread(self._transaction_view.delete, tx["id"])
+        else:
+            await asyncio.to_thread(self.api_client.delete_transaction, tx["id"])
+
+    async def _update_planned_date(self, tx: dict, next_date: datetime.date) -> None:
+        """Сдвинуть повторяющийся план на следующую дату (время суток сохраняется)."""
+        time_part = datetime.time(9, 0)
+        try:
+            time_part = datetime.datetime.fromisoformat(str(tx.get("date") or "")).time()
+        except (ValueError, TypeError):
+            pass
+        payload = {"date": datetime.datetime.combine(next_date, time_part).isoformat()}
+        if self._transaction_view:
+            await asyncio.to_thread(self._transaction_view.update, tx["id"], payload)
+        else:
+            await asyncio.to_thread(self.api_client.update_transaction, tx["id"], payload)
 
     def _show_add_dialog(self, e):
         self._open_transaction_dialog()
