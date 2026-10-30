@@ -457,7 +457,7 @@ class TestGoalDialogs:
         assert dialog.content.content.columns == 12
         assert fields[0].autofocus is True
         assert fields[1].label == "Целевая сумма"
-        assert fields[1].suffix.value == "BYN"
+        assert fields[1].suffix_icon.value == "BYN"
         assert fields[3].read_only is True
 
     def test_new_dialog_defaults(self) -> None:
@@ -512,7 +512,7 @@ class TestFormKitAdoption:
         assert isinstance(fields[1], MoneyField)
         assert isinstance(fields[2], MoneyField)
         assert isinstance(fields[3], DateField)
-        assert fields[1].suffix.value == "BYN"
+        assert fields[1].suffix_icon.value == "BYN"
         assert fields[3].date == date_cls(2027, 6, 1)
 
     def test_goal_currency_change_syncs_suffixes(self) -> None:
@@ -524,8 +524,8 @@ class TestFormKitAdoption:
         dropdown.value = "USD"
         dropdown.on_change(type("Event", (), {"control": dropdown})())
 
-        assert target.suffix.value == "USD"
-        assert saved.suffix.value == "USD"
+        assert target.suffix_icon.value == "USD"
+        assert saved.suffix_icon.value == "USD"
 
     def test_parse_goal_deadline_accepts_iso_and_dotted(self) -> None:
         from datetime import date as date_cls
@@ -546,10 +546,10 @@ class TestFormKitAdoption:
         limit_field, dropdown = fields[1], fields[2]
 
         assert isinstance(limit_field, MoneyField)
-        assert limit_field.suffix.value == "BYN"
+        assert limit_field.suffix_icon.value == "BYN"
         dropdown.value = "USD"
         dropdown.on_change(type("Event", (), {"control": dropdown})())
-        assert limit_field.suffix.value == "USD"
+        assert limit_field.suffix_icon.value == "USD"
 
     def test_contribution_uses_goal_currency(self) -> None:
         from MySpaceShared.components.form_kit import MoneyField
@@ -559,4 +559,4 @@ class TestFormKitAdoption:
         field = view._contribution_dialog(_goal()).content.content.controls[0]
 
         assert isinstance(field, MoneyField)
-        assert field.suffix.value == "BYN"
+        assert field.suffix_icon.value == "BYN"

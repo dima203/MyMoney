@@ -511,19 +511,19 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
             if not amount_str:
                 error_text.value = "Введите сумму"
                 error_text.visible = True
-                self.update()
+                self.page.update()
                 return
             if not account_id_str:
                 error_text.value = "Выберите счёт"
                 error_text.visible = True
-                self.update()
+                self.page.update()
                 return
 
             amount = parse_money(amount_str)
             if amount is None:
                 error_text.value = "Некорректная сумма"
                 error_text.visible = True
-                self.update()
+                self.page.update()
                 return
 
             if tx_type == "expense":
@@ -540,7 +540,7 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
                 if not to_id:
                     error_text.value = "Выберите счёт получения"
                     error_text.visible = True
-                    self.update()
+                    self.page.update()
                     return
                 entries.append({"account": int(to_id), "quantity": amount, "amount": amount, "unit_price": 1})
 

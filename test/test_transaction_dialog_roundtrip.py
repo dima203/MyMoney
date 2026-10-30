@@ -410,7 +410,7 @@ def test_transaction_amount_field_is_money_field(monkeypatch):
     controls = _tx_dialog_controls(dialog)
 
     assert isinstance(controls["amount_field"], MoneyField)
-    assert controls["amount_field"].suffix.value == "USDT"
+    assert controls["amount_field"].suffix_icon.value == "USDT"
 
 
 def test_transaction_account_change_updates_amount_currency(monkeypatch):
@@ -426,7 +426,7 @@ def test_transaction_account_change_updates_amount_currency(monkeypatch):
     controls["account_dropdown"].value = "2"
     controls["account_dropdown"].on_change(type("Event", (), {"control": controls["account_dropdown"]})())
 
-    assert controls["amount_field"].suffix.value == "BTC"
+    assert controls["amount_field"].suffix_icon.value == "BTC"
 
 
 def test_planned_amount_field_is_money_field(monkeypatch):
@@ -438,9 +438,9 @@ def test_planned_amount_field_is_money_field(monkeypatch):
     controls = _planned_dialog_controls(dialog)
 
     assert isinstance(controls["amount_field"], MoneyField)
-    assert controls["amount_field"].suffix.value == "USDT"
+    assert controls["amount_field"].suffix_icon.value == "USDT"
 
     view._accounts = [{"id": 1, "name": "Основной", "resource": "USDT"}, {"id": 2, "name": "BTC", "resource": "BTC"}]
     controls["account_dropdown"].value = "2"
     controls["account_dropdown"].on_change(type("Event", (), {"control": controls["account_dropdown"]})())
-    assert controls["amount_field"].suffix.value == "BTC"
+    assert controls["amount_field"].suffix_icon.value == "BTC"

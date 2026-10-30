@@ -392,19 +392,19 @@ class PlannedView(AmountCurrencyMixin, BaseView):
             if not amount_str:
                 error_text.value = "Введите сумму"
                 error_text.visible = True
-                self.update()
+                self.page.update()
                 return
             if not account_id_str:
                 error_text.value = "Выберите счёт"
                 error_text.visible = True
-                self.update()
+                self.page.update()
                 return
 
             amount = parse_money(amount_str)
             if amount is None:
                 error_text.value = "Некорректная сумма"
                 error_text.visible = True
-                self.update()
+                self.page.update()
                 return
 
             quantity = amount if tx_type == "income" else -amount

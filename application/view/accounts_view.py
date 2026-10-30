@@ -519,7 +519,7 @@ class AccountsView(BaseView):
             set_field_error(field, message)
             error_text.value = message
             error_text.visible = True
-            self.update()
+            self.page.update()
 
         async def on_submit(e):
             clear_field_errors()
