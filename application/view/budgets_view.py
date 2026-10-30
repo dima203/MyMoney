@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
@@ -20,13 +21,13 @@ from application.view.data_loading import DataLoadingMixin, dict_rows
 from core.budget_templates import template_infos, template_items, template_payload
 from core.envelopes import EnvelopeProgress, envelope_payload, envelope_progress
 from core.goals import (
-    DATE_FORMAT,
     GoalProgress,
     contribution_payload,
     goal_payload,
     goal_progress,
 )
 
+from MySpaceShared.components.form_kit import DateField, MoneyField, parse_date
 from MySpaceShared.components.section_header import SectionHeader
 
 BUDGETS_INDEX = 3
@@ -178,6 +179,18 @@ class BudgetsView(FormDialogMixin, DataLoadingMixin, BaseView):
         """Валюта строки для формы: сохранённый тикер, иначе базовая валюта."""
         return str(row.get("currency_ticker") or self._base_currency or "")
 
+    def _parse_goal_deadline(self, value) -> date | None:
+        """Срок цели из ответа сервера (ISO) или формы (ДД.ММ.ГГГГ)."""
+        return parse_date(value)
+
+    def _sync_currency(self, currency: str, *fields) -> None:
+        for field in fields:
+            field.set_currency(currency)
+        try:
+            self.page.update()
+        except RuntimeError:
+            pass
+
     # -------------------------------------------------------------- конверты
 
     def _envelopes_section(self) -> list[ft.Control]:
@@ -222,14 +235,16 @@ class BudgetsView(FormDialogMixin, DataLoadingMixin, BaseView):
     def _envelope_dialog(self, envelope: dict) -> ft.AlertDialog:
         currency_map = self._currency_options()
         envelope_id = envelope.get("id")
+        currency = self._selected_currency(envelope)
 
         category_field = ft.TextField(label="Категория", value=str(envelope.get("category") or ""), autofocus=True)
-        limit_field = ft.TextField(
+        limit_field = MoneyField(
             label="Лимит на месяц",
+            currency=currency,
             value=amount_text(envelope.get("limit_amount")),
-            keyboard_type=ft.KeyboardType.NUMBER,
         )
-        currency_dropdown = self._currency_dropdown(self._selected_currency(envelope), currency_map)
+        currency_dropdown = self._currency_dropdown(currency, currency_map)
+        currency_dropdown.on_change = lambda event: self._sync_currency(event.control.value, limit_field)
 
         def build_payload() -> dict:
             return envelope_payload(
@@ -446,29 +461,30 @@ class BudgetsView(FormDialogMixin, DataLoadingMixin, BaseView):
         goal_id = goal.get("id")
 
         name_field = ft.TextField(label="Название", value=str(goal.get("name") or ""), autofocus=True)
-        target_field = ft.TextField(
-            label="Цель",
+        currency = self._selected_currency(goal)
+        target_field = MoneyField(
+            label="Целевая сумма",
+            currency=currency,
             value=amount_text(goal.get("target_amount")),
-            keyboard_type=ft.KeyboardType.NUMBER,
         )
-        saved_field = ft.TextField(
+        saved_field = MoneyField(
             label="Уже накоплено",
+            currency=currency,
             value=amount_text(goal.get("saved_amount")),
-            keyboard_type=ft.KeyboardType.NUMBER,
         )
-        deadline_field = ft.TextField(
-            label=f"Срок ({DATE_FORMAT})",
-            value=str(goal.get("deadline") or ""),
-        )
-        currency_dropdown = self._currency_dropdown(self._selected_currency(goal), currency_map)
+        deadline_field = DateField(label="Срок")
+        deadline_field.set_date(self._parse_goal_deadline(goal.get("deadline")))
+        currency_dropdown = self._currency_dropdown(currency, currency_map)
+        currency_dropdown.on_change = lambda event: self._sync_currency(event.control.value, target_field, saved_field)
 
         def build_payload() -> dict:
+            deadline = deadline_field.date
             return goal_payload(
                 name_field.value,
                 target_field.value,
                 saved_field.value,
                 currency_map.get(currency_dropdown.value or ""),
-                deadline_field.value,
+                deadline.isoformat() if deadline else None,
             )
 
         async def save(payload: dict) -> None:
@@ -489,9 +505,9 @@ class BudgetsView(FormDialogMixin, DataLoadingMixin, BaseView):
         )
 
     def _contribution_dialog(self, goal: dict) -> ft.AlertDialog:
-        amount_field = ft.TextField(
+        amount_field = MoneyField(
             label="Сумма пополнения",
-            keyboard_type=ft.KeyboardType.NUMBER,
+            currency=self._selected_currency(goal),
             autofocus=True,
         )
 

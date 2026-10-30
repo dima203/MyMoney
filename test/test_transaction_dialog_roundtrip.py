@@ -399,3 +399,48 @@ class TestPlannedDialogRoundTrip:
         payload = _submit(view, dialog)
         _assert_entries_round_trip(payload["entries"], tx["entries"])
         assert payload["entries"][0]["amount"] == 1e-12
+
+
+def test_transaction_amount_field_is_money_field(monkeypatch):
+    from MySpaceShared.components.form_kit import MoneyField
+
+    view = _make_transactions_view()
+    asyncio.run(view._load_data())
+    dialog = _open_transactions_dialog(view, _tx([_entry(1, 10.0)]), monkeypatch)
+    controls = _tx_dialog_controls(dialog)
+
+    assert isinstance(controls["amount_field"], MoneyField)
+    assert controls["amount_field"].suffix.value == "USDT"
+
+
+def test_transaction_account_change_updates_amount_currency(monkeypatch):
+    view = _make_transactions_view()
+    asyncio.run(view._load_data())
+    view._accounts = [
+        {"id": 1, "name": "Основной", "resource": "USDT", "account_type": "main"},
+        {"id": 2, "name": "Торговый", "resource": "BTC", "account_type": "trading"},
+    ]
+    dialog = _open_transactions_dialog(view, _tx([_entry(1, 10.0)]), monkeypatch)
+    controls = _tx_dialog_controls(dialog)
+
+    controls["account_dropdown"].value = "2"
+    controls["account_dropdown"].on_change(type("Event", (), {"control": controls["account_dropdown"]})())
+
+    assert controls["amount_field"].suffix.value == "BTC"
+
+
+def test_planned_amount_field_is_money_field(monkeypatch):
+    from MySpaceShared.components.form_kit import MoneyField
+
+    view = _make_planned_view()
+    asyncio.run(view._load_data())
+    dialog = _open_planned_dialog(view, _tx([_entry(1, 10.0)], is_planned=True), monkeypatch)
+    controls = _planned_dialog_controls(dialog)
+
+    assert isinstance(controls["amount_field"], MoneyField)
+    assert controls["amount_field"].suffix.value == "USDT"
+
+    view._accounts = [{"id": 1, "name": "Основной", "resource": "USDT"}, {"id": 2, "name": "BTC", "resource": "BTC"}]
+    controls["account_dropdown"].value = "2"
+    controls["account_dropdown"].on_change(type("Event", (), {"control": controls["account_dropdown"]})())
+    assert controls["amount_field"].suffix.value == "BTC"

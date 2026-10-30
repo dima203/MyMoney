@@ -11,14 +11,21 @@ from application.components.csv_import_dialog import CsvImportDialog
 from application.components.file_save import export_csv, file_picker, show_toast
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.transaction_card import TransactionCard
-from application.display import FAB_CLEARANCE, account_display_name, is_read_only_transaction
+from application.display import (
+    FAB_CLEARANCE,
+    account_currency,
+    account_display_name,
+    is_read_only_transaction,
+)
 from application.transaction_form import form_state
+from application.view.amount_currency import AmountCurrencyMixin
 from core.csv_export import transactions_csv
 from core.csv_import import Statement, parse_csv
 
 from MySpaceShared.components.confirm_dialog import ConfirmDialog
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.empty_state import EmptyState
+from MySpaceShared.components.form_kit import MoneyField, parse_money
 from MySpaceShared.components.loading_state import LoadingState
 
 DAY_HEADER_HEIGHT = 36
@@ -87,7 +94,7 @@ def day_group_index(offsets: list[float], pixels: float) -> int:
     return index
 
 
-class TransactionsView(BaseView):
+class TransactionsView(AmountCurrencyMixin, BaseView):
     def __init__(self, route: str, api_client, transaction_view=None, account_view=None, connection_banner=None):
         self.api_client = api_client
         self._transaction_view = transaction_view
@@ -441,10 +448,14 @@ class TransactionsView(BaseView):
             visible=False,
         )
 
-        amount_field = ft.TextField(
-            label="Сумма", keyboard_type=ft.KeyboardType.NUMBER, border=ft.OutlineInputBorder(border_radius=8)
+        amount_field = MoneyField(
+            label="Сумма",
+            currency="",
+            border=ft.OutlineInputBorder(border_radius=8),
         )
         description_field = ft.TextField(label="Описание", border=ft.OutlineInputBorder(border_radius=8))
+
+        account_dropdown.on_change = lambda event: self._sync_amount_currency(amount_field, event.control.value)
 
         category_picker = CategoryPicker(value=tx.get("category", "") if is_edit else "")
 
@@ -482,6 +493,7 @@ class TransactionsView(BaseView):
                 state = form_state(entries)
                 amount_field.value = state.amount_text
                 account_dropdown.value = state.account_id
+                amount_field.set_currency(account_currency(self._accounts, state.account_id))
                 type_group.value = state.tx_type
                 if state.to_account_id is not None:
                     to_account_dropdown.visible = True
@@ -506,9 +518,8 @@ class TransactionsView(BaseView):
                 self.update()
                 return
 
-            try:
-                amount = float(amount_str)
-            except ValueError:
+            amount = parse_money(amount_str)
+            if amount is None:
                 error_text.value = "Некорректная сумма"
                 error_text.visible = True
                 self.update()

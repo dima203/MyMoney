@@ -24,6 +24,15 @@ def is_read_only_transaction(tx: dict) -> bool:
     return is_snapshot_row(tx)
 
 
+def account_currency(accounts: list[dict], account_id, fallback: str = "") -> str:
+    """Валюта/тикер счёта по id (для суффикса суммового поля)."""
+    target = str(account_id or "")
+    for account in accounts:
+        if str(account.get("id")) == target:
+            return str(account.get("resource") or fallback)
+    return fallback
+
+
 def account_display_name(account: dict, resource_name: str = "") -> str:
     """Название счёта для строки UI; для безымянных — ресурс и тип счёта."""
     name = str(account.get("name") or "").strip()
@@ -56,6 +65,7 @@ __all__ = [
     "FAB_CLEARANCE",
     "READ_ONLY_BADGE_LABEL",
     "UNKNOWN_ACCOUNT_NAME",
+    "account_currency",
     "account_display_name",
     "format_amount_input",
     "is_read_only_transaction",

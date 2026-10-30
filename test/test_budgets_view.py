@@ -453,9 +453,12 @@ class TestGoalDialogs:
 
         assert dialog.title.value == "Изменить цель"
         fields = dialog.content.content.controls
-        assert [field.value for field in fields[:5]] == ["Отпуск", "3000", "1200", "2027-06-01", "BYN"]
+        assert [field.value for field in fields[:5]] == ["Отпуск", "3000", "1200", "01.06.2027", "BYN"]
         assert dialog.content.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
         assert fields[0].autofocus is True
+        assert fields[1].label == "Целевая сумма"
+        assert fields[1].suffix.value == "BYN"
+        assert fields[3].read_only is True
 
     def test_new_dialog_defaults(self) -> None:
         view = _view()
@@ -493,3 +496,67 @@ class TestGoalDialogs:
             "Изменить цель",
             "Удалить цель",
         ]
+
+
+class TestFormKitAdoption:
+    def test_goal_target_is_money_field_with_currency_suffix(self) -> None:
+        from datetime import date as date_cls
+
+        from MySpaceShared.components.form_kit import DateField, MoneyField
+
+        view = _view()
+        asyncio.run(view._load_data())
+
+        fields = view._goal_dialog(_goal()).content.content.controls
+
+        assert isinstance(fields[1], MoneyField)
+        assert isinstance(fields[2], MoneyField)
+        assert isinstance(fields[3], DateField)
+        assert fields[1].suffix.value == "BYN"
+        assert fields[3].date == date_cls(2027, 6, 1)
+
+    def test_goal_currency_change_syncs_suffixes(self) -> None:
+        view = _view()
+        asyncio.run(view._load_data())
+        fields = view._goal_dialog(_goal()).content.content.controls
+        target, saved, dropdown = fields[1], fields[2], fields[4]
+
+        dropdown.value = "USD"
+        dropdown.on_change(type("Event", (), {"control": dropdown})())
+
+        assert target.suffix.value == "USD"
+        assert saved.suffix.value == "USD"
+
+    def test_parse_goal_deadline_accepts_iso_and_dotted(self) -> None:
+        from datetime import date as date_cls
+
+        view = _view()
+
+        assert view._parse_goal_deadline("2027-06-01") == date_cls(2027, 6, 1)
+        assert view._parse_goal_deadline("01.06.2027") == date_cls(2027, 6, 1)
+        assert view._parse_goal_deadline("") is None
+        assert view._parse_goal_deadline("мусор") is None
+
+    def test_envelope_limit_is_money_field_and_follows_currency(self) -> None:
+        from MySpaceShared.components.form_kit import MoneyField
+
+        view = _view()
+        asyncio.run(view._load_data())
+        fields = view._envelope_dialog(_envelope()).content.content.controls
+        limit_field, dropdown = fields[1], fields[2]
+
+        assert isinstance(limit_field, MoneyField)
+        assert limit_field.suffix.value == "BYN"
+        dropdown.value = "USD"
+        dropdown.on_change(type("Event", (), {"control": dropdown})())
+        assert limit_field.suffix.value == "USD"
+
+    def test_contribution_uses_goal_currency(self) -> None:
+        from MySpaceShared.components.form_kit import MoneyField
+
+        view = _view()
+        asyncio.run(view._load_data())
+        field = view._contribution_dialog(_goal()).content.content.controls[0]
+
+        assert isinstance(field, MoneyField)
+        assert field.suffix.value == "BYN"
