@@ -7,7 +7,6 @@ from pathlib import Path
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
-from application.components.category_picker import CategoryPicker
 from application.components.csv_import_dialog import CsvImportDialog
 from application.components.file_save import export_csv, file_picker, show_toast
 from application.components.navigation_items import NAVIGATION_ITEMS
@@ -21,7 +20,9 @@ from application.display import (
 )
 from application.transaction_form import form_state
 from application.view.amount_currency import AmountCurrencyMixin
+from application.view.category_actions import CategoryActionsMixin
 from application.view.dialogs import dialog_width, full_width, half_width
+from core.category_suggest import suggest_category
 from core.csv_export import transactions_csv
 from core.csv_import import Statement, parse_csv
 from core.transaction_filters import (
@@ -104,7 +105,7 @@ def day_group_index(offsets: list[float], pixels: float) -> int:
     return index
 
 
-class TransactionsView(AmountCurrencyMixin, BaseView):
+class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
     def __init__(self, route: str, api_client, transaction_view=None, account_view=None, connection_banner=None):
         self.api_client = api_client
         self._transaction_view = transaction_view
@@ -115,6 +116,7 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
         self._accounts: list[dict] = []
         self._account_map: dict[int, dict] = {}
         self._categories: list[str] = []
+        self._category_rows: list[dict] = []
         self._day_groups: list[tuple[str, int]] = []
 
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
@@ -272,7 +274,8 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
                 self._show_error(f"Ошибка загрузки: {exc}")
 
     async def _load_sections(self) -> None:
-        """Хук наследников: дополнительные данные экрана после основных списков."""
+        """Словарь категорий (2.53) и данные наследников после основных списков."""
+        await self._load_categories()
 
     async def _delete_transaction(self, tx: dict) -> None:
         """Удалить операцию через офлайн-слой, если он есть, иначе напрямую API."""
@@ -534,7 +537,17 @@ class TransactionsView(AmountCurrencyMixin, BaseView):
 
         account_dropdown.on_change = lambda event: self._sync_amount_currency(amount_field, event.control.value)
 
-        category_picker = CategoryPicker(value=tx.get("category", "") if is_edit else "")
+        def on_description_change(_event):
+            if category_picker.value:
+                return
+            allowed = self._active_category_names() if self._category_rows else None
+            guess = suggest_category(description_field.value, self._transactions, allowed)
+            if guess:
+                category_picker.value = guess
+
+        category_picker = self._build_category_picker(tx.get("category", "") if is_edit else "")
+        self._category_picker = category_picker
+        description_field.on_change = on_description_change
 
         now = datetime.datetime.now()
         if is_edit:

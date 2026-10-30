@@ -4,7 +4,6 @@ import datetime
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
 from application.components import BaseView
-from application.components.category_picker import CategoryPicker
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.components.navigation_items import NAVIGATION_ITEMS
 from application.components.planned_transaction_card import PlannedTransactionCard
@@ -13,6 +12,7 @@ from application.display import FAB_CLEARANCE, account_currency, account_display
 from application.planned_actions import execute_planned
 from application.transaction_form import form_state
 from application.view.amount_currency import AmountCurrencyMixin
+from application.view.category_actions import CategoryActionsMixin
 from application.view.dialogs import dialog_width, full_width, half_width
 from application.view.planned_sections import (
     build_plan_card,
@@ -31,7 +31,7 @@ from MySpaceShared.components.section_header import SectionHeader
 BUDGETS_SECTION_TITLE = "Запланировано из задач/событий"
 
 
-class PlannedView(AmountCurrencyMixin, BaseView):
+class PlannedView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
     def __init__(self, route: str, api_client, transaction_view=None, account_view=None, connection_banner=None):
         self.api_client = api_client
         self._transaction_view = transaction_view
@@ -40,6 +40,7 @@ class PlannedView(AmountCurrencyMixin, BaseView):
         self._disposed = False
         self._transactions: list[dict] = []
         self._budgets: list[dict] = []
+        self._category_rows: list[dict] = []
         self._accounts: list[dict] = []
         self._account_map: dict[int, dict] = {}
 
@@ -142,6 +143,7 @@ class PlannedView(AmountCurrencyMixin, BaseView):
 
         if not self._disposed:
             await self._load_budgets()
+            await self._load_categories()
 
     async def _load_budgets(self) -> None:
         if self._disposed:
@@ -244,7 +246,7 @@ class PlannedView(AmountCurrencyMixin, BaseView):
         )
         description_field = ft.TextField(label="Описание", border=ft.OutlineInputBorder(border_radius=8))
         account_dropdown.on_change = lambda event: self._sync_amount_currency(amount_field, event.control.value)
-        category_picker = CategoryPicker(value=tx.get("category", "") if is_edit else "")
+        category_picker = self._build_category_picker(tx.get("category", "") if is_edit else "")
 
         now = datetime.datetime.now()
         if is_edit:

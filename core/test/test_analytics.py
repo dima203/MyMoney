@@ -235,6 +235,18 @@ class TestBuildSummary:
 
         assert [p.label for p in summary.months] == ["авг", "сен", "окт"]
 
+    def test_categories_merge_case_variants(self) -> None:
+        rows = [
+            tx("2026-10-05T10:00:00", "Еда", [entry(1, -100)]),
+            tx("2026-10-06T10:00:00", "еда", [entry(1, -50)]),
+            tx("2026-10-07T10:00:00", "ЕДА", [entry(1, -25)]),
+        ]
+
+        summary = summary_for(rows)
+
+        assert [(c.category, c.amount) for c in summary.categories] == [("Еда", 175.0)]
+        assert summary.total == 175.0
+
     def test_explicit_currency_overrides_base(self) -> None:
         summary = summary_for(currency="USD")
 

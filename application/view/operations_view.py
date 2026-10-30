@@ -88,7 +88,8 @@ class OperationsView(TransactionsView):
     # ------------------------------------------------------------------- данные
 
     async def _load_sections(self) -> None:
-        """Кросс-планы из задач/событий и контекст курсов для итогов периода."""
+        """Словарь категорий, кросс-планы и контекст курсов для итогов периода."""
+        await super()._load_sections()
         self._budgets, self._budget_hint = await load_cross_app_budgets(self.api_client, self._transaction_view)
         self._base_currency, self._prices, self._fx_rows = await asyncio.to_thread(self._fetch_fx)
 

@@ -355,3 +355,53 @@ def test_get_fx_rates_custom_base():
     client, _ = _client(handler)
     client.get_fx_rates("BYN")
     assert seen["base"] == "BYN"
+
+
+# ------------------------------------------------------------------ categories
+
+
+def test_list_categories_authenticated():
+    seen = {}
+
+    def handler(request):
+        seen["path"] = request.url.path
+        seen["auth"] = request.headers.get("Authorization")
+        return _ok_json([{"id": 1, "name": "Еда", "kind": "both", "is_archived": False}])
+
+    client, store = _client(handler)
+    store.save(TokenData(access="token-123", refresh="refresh-123"))
+    result = client.list_categories()
+    assert seen["path"] == "/api/v1/categories/"
+    assert seen["auth"] == "Bearer token-123"
+    assert result[0]["name"] == "Еда"
+
+
+def test_create_category_posts_payload():
+    seen = {}
+
+    def handler(request):
+        seen["method"] = request.method
+        seen["body"] = request.content
+        return _ok_json({"id": 2, "name": "Транспорт"})
+
+    client, _ = _client(handler)
+    result = client.create_category({"name": "Транспорт"})
+    assert seen["method"] == "POST"
+    assert "Транспорт" in seen["body"].decode("utf-8")
+    assert result["id"] == 2
+
+
+def test_update_and_delete_category():
+    seen = []
+
+    def handler(request):
+        seen.append((request.method, request.url.path))
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        return _ok_json({"id": 3, "name": "Питание"})
+
+    client, _ = _client(handler)
+    client.update_category(3, {"name": "Питание"})
+    client.delete_category(3)
+
+    assert seen == [("PATCH", "/api/v1/categories/3/"), ("DELETE", "/api/v1/categories/3/")]

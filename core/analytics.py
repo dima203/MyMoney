@@ -221,12 +221,16 @@ def _month_totals(records: list[ExpenseRecord], keys: list[tuple[int, int]]) -> 
 
 
 def _category_totals(records: list[ExpenseRecord]) -> tuple[CategoryTotal, ...]:
+    """Суммы по категориям без учёта регистра; показывается первое написание."""
     amounts: dict[str, float] = {}
+    names: dict[str, str] = {}
     for record in records:
-        amounts[record.category] = amounts.get(record.category, 0.0) + record.amount
+        key = record.category.casefold()
+        names.setdefault(key, record.category)
+        amounts[key] = amounts.get(key, 0.0) + record.amount
     return tuple(
-        CategoryTotal(category, round(amount, 2))
-        for category, amount in sorted(amounts.items(), key=lambda item: (-item[1], item[0]))
+        CategoryTotal(names[key], round(amount, 2))
+        for key, amount in sorted(amounts.items(), key=lambda item: (-item[1], names[item[0]]))
     )
 
 

@@ -72,6 +72,18 @@ class RestClient(BaseRestClient):
         """Курсы фиатных валют (2.50): строка — 1 ``quote`` = ``rate`` ``base`` (публично)."""
         return self._request("GET", "/api/v1/fx-rates/", params={"base": base}, auth=False)
 
+    def list_categories(self, **params) -> list:
+        return self._request("GET", "/api/v1/categories/", params=params)
+
+    def create_category(self, payload: dict) -> dict:
+        return self._request("POST", "/api/v1/categories/", json=payload)
+
+    def update_category(self, category_id: int, payload: dict) -> dict:
+        return self._request("PATCH", f"/api/v1/categories/{category_id}/", json=payload)
+
+    def delete_category(self, category_id: int) -> None:
+        self._request("DELETE", f"/api/v1/categories/{category_id}/")
+
     def list_envelopes(self, **params) -> list:
         return self._request("GET", "/api/v1/envelopes/", params=params)
 
