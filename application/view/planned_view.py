@@ -3,6 +3,7 @@ import datetime
 
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
+from application.apps_launcher import launch_source_app
 from application.components import BaseView
 from application.components.cross_app_budget_card import CrossAppBudgetCard
 from application.components.navigation_items import NAVIGATION_ITEMS
@@ -158,7 +159,7 @@ class PlannedView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
         self._budget_items.controls.clear()
         if self._budgets:
             for item in self._budgets:
-                self._budget_items.controls.append(CrossAppBudgetCard(item))
+                self._budget_items.controls.append(CrossAppBudgetCard(item, on_open=self._open_cross_plan))
             self._budget_hint.visible = False
             self._budget_section.visible = True
         elif self._budget_hint.value:
@@ -168,6 +169,18 @@ class PlannedView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
             self._budget_hint.visible = False
             self._budget_section.visible = False
         self.update()
+
+    def _open_cross_plan(self, item: dict) -> None:
+        from application.components.file_save import show_toast
+
+        source = str(item.get("source_app") or "")
+        title = "MyList" if source == "task" else "MyCalendar"
+        if launch_source_app(source):
+            show_toast(self.page, f"Открываю {title}")
+        else:
+            self._error_text.value = f"{title} не найден рядом с MyMoney"
+            self._error_text.visible = True
+            self.update()
 
     def _rebuild_list(self):
         self._tx_list.controls.clear()

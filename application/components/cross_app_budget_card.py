@@ -33,7 +33,7 @@ def format_budget_date(value) -> str:
 class CrossAppBudgetCard(ft.Container):
     """Read-only budget item created in another app (MyList/MyCalendar)."""
 
-    def __init__(self, item: dict):
+    def __init__(self, item: dict, on_open=None):
         super().__init__()
         source = str(item.get("source_app", ""))
         title = str(item.get("title") or "Без названия")
@@ -83,7 +83,12 @@ class CrossAppBudgetCard(ft.Container):
             radius=RADIUS["lg"],
             padding=ft.Padding.symmetric(horizontal=16, vertical=12),
         )
-        self.tooltip = "Создано в другом приложении — просмотр только для чтения"
+        self.tooltip = (
+            "Открыть в другом приложении" if on_open else "Создано в другом приложении — просмотр только для чтения"
+        )
+        if on_open is not None:
+            self.on_click = lambda _event: on_open(item)
+            self.ink = True
 
 
 __all__ = ["CrossAppBudgetCard", "format_amount", "format_budget_date"]
