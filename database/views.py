@@ -76,7 +76,8 @@ class OfflineView:
         self._write_cache(cached)
 
     def sync_pending(self) -> dict[int, int]:
-        return self._pending.sync(self._pending_registry)
+        remap = self._pending.sync(self._pending_registry)
+        return remap.get(self._entity_name, {})
 
     def _save_cache(self, data: list[dict]) -> None:
         self._write_cache(data)
