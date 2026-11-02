@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date
 from unittest.mock import MagicMock
 
 import flet as ft
@@ -117,7 +118,8 @@ class TestFiltersApply:
         assert "Операция 2" in _texts(_cards(view)[0])
 
     def test_filter_by_period_month(self):
-        view = _loaded([_tx(1, "2026-10-01", -10.0), _tx(2, "2020-01-01", -20.0)])
+        current_month = date.today().replace(day=1).isoformat()
+        view = _loaded([_tx(1, current_month, -10.0), _tx(2, "2020-01-01", -20.0)])
         view._filter_period.value = "month"
 
         view._apply_filters()

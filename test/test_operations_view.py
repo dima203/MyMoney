@@ -1,6 +1,7 @@
 """Экран «Операции»: режимы, фильтры, итоги и кросс-планы (2.48b)."""
 
 import asyncio
+import datetime
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -167,7 +168,10 @@ class TestModeFiltering:
         assert view._mode == MODE_ACTUAL
 
     def test_filters_apply_in_both_modes(self):
-        view = _view([LAPTOP, SALARY, RENT])
+        current_month = datetime.date.today().replace(day=1).isoformat()
+        salary = {**SALARY, "date": f"{current_month}T10:00:00"}
+        laptop = {**LAPTOP, "date": "2020-01-01T10:00:00"}
+        view = _view([laptop, salary, RENT])
         asyncio.run(view._load_data())
 
         view._filter_type.value = "income"
@@ -175,7 +179,7 @@ class TestModeFiltering:
 
         view._filter_type.value = "all"
         view._filter_period.value = "month"
-        assert [tx["id"] for tx in _filtered(view)] == [2, 1]
+        assert [tx["id"] for tx in _filtered(view)] == [2]
 
         view.set_mode(MODE_PLANNED)
         view._filter_period.value = "all"
