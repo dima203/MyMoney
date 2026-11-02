@@ -1,4 +1,5 @@
 # MySpaceShared: pip install -e ../MySpaceShared (см. root requirements.txt)
+fpdf2==2.8.5
 flet==1.0.3
 flet-charts==1.0.3
 pytest~=9.1.0
