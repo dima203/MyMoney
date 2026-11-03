@@ -1,6 +1,6 @@
 import flet as ft
 
-from MySpaceShared.components import AccentIcon, ElevatedCard
+from MySpaceShared.components import AccentIcon, ElevatedCard, StatusBadge
 from MySpaceShared.core.tokens import SPACING
 
 
@@ -16,11 +16,13 @@ class AccountCard(ft.Container):
         on_delete=None,
         *,
         highlighted: bool = False,
+        savings: bool = False,
     ):
         super().__init__()
         self.name = name
         self.balance = balance
         self.highlighted = highlighted
+        self.savings = savings
 
         self._name_text = ft.Text(name, size=15, weight=ft.FontWeight.W_600)
         self._balance_text = ft.Text(balance, size=17, weight=ft.FontWeight.BOLD)
@@ -34,8 +36,16 @@ class AccountCard(ft.Container):
             ],
         )
 
+        name_controls: list[ft.Control] = [self._name_text]
+        if savings:
+            name_controls.append(StatusBadge("Накопительный"))
+        name_row = ft.Row(
+            name_controls,
+            spacing=6,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
         info = ft.Column(
-            [self._name_text, self._balance_text],
+            [name_row, self._balance_text],
             spacing=2,
             expand=True,
             alignment=ft.MainAxisAlignment.CENTER,

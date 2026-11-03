@@ -49,6 +49,7 @@ class AccountGroup(ft.ExpansionTile):
                 on_edit=acc.get("on_edit"),
                 on_delete=acc.get("on_delete"),
                 highlighted=highlight_id is not None and acc.get("id") == highlight_id,
+                savings=bool(acc.get("is_savings")),
             )
             for acc in accounts
         ]

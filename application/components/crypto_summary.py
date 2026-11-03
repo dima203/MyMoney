@@ -72,6 +72,7 @@ class CryptoSummary(ft.Container):
             on_edit=acc.get("on_edit"),
             on_delete=acc.get("on_delete"),
             highlighted=self._highlight_id is not None and acc.get("id") == self._highlight_id,
+            savings=bool(acc.get("is_savings")),
         )
 
     def _toggle(self, e):
