@@ -10,4 +10,4 @@ requires-python = ">= 3.12"
 # (одноразовый код 120с → обмен на JWT); десктоп использует loopback как раньше.
 [tool.flet.deep_linking]
 scheme = "myspace"
-host = "auth"
+host = "money"

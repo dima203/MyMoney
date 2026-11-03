@@ -12,6 +12,7 @@ class LoginView(SharedLoginView):
             app_title="MyMoney",
             app_icon=ft.Icons.ACCOUNT_BALANCE_WALLET,
             on_authenticate=lambda url: default_authenticate(url, "mymoney"),
+            app_key="money",
         )
 
 
