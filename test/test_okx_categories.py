@@ -1,5 +1,6 @@
 """Массовое назначение категорий OKX-операциям (2.57b)."""
 
+import asyncio
 import datetime
 from unittest.mock import MagicMock
 
@@ -14,8 +15,6 @@ from core.okx_categories import (
     unlabeled_operations,
 )
 from core.transaction_filters import ALL_VALUE
-
-from MySpaceShared.components.confirm_dialog import ConfirmDialog  # ruff: ignore[unused-import]
 
 TODAY = datetime.date(2026, 11, 4)
 
@@ -183,24 +182,6 @@ def _walk(control):
         yield from _walk(content)
 
 
-def _dialog_texts(dialog) -> list[str]:
-    found = []
-
-    def walk(control):
-        for attr in ("value", "label", "text"):
-            value = getattr(control, attr, None)
-            if isinstance(value, str) and value:
-                found.append(value)
-        for child in getattr(control, "controls", None) or []:
-            walk(child)
-        content = getattr(control, "content", None)
-        if content is not None and not isinstance(content, str):
-            walk(content)
-
-    walk(dialog)
-    return found
-
-
 @pytest.fixture
 def page(monkeypatch):
     """`page` у Flet-контрола только для чтения — подменяем свойством класса."""
@@ -221,8 +202,6 @@ class TestOkxCategoriesDialog:
         page.show_dialog.assert_not_called()
 
     def test_dialog_lists_unlabeled_operations(self, page):
-        import asyncio
-
         view = _view([_tx(1), _tx(2, category="Такси"), _tx(3, kind="snapshot")])
         asyncio.run(view._load_data())
         view._category_rows = view.api_client.list_categories()
@@ -235,8 +214,6 @@ class TestOkxCategoriesDialog:
         assert any("Операция 1" in label for label in labels)
 
     def test_apply_button_disabled_until_selection_and_category(self, page):
-        import asyncio
-
         view = _view([_tx(1)])
         asyncio.run(view._load_data())
         view._category_rows = view.api_client.list_categories()
@@ -255,8 +232,6 @@ class TestOkxCategoriesDialog:
 
 class TestMassAssignFlow:
     def test_apply_marks_rows_and_reloads(self, page):
-        import asyncio
-
         view = _view([_tx(1), _tx(2)])
         view._load_data = MagicMock(return_value=asyncio.sleep(0))
         toasts = []
@@ -268,8 +243,6 @@ class TestMassAssignFlow:
         assert toasts == ["Обновлено 2 операций"]
 
     def test_partial_failure_reports_counts(self, page):
-        import asyncio
-
         view = _view([_tx(1), _tx(2)])
         view._load_data = MagicMock(return_value=asyncio.sleep(0))
         view.api_client.update_transaction.side_effect = [None, RuntimeError("boom")]
@@ -280,6 +253,28 @@ class TestMassAssignFlow:
 
         assert "Обновлено 1" in errors[0]
         assert "не удалось 1" in errors[0]
+
+    def test_partial_failure_keeps_only_failed_rows_for_retry(self, page):
+        rows = [_tx(1), _tx(2), _tx(3)]
+        view = _view(rows)
+        asyncio.run(view._load_data())
+        view._load_data = MagicMock(side_effect=lambda: asyncio.sleep(0))
+        view._category_rows = view.api_client.list_categories()
+        view._category_error = MagicMock()
+        view._show_okx_categories_dialog(None)
+        view.api_client.update_transaction.side_effect = [None, RuntimeError("boom"), None]
+
+        asyncio.run(view._apply_selected_categories(rows, "Продукты"))
+
+        assert [row["id"] for row in view._okx_rows] == [2]
+        assert len(view._okx_checks) == 1
+        assert view._okx_checks[0].value is True
+
+        view.api_client.update_transaction.reset_mock(side_effect=True)
+        view._okx_category.value = "Продукты"
+        asyncio.run(view._apply_okx_categories())
+
+        assert [call.args[0] for call in view.api_client.update_transaction.call_args_list] == [2]
 
 
 class TestBaseViewHasNoAction:

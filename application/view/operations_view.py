@@ -124,15 +124,15 @@ class OperationsView(TransactionsView):
             ft.dropdown.Option(name) for name in self._active_category_names() if name and not is_service_category(name)
         ]
         self._okx_select_all.value = False
-        self._okx_checks = [
-            ft.Checkbox(
-                value=False,
-                label=self._okx_row_label(row),
-                on_change=lambda _event: self._sync_okx_apply_state(),
-            )
-            for row in self._okx_rows
-        ]
+        self._okx_checks = [self._make_okx_check(row) for row in self._okx_rows]
         self._okx_apply.disabled = True
+        self._okx_list = ft.Column(
+            self._okx_checks,
+            spacing=2,
+            tight=True,
+            scroll=ft.ScrollMode.AUTO,
+            height=280,
+        )
         body = ft.Column(
             [
                 ft.Text(
@@ -141,7 +141,7 @@ class OperationsView(TransactionsView):
                     color=ft.Colors.ON_SURFACE_VARIANT,
                 ),
                 self._okx_select_all,
-                ft.Column(self._okx_checks, spacing=2, tight=True, scroll=ft.ScrollMode.AUTO, height=280),
+                self._okx_list,
                 self._okx_category,
             ],
             spacing=8,
@@ -217,9 +217,23 @@ class OperationsView(TransactionsView):
 
     def _keep_failed_rows(self, failed_ids: list[int]) -> None:
         """Оставить в диалоге только неудачные строки, чтобы повтор не дублировал успешные."""
-        self._okx_rows = [row for row in self._okx_rows if row.get("id") in failed_ids]
-        self._okx_checks = [check for row, check in zip(self._okx_rows, self._okx_checks, strict=False)]
+        failed = set(failed_ids)
+        self._okx_rows = [row for row in self._okx_rows if row.get("id") in failed]
+        self._okx_checks = [self._make_okx_check(row, value=True) for row in self._okx_rows]
+        if getattr(self, "_okx_list", None) is not None:
+            self._okx_list.controls = list(self._okx_checks)
+            try:
+                self._okx_list.update()
+            except RuntimeError:
+                pass
         self._sync_okx_apply_state()
+
+    def _make_okx_check(self, row: dict, *, value: bool = False) -> ft.Checkbox:
+        return ft.Checkbox(
+            value=value,
+            label=self._okx_row_label(row),
+            on_change=lambda _event: self._sync_okx_apply_state(),
+        )
 
     def _show_toast(self, text: str) -> None:
         show_toast(self.page, text)
