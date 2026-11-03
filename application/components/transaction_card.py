@@ -24,6 +24,8 @@ class TransactionCard(ft.Container):
         read_only: bool = False,
         badge: str | None = None,
         on_category=None,
+        on_link_transfer=None,
+        link_label: str = "Связать с операцией",
     ):
         super().__init__()
         if read_only:
@@ -32,6 +34,8 @@ class TransactionCard(ft.Container):
         self._on_edit = on_edit
         self._on_delete = on_delete
         self._on_category = on_category
+        self._on_link_transfer = on_link_transfer
+        self._link_label = link_label
         self._read_only = read_only
         self._badge = badge if badge is not None else (READ_ONLY_BADGE_LABEL if read_only else None)
         self._currency = currency
@@ -103,35 +107,43 @@ class TransactionCard(ft.Container):
         )
 
         menu_button = None
-        if read_only and on_category is not None:
-            menu_button = ft.PopupMenuButton(
-                icon=ft.Icons.MORE_VERT,
-                icon_size=18,
-                tooltip="Действия",
-                items=[
+        menu_items: list[ft.Control] = []
+        if not read_only:
+            menu_items = [
+                ft.PopupMenuItem(
+                    content="Редактировать",
+                    icon=ft.Icons.EDIT,
+                    on_click=lambda _: self._on_edit and self._on_edit(),
+                ),
+                ft.PopupMenuItem(
+                    content="Удалить",
+                    icon=ft.Icons.DELETE,
+                    on_click=lambda _: self._on_delete and self._on_delete(),
+                ),
+            ]
+        else:
+            if on_category is not None:
+                menu_items.append(
                     ft.PopupMenuItem(
                         content="Категория",
                         icon=ft.Icons.LABEL_OUTLINE,
                         on_click=lambda _: self._on_category and self._on_category(),
-                    ),
-                ],
-            )
-        elif not read_only:
+                    )
+                )
+            if on_link_transfer is not None:
+                menu_items.append(
+                    ft.PopupMenuItem(
+                        content=self._link_label,
+                        icon=ft.Icons.SWAP_HORIZ,
+                        on_click=lambda _: self._on_link_transfer and self._on_link_transfer(),
+                    )
+                )
+        if menu_items:
             menu_button = ft.PopupMenuButton(
                 icon=ft.Icons.MORE_VERT,
                 icon_size=18,
-                items=[
-                    ft.PopupMenuItem(
-                        content="Редактировать",
-                        icon=ft.Icons.EDIT,
-                        on_click=lambda _: self._on_edit and self._on_edit(),
-                    ),
-                    ft.PopupMenuItem(
-                        content="Удалить",
-                        icon=ft.Icons.DELETE,
-                        on_click=lambda _: self._on_delete and self._on_delete(),
-                    ),
-                ],
+                tooltip="Действия",
+                items=menu_items,
             )
 
         self.content = ElevatedCard(

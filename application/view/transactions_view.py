@@ -482,6 +482,8 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
         except (ValueError, TypeError):
             timestamp = None
 
+        options = self._transfer_card_options(tx)
+        badge = options.pop("badge", transaction_badge(tx))
         return TransactionCard(
             description=tx.get("description", ""),
             amount=total,
@@ -492,11 +494,16 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
             on_edit=lambda t=tx: self._show_edit_dialog(t),
             on_delete=lambda t=tx: self._show_delete_confirm(t),
             read_only=is_read_only_transaction(tx) or bool(tx.get("read_only")),
-            badge=transaction_badge(tx),
+            badge=badge,
             on_category=(lambda t=tx: self._show_category_dialog(t))
             if tx.get("read_only") and not is_read_only_transaction(tx)
             else None,
+            **options,
         )
+
+    def _transfer_card_options(self, tx: dict) -> dict:
+        """Доп. бейдж/действие карточки (2.160b переопределяет для OKX-переводов)."""
+        return {}
 
     def _show_category_dialog(self, tx: dict) -> None:
         """Read-only OKX-операция: единственное разрешённое действие — категория."""

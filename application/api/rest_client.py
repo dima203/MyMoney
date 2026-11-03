@@ -58,6 +58,16 @@ class RestClient(BaseRestClient):
     def delete_transaction(self, tx_id: int) -> None:
         self._request("DELETE", f"/api/v1/transactions/{tx_id}/")
 
+    def list_okx_transfer_suggestions(self) -> dict:
+        return self._request("GET", "/api/v1/okx/transfers/suggestions/")
+
+    def link_okx_transfer(self, okx_transaction: int, candidate: int) -> dict:
+        return self._request(
+            "POST",
+            "/api/v1/okx/transfers/link/",
+            json={"okx_transaction": okx_transaction, "candidate": candidate},
+        )
+
     def list_planned_transactions(self, **params) -> list:
         return self._request("GET", "/api/v1/interactions/planned-transactions/", params=params)
 

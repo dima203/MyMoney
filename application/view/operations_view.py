@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 
 import flet as ft
-from application.api import RestClientError
+from application.api import ApiError, BackendUnreachableError, RestClientError
 from application.apps_launcher import open_cross_plan
 from application.components.cross_app_budget_card import CrossAppBudgetCard
+from application.components.file_save import show_toast
 from application.display import FAB_CLEARANCE, is_read_only_transaction
 from application.fx_rates import FxRateStore, load_fx_rows, resolve_profile_base
 from application.planned_actions import execute_planned
+from application.view.dialogs import dialog_width
 from application.view.planned_sections import build_plan_card, load_cross_app_budgets
 from application.view.transactions_view import TransactionsView
 from core.operations_totals import format_period_totals, period_totals
@@ -25,6 +28,12 @@ MODE_PLANNED = "planned"
 MODES = (MODE_ACTUAL, MODE_PLANNED)
 NO_PLANS_TITLE = "Нет планов"
 NO_PLANS_SUBTITLE = "Нажмите + чтобы добавить план"
+TRANSFER_BADGE_HINT = "Похоже на перевод"
+TRANSFER_BADGE_MANUAL = "Перевод?"
+TRANSFER_LINK_LABEL = "Связать с операцией"
+TRANSFER_MANUAL_LABEL = "Это перевод"
+TRANSFER_EMPTY_HINT = "Совпадений нет — операция останется внешним поступлением/выводом."
+TRANSFER_WINDOW_DAYS = 7
 
 
 class OperationsView(TransactionsView):
@@ -47,6 +56,7 @@ class OperationsView(TransactionsView):
         self._prices: list[dict] = []
         self._fx_rows: list[dict] = []
         self._fx_store = fx_store or FxRateStore()
+        self._transfer_suggestions: dict[int, dict] = {}
         super().__init__(
             route=route,
             api_client=api_client,
@@ -91,8 +101,132 @@ class OperationsView(TransactionsView):
     async def _load_sections(self) -> None:
         """Словарь категорий, кросс-планы и контекст курсов для итогов периода."""
         await super()._load_sections()
+        self._transfer_suggestions = await self._load_transfer_suggestions()
         self._budgets, self._budget_hint = await load_cross_app_budgets(self.api_client, self._transaction_view)
         self._base_currency, self._prices, self._fx_rows = await asyncio.to_thread(self._fetch_fx)
+
+    def _online(self) -> bool:
+        """Доступен ли сервер (офлайн-слой знает лучше, чем прямой клиент)."""
+        return bool(getattr(self._transaction_view, "is_online", True))
+
+    async def _load_transfer_suggestions(self) -> dict[int, dict]:
+        """Несвязанные OKX-вводы/выводы с кандидатами (2.160b); офлайн — пусто."""
+        if not self._online():
+            return {}
+        try:
+            payload = await asyncio.to_thread(self.api_client.list_okx_transfer_suggestions)
+        except (RestClientError, AttributeError, TypeError):
+            return {}
+        if not isinstance(payload, dict):
+            return {}
+        return {
+            item["okx_transaction"]: item
+            for item in payload.get("items") or []
+            if isinstance(item, dict) and isinstance(item.get("okx_transaction"), int)
+        }
+
+    def _transfer_card_options(self, tx: dict) -> dict:
+        """Бейдж и действие «связать» у несвязанного OKX-ввода/вывода."""
+        suggestion = self._transfer_suggestions.get(tx.get("id"))
+        if suggestion is None or tx.get("kind") == "transfer":
+            return {}
+        candidates = suggestion.get("candidates") or []
+        return {
+            "badge": TRANSFER_BADGE_HINT if candidates else TRANSFER_BADGE_MANUAL,
+            "on_link_transfer": lambda t=tx, s=suggestion: self._show_transfer_dialog(t, s),
+            "link_label": TRANSFER_LINK_LABEL if candidates else TRANSFER_MANUAL_LABEL,
+        }
+
+    @staticmethod
+    def _tx_day(tx: dict) -> datetime.date | None:
+        try:
+            return datetime.date.fromisoformat(str(tx.get("date") or "")[:10])
+        except ValueError:
+            return None
+
+    def _manual_operations(self, okx: dict) -> list[dict]:
+        """Ручной выбор операции за ±7 дней, если сервер не нашёл кандидатов."""
+        target = self._tx_day(okx)
+        if target is None:
+            return []
+        rows: list[dict] = []
+        for tx in self._transactions:
+            if tx.get("id") == okx.get("id") or tx.get("is_planned"):
+                continue
+            if tx.get("source") == "okx":
+                continue
+            if tx.get("kind") in ("snapshot", "opening", "transfer"):
+                continue
+            day = self._tx_day(tx)
+            if day is None or abs((day - target).days) > TRANSFER_WINDOW_DAYS:
+                continue
+            rows.append(tx)
+        rows.sort(key=lambda item: item.get("date", ""), reverse=True)
+        return rows
+
+    def _operation_label(self, tx: dict) -> str:
+        entries = tx.get("entries") or []
+        total = sum(float(entry.get("amount", 0)) for entry in entries)
+        title = tx.get("category") or tx.get("description") or "Операция"
+        return f"{str(tx.get('date') or '')[:10]} · {title} · {total:+.2f}"
+
+    def _show_transfer_dialog(self, tx: dict, suggestion: dict | None = None) -> None:
+        """Подтверждение пары OKX ↔ карта: кандидаты или ручной выбор за ±7 дней."""
+        if not self._online():
+            show_toast(self.page, "Нужен сервер")
+            return
+        suggestion = suggestion or {}
+        candidates = suggestion.get("candidates") or []
+        if candidates:
+            options = [
+                ft.Radio(
+                    value=str(candidate["id"]),
+                    label=(
+                        f"{candidate.get('account_name', '')} · {str(candidate.get('date', ''))[:10]} · "
+                        f"{candidate.get('amount', '')} ({candidate.get('diff_percent', '')} %)"
+                    ),
+                )
+                for candidate in candidates
+            ]
+        else:
+            options = [
+                ft.Radio(value=str(item["id"]), label=self._operation_label(item))
+                for item in self._manual_operations(tx)
+            ]
+        radio = ft.RadioGroup(content=ft.Column(options, spacing=4), value=options[0].value if options else None)
+        controls: list[ft.Control] = [
+            ft.Text(tx.get("description") or "OKX", size=14, weight=ft.FontWeight.W_600),
+            ft.Text("Выберите операцию на счёте вне OKX:", size=12, color=ft.Colors.ON_SURFACE_VARIANT),
+            radio,
+        ]
+        if not candidates:
+            controls.append(ft.Text(TRANSFER_EMPTY_HINT, size=12, color=ft.Colors.ON_SURFACE_VARIANT))
+
+        async def confirm(_event) -> None:
+            if not radio.value:
+                return
+            try:
+                await asyncio.to_thread(self.api_client.link_okx_transfer, tx["id"], int(radio.value))
+            except (ApiError, BackendUnreachableError, RestClientError) as exc:
+                self._show_error(f"Не удалось связать: {exc}")
+                return
+            self.page.pop_dialog()
+            await self._load_data()
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("Связать перевод"),
+            content=ft.Container(content=ft.Column(controls, spacing=8, tight=True), width=dialog_width(self)),
+            actions=[
+                ft.TextButton("Отмена", on_click=lambda _: self.page.pop_dialog()),
+                ft.Button(
+                    "Связать",
+                    disabled=not options,
+                    on_click=lambda e: asyncio.create_task(confirm(e)),
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        self.page.show_dialog(dialog)
 
     def _fetch_fx(self) -> tuple[str | None, list, list]:
         """База профиля, цены крипты и фиатные курсы для итогов (сеть — вне event loop)."""
