@@ -364,11 +364,24 @@ class TestPlannedViewReadOnlySnapshots:
         asyncio.run(view._load_data())
         assert view._transactions == []
 
-    def test_read_only_planned_row_is_hidden(self) -> None:
+    def test_snapshot_planned_row_with_read_only_is_hidden(self) -> None:
         tx = self._tx(is_planned=True, read_only=True)
         view = _make_planned_view(accounts=[OKX_ACCOUNT], transactions=[tx])
         asyncio.run(view._load_data())
         assert view._transactions == []
+
+    def test_read_only_okx_operation_planned_row_is_shown(self) -> None:
+        """2.57a: read_only-операция OKX — не снимок и остаётся в плане."""
+        tx = self._tx(
+            description="OKX: вывод",
+            is_planned=True,
+            read_only=True,
+            kind="operation",
+            source="okx",
+        )
+        view = _make_planned_view(accounts=[OKX_ACCOUNT], transactions=[tx])
+        asyncio.run(view._load_data())
+        assert len(view._transactions) == 1
 
     def test_editable_planned_row_is_shown(self) -> None:
         tx = self._tx(description="Зарплата", is_planned=True, read_only=False)

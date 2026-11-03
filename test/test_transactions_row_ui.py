@@ -261,17 +261,20 @@ def _row_tx(**overrides) -> dict:
 
 
 class TestReadOnlyDetection:
-    def test_server_flag_true_is_read_only(self) -> None:
-        assert is_read_only_transaction({"description": "Покупка", "read_only": True}) is True
+    def test_kind_snapshot_is_read_only(self) -> None:
+        assert is_read_only_transaction({"description": "Снимок", "kind": "snapshot"}) is True
 
-    def test_server_flag_false_wins_over_prefix(self) -> None:
-        tx = {"description": "okx: snapshot 2026-10-09 07:09", "read_only": False}
+    def test_kind_opening_is_read_only(self) -> None:
+        assert is_read_only_transaction({"description": "Начальный остаток", "kind": "opening"}) is True
+
+    def test_kind_operation_wins_over_read_only_flag(self) -> None:
+        tx = {"description": "OKX: вывод", "kind": "operation", "read_only": True, "source": "okx"}
         assert is_read_only_transaction(tx) is False
 
-    def test_missing_flag_falls_back_to_okx_prefix(self) -> None:
+    def test_missing_kind_falls_back_to_okx_prefix(self) -> None:
         assert is_read_only_transaction({"description": "okx: snapshot 2026-10-09 07:09"}) is True
 
-    def test_missing_flag_falls_back_to_legacy_prefix(self) -> None:
+    def test_missing_kind_falls_back_to_legacy_prefix(self) -> None:
         assert is_read_only_transaction({"description": "import: snapshot 2026-08-02 12:00"}) is True
 
     def test_regular_transaction_is_editable(self) -> None:
@@ -287,16 +290,31 @@ class TestReadOnlyCard:
             on_edit=lambda: None,
             on_delete=lambda: None,
             read_only=True,
+            badge="Снимок",
         )
         assert not _find_controls(card, ft.PopupMenuButton)
-        assert "Снимок OKX" in _texts(card)
+        assert "Снимок" in _texts(card)
+
+    def test_okx_operation_menu_has_only_category(self) -> None:
+        card = TransactionCard(
+            description="OKX: вывод",
+            amount=-1.0,
+            account_name="A",
+            read_only=True,
+            badge="OKX",
+            on_category=lambda: None,
+        )
+        buttons = _find_controls(card, ft.PopupMenuButton)
+        assert len(buttons) == 1
+        assert [item.content for item in buttons[0].items] == ["Категория"]
+        assert "OKX" in _texts(card)
 
     def test_editable_card_keeps_menu_and_has_no_badge(self) -> None:
         card = TransactionCard(
             description="Покупка", amount=-1.0, account_name="A", on_edit=lambda: None, on_delete=lambda: None
         )
         assert len(_find_controls(card, ft.PopupMenuButton)) == 1
-        assert "Снимок OKX" not in _texts(card)
+        assert "Снимок" not in _texts(card)
 
 
 class TestReadOnlyRows:
@@ -306,19 +324,23 @@ class TestReadOnlyRows:
         asyncio.run(view._load_data())
         return view
 
-    def test_row_with_server_flag_is_read_only(self) -> None:
-        view = self._load(_row_tx(description="Покупка", read_only=True), show_snapshots=True)
+    def test_okx_operation_visible_without_snapshots_toggle(self) -> None:
+        view = self._load(
+            _row_tx(description="OKX: вывод", read_only=True, kind="operation", source="okx"),
+        )
         cards = _cards(view)
         assert len(cards) == 1
-        assert not _find_controls(cards[0], ft.PopupMenuButton)
-        assert "Снимок OKX" in _texts(view._tx_list)
+        menu = _find_controls(cards[0], ft.PopupMenuButton)
+        assert len(menu) == 1
+        assert [item.content for item in menu[0].items] == ["Категория"]
+        assert "OKX" in _texts(view._tx_list)
 
     def test_row_with_prefix_fallback_is_read_only(self) -> None:
         view = self._load(_row_tx(description="okx: snapshot 2026-10-09 07:09"), show_snapshots=True)
         cards = _cards(view)
         assert len(cards) == 1
         assert not _find_controls(cards[0], ft.PopupMenuButton)
-        assert "Снимок OKX" in _texts(view._tx_list)
+        assert "Снимок" in _texts(view._tx_list)
 
     def test_snapshots_hidden_by_default(self) -> None:
         """2.12: технические записи не засоряют ленту, пока не включён тумблер."""
@@ -332,4 +354,51 @@ class TestReadOnlyRows:
         cards = _cards(view)
         assert len(cards) == 1
         assert len(_find_controls(cards[0], ft.PopupMenuButton)) == 1
-        assert "Снимок OKX" not in _texts(view._tx_list)
+        assert "Снимок" not in _texts(view._tx_list)
+
+
+class TestOkxCategoryDialog:
+    """2.57a: у read-only OKX-операции меняется только категория."""
+
+    def test_save_patches_only_category(self, monkeypatch) -> None:
+        tx = _row_tx(
+            id=5,
+            description="OKX: вывод",
+            kind="operation",
+            source="okx",
+            read_only=True,
+            category="",
+        )
+        view = _make_transactions_view(accounts=[BTC_ACCOUNT], transactions=[tx])
+        page = MagicMock()
+        monkeypatch.setattr(type(view), "page", property(lambda _self: page), raising=False)
+        view._category_rows = [{"id": 1, "name": "Переводы"}]
+        scheduled: list = []
+
+        def fake_create_task(coro):
+            scheduled.append(coro)
+            return MagicMock()
+
+        monkeypatch.setattr("application.view.transactions_view.asyncio.create_task", fake_create_task)
+
+        view._show_category_dialog(tx)
+        dialog = page.show_dialog.call_args.args[0]
+        picker = dialog.content.content
+        picker.value = "Переводы"
+        dialog.actions[1].on_click(None)
+        asyncio.run(scheduled[0])
+
+        view._transaction_view.update.assert_called_once_with(5, {"category": "Переводы"})
+        page.pop_dialog.assert_called_once()
+
+    def test_dialog_has_category_picker_and_button(self, monkeypatch) -> None:
+        tx = _row_tx(id=6, description="OKX: вывод", kind="operation", source="okx", read_only=True, category="Еда")
+        view = _make_transactions_view(accounts=[BTC_ACCOUNT], transactions=[tx])
+        page = MagicMock()
+        monkeypatch.setattr(type(view), "page", property(lambda _self: page), raising=False)
+        view._category_rows = [{"id": 1, "name": "Еда"}]
+
+        view._show_category_dialog(tx)
+
+        dialog = page.show_dialog.call_args.args[0]
+        assert [button.content for button in dialog.actions] == ["Отмена", "Сохранить"]

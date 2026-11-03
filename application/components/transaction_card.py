@@ -22,6 +22,8 @@ class TransactionCard(ft.Container):
         on_edit=None,
         on_delete=None,
         read_only: bool = False,
+        badge: str | None = None,
+        on_category=None,
     ):
         super().__init__()
         if read_only:
@@ -29,7 +31,9 @@ class TransactionCard(ft.Container):
             on_delete = None
         self._on_edit = on_edit
         self._on_delete = on_delete
+        self._on_category = on_category
         self._read_only = read_only
+        self._badge = badge if badge is not None else (READ_ONLY_BADGE_LABEL if read_only else None)
         self._currency = currency
 
         amount_color = ft.Colors.GREEN if amount >= 0 else ft.Colors.RED
@@ -59,8 +63,8 @@ class TransactionCard(ft.Container):
                     padding=ft.Padding.symmetric(horizontal=8, vertical=2),
                 )
             )
-        if read_only:
-            chips.append(StatusBadge(READ_ONLY_BADGE_LABEL))
+        if self._badge:
+            chips.append(StatusBadge(self._badge))
         if time_str:
             chips.append(ft.Text(time_str, size=12, color=ft.Colors.ON_SURFACE_VARIANT))
 
@@ -99,7 +103,20 @@ class TransactionCard(ft.Container):
         )
 
         menu_button = None
-        if not read_only:
+        if read_only and on_category is not None:
+            menu_button = ft.PopupMenuButton(
+                icon=ft.Icons.MORE_VERT,
+                icon_size=18,
+                tooltip="Действия",
+                items=[
+                    ft.PopupMenuItem(
+                        content="Категория",
+                        icon=ft.Icons.LABEL_OUTLINE,
+                        on_click=lambda _: self._on_category and self._on_category(),
+                    ),
+                ],
+            )
+        elif not read_only:
             menu_button = ft.PopupMenuButton(
                 icon=ft.Icons.MORE_VERT,
                 icon_size=18,

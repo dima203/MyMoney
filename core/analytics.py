@@ -21,6 +21,7 @@ DEFAULT_PERIOD = "3m"
 UNCATEGORIZED = "Без категории"
 TRANSFER_EPSILON = 1e-9
 SNAPSHOT_PREFIXES: tuple[str, ...] = ("okx: snapshot ", "import: snapshot ")
+TECHNICAL_KINDS: tuple[str, ...] = ("snapshot", "opening")
 MONTH_LABELS = (
     "янв",
     "фев",
@@ -130,15 +131,16 @@ def account_currencies(accounts) -> dict[int, str]:
 
 
 def is_snapshot_row(tx: dict) -> bool:
-    """Техническая запись синхронизации (снимок OKX/импорта).
+    """Техническая запись синхронизации (снимок/начальный остаток).
 
-    Серверный флаг ``read_only`` авторитетен; для строк из офлайн-кэша,
-    сохранённых до появления поля, работает fallback по префиксу описания.
-    Такие записи не являются доходами/расходами и не участвуют в аналитике.
+    2.57a: техничность задаёт ``kind ∈ {snapshot, opening}``, а не флаг
+    ``read_only``; импортированная OKX-операция (``kind=operation``) — обычная
+    операция ленты и аналитики. Для строк офлайн-кэша без ``kind`` работает
+    fallback по префиксу описания.
     """
-    flag = tx.get("read_only")
-    if isinstance(flag, bool):
-        return flag
+    kind = tx.get("kind")
+    if isinstance(kind, str) and kind:
+        return kind in TECHNICAL_KINDS
     description = tx.get("description")
     return isinstance(description, str) and description.startswith(SNAPSHOT_PREFIXES)
 
