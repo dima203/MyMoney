@@ -17,6 +17,7 @@ from application.display import (
     account_currency,
     account_display_name,
     is_read_only_transaction,
+    transaction_badge,
 )
 from application.transaction_form import form_state
 from application.view.amount_currency import AmountCurrencyMixin
@@ -490,8 +491,38 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
             timestamp=timestamp,
             on_edit=lambda t=tx: self._show_edit_dialog(t),
             on_delete=lambda t=tx: self._show_delete_confirm(t),
-            read_only=is_read_only_transaction(tx),
+            read_only=is_read_only_transaction(tx) or bool(tx.get("read_only")),
+            badge=transaction_badge(tx),
+            on_category=(lambda t=tx: self._show_category_dialog(t))
+            if tx.get("read_only") and not is_read_only_transaction(tx)
+            else None,
         )
+
+    def _show_category_dialog(self, tx: dict) -> None:
+        """Read-only OKX-операция: единственное разрешённое действие — категория."""
+
+        async def save(_event) -> None:
+            category = (picker.value or "").strip()
+            updater = self._transaction_view.update if self._transaction_view else self.api_client.update_transaction
+            try:
+                await asyncio.to_thread(updater, tx["id"], {"category": category})
+            except (ApiError, BackendUnreachableError, AttributeError) as exc:
+                self._show_error(f"Не удалось сохранить категорию: {exc}")
+                return
+            self.page.pop_dialog()
+            await self._load_data()
+
+        picker = self._build_category_picker(tx.get("category", ""))
+        dialog = ft.AlertDialog(
+            title=ft.Text("Категория"),
+            content=ft.Container(content=picker, width=320),
+            actions=[
+                ft.TextButton("Отмена", on_click=lambda _: self.page.pop_dialog()),
+                ft.Button("Сохранить", on_click=lambda e: asyncio.create_task(save(e))),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        self.page.show_dialog(dialog)
 
     def _show_add_dialog(self, e):
         self._open_transaction_dialog()

@@ -12,16 +12,32 @@ ACCOUNT_TYPE_LABELS: dict[str, str] = {
 
 UNKNOWN_ACCOUNT_NAME = "—"
 FAB_CLEARANCE = 88
-READ_ONLY_BADGE_LABEL = "Снимок OKX"
+OKX_BADGE_LABEL = "OKX"
+SNAPSHOT_BADGE_LABEL = "Снимок"
+READ_ONLY_BADGE_LABEL = SNAPSHOT_BADGE_LABEL
 
 
 def is_read_only_transaction(tx: dict) -> bool:
-    """Снимок OKX/импорта: серверный флаг `read_only`, fallback — по префиксу.
+    """Снимок OKX/импорта: техническая запись по ``kind`` или префиксу.
 
     Правило общее с аналитикой (`core.analytics.is_snapshot_row`), чтобы такие
     записи не попадали ни в ленту по умолчанию, ни в расходы.
     """
     return is_snapshot_row(tx)
+
+
+def is_okx_operation(tx: dict) -> bool:
+    """Импортированная OKX-операция (не снимок): обычная запись ленты."""
+    return tx.get("kind") == "operation" and tx.get("source") == "okx"
+
+
+def transaction_badge(tx: dict) -> str | None:
+    """Бейдж карточки: «OKX» у операции, «Снимок» у снимка/opening."""
+    if is_okx_operation(tx):
+        return OKX_BADGE_LABEL
+    if is_read_only_transaction(tx):
+        return SNAPSHOT_BADGE_LABEL
+    return None
 
 
 def account_currency(accounts: list[dict], account_id, fallback: str = "") -> str:
@@ -63,10 +79,14 @@ def format_amount_input(value: float) -> str:
 __all__ = [
     "ACCOUNT_TYPE_LABELS",
     "FAB_CLEARANCE",
+    "OKX_BADGE_LABEL",
     "READ_ONLY_BADGE_LABEL",
+    "SNAPSHOT_BADGE_LABEL",
     "UNKNOWN_ACCOUNT_NAME",
     "account_currency",
     "account_display_name",
     "format_amount_input",
+    "is_okx_operation",
     "is_read_only_transaction",
+    "transaction_badge",
 ]

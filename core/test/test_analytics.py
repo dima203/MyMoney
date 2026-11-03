@@ -152,7 +152,8 @@ class TestSnapshots:
     @pytest.mark.parametrize(
         "extra",
         [
-            pytest.param({"read_only": True}, id="server-flag"),
+            pytest.param({"kind": "snapshot"}, id="kind-snapshot"),
+            pytest.param({"kind": "opening"}, id="kind-opening"),
             pytest.param({"description": "okx: snapshot 2026-10-05 07:00"}, id="okx-prefix"),
             pytest.param({"description": "import: snapshot 2026-08-02 12:00"}, id="import-prefix"),
             pytest.param({"read_only": None, "description": "okx: snapshot "}, id="null-flag-falls-back"),
@@ -163,11 +164,24 @@ class TestSnapshots:
 
         assert expense_records(rows, {1: "BYN"}) == []
 
-    def test_server_flag_false_wins_over_prefix(self) -> None:
-        row = tx("2026-10-05", "OKX", [entry(1, -15)], description="okx: snapshot ", read_only=False)
+    def test_kind_operation_wins_over_read_only_flag_and_prefix(self) -> None:
+        row = tx(
+            "2026-10-05",
+            "OKX",
+            [entry(1, -15)],
+            description="okx: snapshot ",
+            read_only=True,
+            kind="operation",
+        )
 
         assert is_snapshot_row(row) is False
         assert [(r.category, r.amount) for r in expense_records([row], {1: "BYN"})] == [("OKX", 15.0)]
+
+    def test_read_only_flag_without_kind_is_not_technical(self) -> None:
+        """2.57a: флаг read_only больше не прячет OKX-операцию из ленты."""
+        row = tx("2026-10-05", "Переводы", [entry(1, -10)], read_only=True)
+
+        assert is_snapshot_row(row) is False
 
     def test_regular_row_is_not_snapshot(self) -> None:
         assert is_snapshot_row(tx("2026-10-05", "Еда", [entry(1, -5)])) is False
