@@ -26,7 +26,8 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 
 
 class MyMoneyApp:
-    def __init__(self):
+    def __init__(self, initial_route: str | None = None):
+        self._initial_route = initial_route
         self.page = None
         self.api_client = RestClient()
         self._resource_view: ResourceView | None = None
@@ -58,6 +59,18 @@ class MyMoneyApp:
         ]
         self.page.views.append(view)
         self.page.run_task(notifications.load)
+
+    @staticmethod
+    def _account_id_from_route(route: str) -> int | None:
+        """``/accounts/5`` → 5; нечисловой id → -1 (счёт не найден)."""
+        prefix = "/accounts/"
+        if not route.startswith(prefix):
+            return None
+        raw = route[len(prefix) :].split("/")[0].split("?")[0]
+        try:
+            return int(raw)
+        except ValueError:
+            return -1
 
     def _open_palette(self) -> None:
         """Открыть кросс-палитру Ctrl+K (счета, операции, задачи, события, коллекции)."""
@@ -130,7 +143,8 @@ class MyMoneyApp:
         self._init_offline_views()
         self._update_connection_banner()
 
-        if self.page.route == "/accounts":
+        route = self.page.route
+        if route == "/accounts" or route.startswith("/accounts/"):
             from application.view.accounts_view import AccountsView
 
             self._mount(
@@ -140,6 +154,7 @@ class MyMoneyApp:
                     resource_view=self._resource_view,
                     account_view=self._account_view,
                     connection_banner=self._connection_banner,
+                    initial_account_id=self._account_id_from_route(route),
                 )
             )
         elif self.page.route in ("/operations", "/transactions", "/planned"):
@@ -245,10 +260,15 @@ class MyMoneyApp:
         self.page.update()
 
         if await self._validate_session():
-            logger.info("Session valid, going to /accounts")
+            target = self._initial_route or "/accounts"
+            self._initial_route = None
+            logger.info("Session valid, going to %s", target)
             self.page.views.remove(splash)
-            self.page.route = "/accounts"
-            self.route_change()
+            if target.startswith("/accounts"):
+                self.page.route = target
+                self.route_change()
+            else:
+                self.page.navigate(target)
         else:
             logger.info("No valid session, going to /login")
             self.page.views.remove(splash)

@@ -7,10 +7,20 @@ from MySpaceShared.core.tokens import SPACING
 class AccountCard(ft.Container):
     """Карточка счёта: иконка валюты, название и баланс."""
 
-    def __init__(self, name: str, balance: str, currency_icon: str = "●", on_edit=None, on_delete=None):
+    def __init__(
+        self,
+        name: str,
+        balance: str,
+        currency_icon: str = "●",
+        on_edit=None,
+        on_delete=None,
+        *,
+        highlighted: bool = False,
+    ):
         super().__init__()
         self.name = name
         self.balance = balance
+        self.highlighted = highlighted
 
         self._name_text = ft.Text(name, size=15, weight=ft.FontWeight.W_600)
         self._balance_text = ft.Text(balance, size=17, weight=ft.FontWeight.BOLD)
@@ -37,6 +47,9 @@ class AccountCard(ft.Container):
             expand=True,
         )
         self.content = ElevatedCard(row, trailing=menu_button, padding=ft.Padding.symmetric(horizontal=16, vertical=12))
+        if highlighted:
+            self.border = ft.Border.all(2, ft.Colors.PRIMARY)
+            self.tooltip = "Открыт по ссылке"
 
     def update_balance(self, balance: str):
         self.balance = balance

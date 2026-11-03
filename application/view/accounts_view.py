@@ -144,6 +144,7 @@ class AccountsView(BaseView):
         onboarding: OnboardingState | None = None,
         seeder_factory=None,
         fx_store: FxRateStore | None = None,
+        initial_account_id: int | None = None,
     ):
         self.api_client = api_client
         self._resource_view = resource_view
@@ -158,6 +159,7 @@ class AccountsView(BaseView):
         self._onboarding = onboarding if onboarding is not None else OnboardingState()
         self._seeder_factory = seeder_factory
         self._fx_store = fx_store or FxRateStore()
+        self._highlight_account_id = initial_account_id
         self._seeding = False
         self._seed_busy = False
 
@@ -231,6 +233,7 @@ class AccountsView(BaseView):
 
             self._resources = resources if isinstance(resources, list) else resources.get("results", [])
             self._accounts = accounts if isinstance(accounts, list) else accounts.get("results", [])
+            self._apply_initial_account()
             self._resource_map = {r["id"]: r for r in self._resources}
 
             if online:
@@ -252,6 +255,21 @@ class AccountsView(BaseView):
             if not self._disposed:
                 self._loading.visible = False
                 self._show_error(f"Ошибка загрузки: {exc}")
+
+    def _apply_initial_account(self) -> None:
+        """Deep link ``/accounts/<id>``: подсветить счёт или сообщить, что не найден."""
+        account_id = self._highlight_account_id
+        if account_id is None:
+            return
+        if any(account.get("id") == account_id for account in self._accounts):
+            return
+        self._highlight_account_id = None
+        try:
+            from application.components.file_save import show_toast
+
+            show_toast(self.page, "Счёт не найден")
+        except (RuntimeError, AttributeError):
+            pass
 
     def _cached_fx_context(self) -> tuple[str | None, dict[str, Decimal]]:
         """Офлайн: базовая валюта и последние известные фиатные курсы из кэша (2.50)."""
@@ -311,6 +329,7 @@ class AccountsView(BaseView):
                 group_name=group_name,
                 total_balance=balance_str,
                 accounts=grouped[group_name],
+                highlight_id=self._highlight_account_id,
             )
             self._accounts_column.controls.append(group_widget)
 
@@ -323,6 +342,7 @@ class AccountsView(BaseView):
             crypto_widget = CryptoSummary(
                 total_usd=format_money(crypto_total, prefix="$"),
                 accounts=crypto_accounts,
+                highlight_id=self._highlight_account_id,
             )
             self._accounts_column.controls.append(crypto_widget)
 

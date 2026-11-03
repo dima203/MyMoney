@@ -10,9 +10,17 @@ from .account_card import AccountCard
 class CryptoSummary(ft.Container):
     """Сводка по криптосчетам с градиентной hero-шапкой."""
 
-    def __init__(self, total_usd: str, accounts: list[dict], expanded: bool = False):
+    def __init__(
+        self,
+        total_usd: str,
+        accounts: list[dict],
+        expanded: bool = False,
+        *,
+        highlight_id=None,
+    ):
         super().__init__()
-        self._expanded = expanded
+        self._expanded = expanded or (highlight_id is not None and any(a.get("id") == highlight_id for a in accounts))
+        self._highlight_id = highlight_id
         self._total_usd = total_usd
         self._accounts = accounts
 
@@ -22,7 +30,7 @@ class CryptoSummary(ft.Container):
         self._chevron = ft.Icon(ft.Icons.KEYBOARD_ARROW_DOWN, size=22, color=ft.Colors.WHITE)
         self._cards_column = ft.Column(
             controls=[self._build_card(acc) for acc in accounts],
-            visible=expanded,
+            visible=self._expanded,
             spacing=SPACING["sm"],
         )
 
@@ -56,14 +64,14 @@ class CryptoSummary(ft.Container):
 
         self.content = ft.Column(controls=[hero, self._cards_column], spacing=SPACING["sm"])
 
-    @staticmethod
-    def _build_card(acc: dict) -> AccountCard:
+    def _build_card(self, acc: dict) -> AccountCard:
         return AccountCard(
             name=acc["name"],
             balance=acc["balance"],
             currency_icon=acc.get("icon", "●"),
             on_edit=acc.get("on_edit"),
             on_delete=acc.get("on_delete"),
+            highlighted=self._highlight_id is not None and acc.get("id") == self._highlight_id,
         )
 
     def _toggle(self, e):

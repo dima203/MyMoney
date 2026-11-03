@@ -14,7 +14,7 @@ def account_count_text(count: int) -> str:
 class AccountGroup(ft.ExpansionTile):
     """Группа счетов с итогом по группе в шапке."""
 
-    def __init__(self, group_name: str, total_balance: str, accounts: list[dict]):
+    def __init__(self, group_name: str, total_balance: str, accounts: list[dict], *, highlight_id=None):
         super().__init__(title=group_name)
         self.group_name = group_name
         self._total_balance = total_balance
@@ -48,6 +48,7 @@ class AccountGroup(ft.ExpansionTile):
                 currency_icon=acc.get("icon", "●"),
                 on_edit=acc.get("on_edit"),
                 on_delete=acc.get("on_delete"),
+                highlighted=highlight_id is not None and acc.get("id") == highlight_id,
             )
             for acc in accounts
         ]
