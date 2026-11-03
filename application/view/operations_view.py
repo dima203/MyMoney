@@ -16,6 +16,7 @@ from application.planned_actions import execute_planned
 from application.view.dialogs import dialog_width
 from application.view.planned_sections import build_plan_card, load_cross_app_budgets
 from application.view.transactions_view import TransactionsView
+from core.okx_categories import apply_category, is_service_category, unlabeled_operations
 from core.operations_totals import format_period_totals, period_totals
 from core.transaction_filters import ALL_CATEGORY, filter_transactions
 
@@ -80,6 +81,162 @@ class OperationsView(TransactionsView):
         controls = self.content.controls
         controls.insert(3, self._segments)
         controls.insert(6, self._totals)
+        self._okx_checks: list[ft.Checkbox] = []
+        self._okx_rows: list[dict] = []
+        self._okx_category = ft.Dropdown(
+            label="Категория",
+            options=[],
+            border=ft.OutlineInputBorder(border_radius=8),
+            on_select=lambda _event: self._sync_okx_apply_state(),
+        )
+        self._okx_select_all = ft.Checkbox(
+            label="Выбрать все",
+            value=False,
+            on_change=self._on_okx_select_all,
+        )
+        self._okx_apply = ft.Button(
+            "Применить",
+            disabled=True,
+            on_click=lambda _event: asyncio.create_task(self._apply_okx_categories()),
+        )
+        self._okx_categories_button = ft.IconButton(
+            ft.Icons.SELL_OUTLINED,
+            tooltip="Категории OKX",
+            on_click=self._show_okx_categories_dialog,
+        )
+        self._filter_bar.controls.insert(1, self._okx_categories_button)
+
+    # ------------------------------------------------ категории OKX (2.57b)
+
+    def _show_okx_categories_dialog(self, _event=None) -> None:
+        """Диалог массовой разметки: неразмеченные OKX-операции за период."""
+        if not self._online():
+            show_toast(self.page, "Нужен сервер")
+            return
+        period = str(getattr(self._filter_period, "value", None) or "all")
+        self._okx_rows = unlabeled_operations(self._transactions, period=period)
+        if not self._okx_rows:
+            show_toast(self.page, "Все OKX-операции размечены")
+            return
+
+        self._okx_category.value = None
+        self._okx_category.options = [
+            ft.dropdown.Option(name) for name in self._active_category_names() if name and not is_service_category(name)
+        ]
+        self._okx_select_all.value = False
+        self._okx_checks = [self._make_okx_check(row) for row in self._okx_rows]
+        self._okx_apply.disabled = True
+        self._okx_list = ft.Column(
+            self._okx_checks,
+            spacing=2,
+            tight=True,
+            scroll=ft.ScrollMode.AUTO,
+            height=280,
+        )
+        body = ft.Column(
+            [
+                ft.Text(
+                    f"Неразмечено: {len(self._okx_rows)}",
+                    size=12,
+                    color=ft.Colors.ON_SURFACE_VARIANT,
+                ),
+                self._okx_select_all,
+                self._okx_list,
+                self._okx_category,
+            ],
+            spacing=8,
+            tight=True,
+        )
+        dialog = ft.AlertDialog(
+            title=ft.Text("Категории OKX"),
+            content=ft.Container(content=body, width=dialog_width(self)),
+            actions=[
+                ft.TextButton("Отмена", on_click=lambda _: self.page.pop_dialog()),
+                self._okx_apply,
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        self.page.show_dialog(dialog)
+
+    @staticmethod
+    def _okx_row_label(tx: dict) -> str:
+        """Строка выбора: дата, описание операции (или категория) и сумма."""
+        title = str(tx.get("description") or tx.get("category") or "Операция").strip()
+        if len(title) > 40:
+            title = f"{title[:39]}…"
+        entries = tx.get("entries") or []
+        total = sum(float(entry.get("amount", 0)) for entry in entries if isinstance(entry, dict))
+        return f"{str(tx.get('date') or '')[:10]} · {title} · {total:+.2f}"
+
+    def _on_okx_select_all(self, event) -> None:
+        value = bool(getattr(event.control, "value", False))
+        for check in self._okx_checks:
+            check.value = value
+            try:
+                check.update()
+            except RuntimeError:
+                pass
+        self._sync_okx_apply_state()
+
+    def _sync_okx_apply_state(self) -> None:
+        """Кнопка «Применить» активна только при выборе строк и категории."""
+        selected = any(check.value for check in self._okx_checks)
+        self._okx_apply.disabled = not (selected and bool(self._okx_category.value))
+        try:
+            self._okx_apply.update()
+        except RuntimeError:
+            pass
+
+    def _selected_okx_rows(self) -> list[dict]:
+        return [row for row, check in zip(self._okx_rows, self._okx_checks, strict=False) if check.value]
+
+    async def _apply_okx_categories(self) -> None:
+        rows = self._selected_okx_rows()
+        category = str(self._okx_category.value or "").strip()
+        if not rows or not category:
+            self._sync_okx_apply_state()
+            return
+        await self._apply_selected_categories(rows, category)
+
+    async def _apply_selected_categories(self, rows: list[dict], category: str) -> None:
+        """PATCH категории по выбранным операциям; частичный сбой — счётчики и повтор."""
+        updated, failed = await asyncio.to_thread(
+            apply_category,
+            rows,
+            category,
+            self.api_client.update_transaction,
+        )
+        if failed:
+            self._category_error(f"Обновлено {updated}, не удалось {len(failed)}: {failed[0]['error']}")
+        else:
+            self.page.pop_dialog()
+            self._show_toast(f"Обновлено {updated} операций")
+        await self._load_data()
+        if failed:
+            self._keep_failed_rows([item["id"] for item in failed])
+
+    def _keep_failed_rows(self, failed_ids: list[int]) -> None:
+        """Оставить в диалоге только неудачные строки, чтобы повтор не дублировал успешные."""
+        failed = set(failed_ids)
+        self._okx_rows = [row for row in self._okx_rows if row.get("id") in failed]
+        self._okx_checks = [self._make_okx_check(row, value=True) for row in self._okx_rows]
+        if getattr(self, "_okx_list", None) is not None:
+            self._okx_list.controls = list(self._okx_checks)
+            try:
+                self._okx_list.update()
+            except RuntimeError:
+                pass
+        self._sync_okx_apply_state()
+
+    def _make_okx_check(self, row: dict, *, value: bool = False) -> ft.Checkbox:
+        return ft.Checkbox(
+            value=value,
+            label=self._okx_row_label(row),
+            on_change=lambda _event: self._sync_okx_apply_state(),
+        )
+
+    def _show_toast(self, text: str) -> None:
+        show_toast(self.page, text)
 
     # ------------------------------------------------------------------ режим
 
