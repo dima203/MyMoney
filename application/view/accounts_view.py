@@ -310,6 +310,7 @@ class AccountsView(BaseView):
                 "icon": icon,
                 "on_edit": lambda a=acc: self._show_edit_dialog(a),
                 "on_delete": lambda a=acc: self._show_delete_confirm(a),
+                "is_savings": bool(acc.get("is_savings")),
             }
 
             if is_crypto:
@@ -531,12 +532,18 @@ class AccountsView(BaseView):
             border=ft.OutlineInputBorder(border_radius=8),
         )
 
+        savings_checkbox = ft.Checkbox(
+            label="Накопительный счёт",
+            value=bool(account.get("is_savings")) if is_edit else False,
+        )
+
         error_text = ft.Text("", size=12, color=ft.Colors.ERROR, visible=False)
         form_fields = {
             "name": name_field,
             "resource_definition": resource_dropdown,
             "group": group_field,
             "account_type": account_type_dropdown,
+            "is_savings": savings_checkbox,
         }
 
         def clear_field_errors() -> None:
@@ -572,6 +579,7 @@ class AccountsView(BaseView):
                     "resource_definition": int(resource_id),
                     "group": group,
                     "account_type": account_type,
+                    "is_savings": bool(savings_checkbox.value),
                 }
                 if is_edit:
                     if self._account_view:
@@ -601,6 +609,7 @@ class AccountsView(BaseView):
                     [
                         *full_width(name_field, resource_dropdown),
                         *half_width(group_field, account_type_dropdown),
+                        *full_width(savings_checkbox),
                         *full_width(error_text),
                     ],
                     spacing=12,
