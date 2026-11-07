@@ -16,6 +16,7 @@ from application.components.envelope_card import EnvelopeCard
 from application.components.file_save import show_toast
 from application.components.goal_card import GoalCard
 from application.components.navigation_items import NAVIGATION_ITEMS
+from application.session_cache import BUDGETS, CACHE
 from application.view.budget_forms import FormDialogMixin, form_error, hint
 from application.view.data_loading import DataLoadingMixin, dict_rows
 from application.view.dialogs import dialog_width
@@ -107,6 +108,23 @@ class BudgetsView(FormDialogMixin, DataLoadingMixin, BaseView):
 
     # ------------------------------------------------------------- загрузка
 
+    def _cache_key(self) -> str:
+        return BUDGETS
+
+    def _section_snapshot(self) -> dict:
+        return {
+            "envelopes": self._envelopes,
+            "goals": self._goals,
+            "envelopes_offline": self._envelopes_offline,
+            "goals_offline": self._goals_offline,
+        }
+
+    def _restore_sections(self, snapshot: dict) -> None:
+        self._envelopes = list(snapshot.get("envelopes") or [])
+        self._goals = list(snapshot.get("goals") or [])
+        self._envelopes_offline = bool(snapshot.get("envelopes_offline"))
+        self._goals_offline = bool(snapshot.get("goals_offline"))
+
     async def _load_sections(self) -> None:
         await self._load_envelopes()
         await self._load_goals()
@@ -134,10 +152,12 @@ class BudgetsView(FormDialogMixin, DataLoadingMixin, BaseView):
         return dict_rows(payload)
 
     async def _reload_envelopes(self) -> None:
+        CACHE.invalidate(self._cache_key())
         await self._load_envelopes()
         self._rebuild()
 
     async def _reload_goals(self) -> None:
+        CACHE.invalidate(self._cache_key())
         await self._load_goals()
         self._rebuild()
 

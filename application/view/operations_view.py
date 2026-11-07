@@ -13,6 +13,7 @@ from application.components.file_save import show_toast
 from application.display import FAB_CLEARANCE, is_read_only_transaction
 from application.fx_rates import FxRateStore, load_fx_rows, resolve_profile_base
 from application.planned_actions import execute_planned
+from application.session_cache import invalidate_data
 from application.view.dialogs import dialog_width
 from application.view.planned_sections import build_plan_card, load_cross_app_budgets
 from application.view.transactions_view import TransactionsView
@@ -368,6 +369,7 @@ class OperationsView(TransactionsView):
                 self._show_error(f"Не удалось связать: {exc}")
                 return
             self.page.pop_dialog()
+            invalidate_data()
             await self._load_data()
 
         dialog = ft.AlertDialog(

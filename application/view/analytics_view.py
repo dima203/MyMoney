@@ -15,6 +15,7 @@ from application.components import BaseView
 from application.components.file_save import save_bytes_file, show_toast
 from application.components.formatting import UNKNOWN_CURRENCY, format_money
 from application.components.navigation_items import NAVIGATION_ITEMS
+from application.session_cache import ANALYTICS
 from application.view.data_loading import DataLoadingMixin
 from core.analytics import (
     DEFAULT_PERIOD,
@@ -139,6 +140,19 @@ class AnalyticsView(DataLoadingMixin, BaseView):
         )
 
     # ------------------------------------------------------------------ рендер
+
+    def _cache_key(self) -> str:
+        return ANALYTICS
+
+    def _section_snapshot(self) -> dict:
+        return {"period": self._period}
+
+    def _restore_sections(self, snapshot: dict) -> None:
+        period = snapshot.get("period")
+        if period in PERIOD_MONTHS:
+            self._period = period
+            if hasattr(self, "_period_selector"):
+                self._period_selector.selected = [period]
 
     def _on_period_changed(self, e) -> None:
         period = _event_period(e)

@@ -6,6 +6,7 @@ import asyncio
 
 from application.api import ApiError, RestClientError
 from application.components.category_picker import CategoryPicker
+from application.session_cache import ANALYTICS, BUDGETS, TRANSACTIONS, invalidate_data
 
 
 class CategoryActionsMixin:
@@ -64,6 +65,7 @@ class CategoryActionsMixin:
             self._category_error(f"Не удалось создать категорию: {exc}")
             return None
         await self._load_categories()
+        invalidate_data(TRANSACTIONS, BUDGETS, ANALYTICS)
         return str(row.get("name") or name) if isinstance(row, dict) else name
 
     async def _patch_category(self, name: str, payload: dict, failure: str) -> dict | None:
@@ -78,6 +80,7 @@ class CategoryActionsMixin:
             self._category_error(f"{failure}: {exc}")
             return None
         await self._load_categories()
+        invalidate_data(TRANSACTIONS, BUDGETS, ANALYTICS)
         return row if isinstance(row, dict) else {"name": name, **payload}
 
     async def _rename_category(self, old: str, new: str) -> str | None:

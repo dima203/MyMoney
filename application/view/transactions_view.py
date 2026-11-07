@@ -19,10 +19,12 @@ from application.display import (
     is_read_only_transaction,
     transaction_badge,
 )
+from application.session_cache import CACHE, TRANSACTIONS, invalidate_data
 from application.transaction_form import form_state
 from application.view.amount_currency import AmountCurrencyMixin
 from application.view.category_actions import CategoryActionsMixin
 from application.view.dialogs import dialog_width, full_width, half_width
+from application.view.stale_cache import build_stale_banner, payload_changed
 from core.category_suggest import suggest_category
 from core.csv_export import transactions_csv
 from core.csv_import import Statement, parse_csv
@@ -124,6 +126,7 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
         self._loading = LoadingState()
         self._loading.visible = True
+        self._stale_banner = build_stale_banner(self._retry_load)
         self._pinned_label = ft.Text("", size=13, weight=ft.FontWeight.W_600, color=ft.Colors.ON_SURFACE_VARIANT)
         self._pinned_header = ft.Container(
             content=self._pinned_label,
@@ -209,6 +212,7 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
             controls=[
                 self._connection_banner,
                 self._error_text,
+                self._stale_banner,
                 self._loading,
                 self._filters_row,
                 self._filter_bar,
@@ -234,13 +238,33 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
     def dispose(self):
         self._disposed = True
 
+    def _retry_load(self) -> None:
+        invalidate_data(TRANSACTIONS)
+        self._load_task = asyncio.create_task(self._load_data())
+
+    def _transactions_snapshot(self) -> dict:
+        return {"transactions": self._transactions, "accounts": self._accounts}
+
+    def _paint_transactions(self, snapshot: dict) -> None:
+        self._transactions = list(snapshot.get("transactions") or [])
+        self._accounts = list(snapshot.get("accounts") or [])
+        self._account_map = {a["id"]: a for a in self._accounts}
+        self._collect_categories()
+        self._loading.visible = False
+        self._stale_banner.visible = False
+        self._rebuild_list()
+
     async def _load_data(self):
-        try:
+        cached = CACHE.get(TRANSACTIONS)
+        if cached:
+            self._paint_transactions(cached)
+            self.update()
+        else:
             self._error_text.visible = False
             self._loading.visible = True
             self._tx_list.controls.clear()
             self.update()
-
+        try:
             if self._transaction_view and self._account_view:
                 transactions = await asyncio.to_thread(self._transaction_view.get_all)
                 accounts = await asyncio.to_thread(self._account_view.get_all)
@@ -252,6 +276,8 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
             if self._disposed:
                 return
 
+            self._error_text.visible = False
+            self._stale_banner.visible = False
             self._transactions = transactions if isinstance(transactions, list) else transactions.get("results", [])
             self._accounts = accounts if isinstance(accounts, list) else accounts.get("results", [])
             self._account_map = {a["id"]: a for a in self._accounts}
@@ -265,15 +291,26 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
             await self._load_sections()
             if self._disposed:
                 return
-            self._rebuild_list()
+            snapshot = self._transactions_snapshot()
+            CACHE.set(TRANSACTIONS, snapshot)
+            if not cached or payload_changed(cached, snapshot):
+                self._rebuild_list()
+            self.update()
         except BackendUnreachableError:
-            if not self._disposed:
-                self._loading.visible = False
-                self._show_error("Сервер недоступен")
+            self._fail_load("Сервер недоступен", cached)
         except ApiError as exc:
-            if not self._disposed:
-                self._loading.visible = False
-                self._show_error(f"Ошибка загрузки: {exc}")
+            self._fail_load(f"Ошибка загрузки: {exc}", cached)
+
+    def _fail_load(self, message: str, cached) -> None:
+        """Ошибка сети: с кэшем — данные и баннер «могли устареть», без кэша — текст ошибки."""
+        if self._disposed:
+            return
+        self._loading.visible = False
+        if cached:
+            self._stale_banner.visible = True
+            self.update()
+            return
+        self._show_error(message)
 
     async def _load_sections(self) -> None:
         """Словарь категорий (2.53) и данные наследников после основных списков."""
@@ -359,6 +396,7 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
         for payload in payloads:
             await asyncio.to_thread(add, payload)
         show_toast(self.page, f"Импортировано операций: {len(payloads)}")
+        invalidate_data()
         await self._load_data()
 
     def _transaction_adder(self):
@@ -517,6 +555,7 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
                 self._show_error(f"Не удалось сохранить категорию: {exc}")
                 return
             self.page.pop_dialog()
+            invalidate_data()
             await self._load_data()
 
         picker = self._build_category_picker(tx.get("category", ""))
@@ -707,6 +746,7 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
                     await asyncio.to_thread(self._transaction_adder(), payload)
 
                 self.page.pop_dialog()
+                invalidate_data()
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 save_button.disabled = False
@@ -776,6 +816,7 @@ class TransactionsView(AmountCurrencyMixin, CategoryActionsMixin, BaseView):
             try:
                 await self._delete_transaction(tx)
                 self.page.pop_dialog()
+                invalidate_data()
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 e.control.disabled = False
