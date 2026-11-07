@@ -151,7 +151,7 @@ class DataLoadingMixin:
             return currency.strip() if isinstance(currency, str) else ""
         return ""
 
-    def _fail(self, message: str, cached=None) -> None:
+    def _fail(self, message: str, cached) -> None:
         if self._disposed:
             return
         self._loading.visible = False

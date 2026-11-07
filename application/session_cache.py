@@ -1,8 +1,8 @@
 """Кэш последних успешных ответов в памяти сессии (2.184).
 
-Ключ — эндпоинт (или логическая витрина) + параметры; на диск ничего не
-пишется. Витрины читают снимок при открытии вкладки (мгновенный рендер) и
-обновляют его в фоне; любая запись сбрасывает затронутые ключи.
+Ключ — логическая витрина; на диск ничего не пишется. Витрины читают
+снимок при открытии вкладки (мгновенный рендер) и обновляют его в фоне;
+любая запись сбрасывает затронутые ключи.
 """
 
 from __future__ import annotations
@@ -16,14 +16,6 @@ TRANSACTIONS = "transactions"
 PROFILE = "profile"
 BUDGETS = "budgets"
 ANALYTICS = "analytics"
-
-
-def endpoint_key(endpoint: str, params: dict[str, Any] | None = None) -> str:
-    """Ключ ``эндпоинт`` + отсортированные параметры; без параметров — сам эндпоинт."""
-    if not params:
-        return endpoint
-    pairs = "&".join(f"{key}={params[key]}" for key in sorted(params))
-    return f"{endpoint}?{pairs}"
 
 
 class SessionCache:
@@ -80,6 +72,5 @@ __all__ = [
     "PROFILE",
     "TRANSACTIONS",
     "SessionCache",
-    "endpoint_key",
     "invalidate_data",
 ]

@@ -16,7 +16,7 @@ from application.components.envelope_card import EnvelopeCard
 from application.components.file_save import show_toast
 from application.components.goal_card import GoalCard
 from application.components.navigation_items import NAVIGATION_ITEMS
-from application.session_cache import CACHE
+from application.session_cache import BUDGETS, CACHE
 from application.view.budget_forms import FormDialogMixin, form_error, hint
 from application.view.data_loading import DataLoadingMixin, dict_rows
 from application.view.dialogs import dialog_width
@@ -109,7 +109,7 @@ class BudgetsView(FormDialogMixin, DataLoadingMixin, BaseView):
     # ------------------------------------------------------------- загрузка
 
     def _cache_key(self) -> str:
-        return "budgets"
+        return BUDGETS
 
     def _section_snapshot(self) -> dict:
         return {

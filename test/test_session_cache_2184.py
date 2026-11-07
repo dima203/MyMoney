@@ -11,7 +11,6 @@ from application.session_cache import (
     CACHE,
     TRANSACTIONS,
     SessionCache,
-    endpoint_key,
     invalidate_data,
 )
 from application.view.accounts_view import AccountsView
@@ -62,10 +61,6 @@ class TestSessionCache:
         assert removed == 2
         assert cache.has("accounts") is True
         assert cache.keys() == ["accounts"]
-
-    def test_endpoint_key_sorts_params(self):
-        assert endpoint_key("/api/v1/tasks/") == "/api/v1/tasks/"
-        assert endpoint_key("/api/v1/tasks/", {"b": 2, "a": 1}) == "/api/v1/tasks/?a=1&b=2"
 
     def test_invalidate_data_defaults_to_all(self):
         CACHE.set(ACCOUNTS, [])
