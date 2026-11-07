@@ -9,6 +9,7 @@ from application.api import (
     RestClient,
 )
 from application.screens import LoginView
+from application.session_cache import CACHE
 from application.view import SplashView
 from core import APP_SETTINGS, build_theme, theme_mode_value
 from core.config import SETTINGS
@@ -222,6 +223,7 @@ class MyMoneyApp:
 
     def _on_logout(self) -> None:
         self.api_client.logout()
+        CACHE.clear()
         self.page.views.clear()
         self.page.views.append(LoginView(SETTINGS.BACKEND_URL, on_success=self._on_login_success))
         self.page.update()

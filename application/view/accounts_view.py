@@ -12,7 +12,9 @@ from application.components.navigation_items import NAVIGATION_ITEMS
 from application.demo_seed import DemoSeeder
 from application.display import FAB_CLEARANCE, account_display_name
 from application.fx_rates import FxRateStore, load_fx_rows, resolve_profile_base
+from application.session_cache import ACCOUNTS, CACHE, TRANSACTIONS, invalidate_data
 from application.view.dialogs import dialog_width, full_width, half_width
+from application.view.stale_cache import build_stale_banner, payload_changed
 from core.app_settings import APP_SETTINGS
 from core.csv_export import accounts_csv
 from core.group_totals import build_rate_map, format_group_total, group_total_in_base
@@ -168,12 +170,14 @@ class AccountsView(BaseView):
         self._accounts_column = ft.Column(spacing=SPACING["md"], scroll=ft.ScrollMode.AUTO, expand=True)
         self._loading = LoadingState()
         self._loading.visible = True
+        self._stale_banner = build_stale_banner(self._retry_load)
 
         content = ft.Column(
             controls=[
                 self._connection_banner,
                 self._error_text,
                 self._seed_status,
+                self._stale_banner,
                 self._loading,
                 ft.Row(
                     controls=[
@@ -208,15 +212,36 @@ class AccountsView(BaseView):
     def dispose(self):
         self._disposed = True
 
+    def _retry_load(self) -> None:
+        invalidate_data(ACCOUNTS)
+        self._load_task = asyncio.create_task(self._load_data())
+
+    def _accounts_snapshot(self) -> dict:
+        return {"resources": self._resources, "accounts": self._accounts}
+
+    def _paint_accounts(self, snapshot: dict) -> None:
+        """Мгновенный рендер из кэша: без спиннера и без сброса скролла."""
+        self._resources = list(snapshot.get("resources") or [])
+        self._accounts = list(snapshot.get("accounts") or [])
+        self._resource_map = {resource["id"]: resource for resource in self._resources}
+        self._apply_initial_account()
+        self._loading.visible = False
+        self._stale_banner.visible = False
+        self._rebuild_ui()
+
     async def _load_data(self):
-        try:
+        cached = CACHE.get(ACCOUNTS)
+        if cached:
+            self._paint_accounts(cached)
+            self.update()
+        else:
             self._error_text.visible = False
             self._seed_busy = False
             self._seed_status.visible = False
             self._loading.visible = True
             self._accounts_column.controls.clear()
             self.update()
-
+        try:
             if self._resource_view and self._account_view:
                 resources = await asyncio.to_thread(self._resource_view.get_all)
                 accounts = await asyncio.to_thread(self._account_view.get_all)
@@ -231,6 +256,10 @@ class AccountsView(BaseView):
             if self._disposed:
                 return
 
+            self._error_text.visible = False
+            self._seed_busy = False
+            self._seed_status.visible = False
+            self._stale_banner.visible = False
             self._resources = resources if isinstance(resources, list) else resources.get("results", [])
             self._accounts = accounts if isinstance(accounts, list) else accounts.get("results", [])
             self._apply_initial_account()
@@ -246,15 +275,26 @@ class AccountsView(BaseView):
                 self._connection_banner.show()
             else:
                 self._connection_banner.hide()
-            self._rebuild_ui()
+            snapshot = self._accounts_snapshot()
+            CACHE.set(ACCOUNTS, snapshot)
+            if not cached or payload_changed(cached, snapshot):
+                self._rebuild_ui()
+            self.update()
         except BackendUnreachableError:
-            if not self._disposed:
-                self._loading.visible = False
-                self._show_error("Сервер недоступен")
+            self._fail_load("Сервер недоступен", cached)
         except ApiError as exc:
-            if not self._disposed:
-                self._loading.visible = False
-                self._show_error(f"Ошибка загрузки: {exc}")
+            self._fail_load(f"Ошибка загрузки: {exc}", cached)
+
+    def _fail_load(self, message: str, cached) -> None:
+        """Ошибка сети: с кэшем — данные и баннер «могли устареть», без кэша — текст ошибки."""
+        if self._disposed:
+            return
+        self._loading.visible = False
+        if cached:
+            self._stale_banner.visible = True
+            self._rebuild_ui()
+            return
+        self._show_error(message)
 
     def _apply_initial_account(self) -> None:
         """Deep link ``/accounts/<id>``: подсветить счёт или сообщить, что не найден."""
@@ -593,6 +633,7 @@ class AccountsView(BaseView):
                         await asyncio.to_thread(self.api_client.create_account, payload)
 
                 self.page.pop_dialog()
+                invalidate_data(ACCOUNTS, TRANSACTIONS)
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 save_button.disabled = False
@@ -638,6 +679,7 @@ class AccountsView(BaseView):
                 else:
                     await asyncio.to_thread(self.api_client.delete_account, account["id"])
                 self.page.pop_dialog()
+                invalidate_data(ACCOUNTS, TRANSACTIONS)
                 await self._load_data()
             except (ApiError, BackendUnreachableError) as exc:
                 e.control.disabled = False

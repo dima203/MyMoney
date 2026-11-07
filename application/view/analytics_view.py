@@ -140,6 +140,19 @@ class AnalyticsView(DataLoadingMixin, BaseView):
 
     # ------------------------------------------------------------------ рендер
 
+    def _cache_key(self) -> str:
+        return "analytics"
+
+    def _section_snapshot(self) -> dict:
+        return {"period": self._period}
+
+    def _restore_sections(self, snapshot: dict) -> None:
+        period = snapshot.get("period")
+        if period in PERIOD_MONTHS:
+            self._period = period
+            if hasattr(self, "_period_selector"):
+                self._period_selector.selected = [period]
+
     def _on_period_changed(self, e) -> None:
         period = _event_period(e)
         if period is None or period == self._period:

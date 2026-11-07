@@ -12,6 +12,8 @@ import datetime
 
 import flet as ft
 from application.api import ApiError, BackendUnreachableError
+from application.session_cache import CACHE
+from application.view.stale_cache import build_stale_banner, payload_changed
 
 from MySpaceShared.components.connection_status import ConnectionBanner
 from MySpaceShared.components.loading_state import LoadingState
@@ -48,9 +50,10 @@ class DataLoadingMixin:
         self._error_text = ft.Text("", size=13, color=ft.Colors.ERROR, visible=False)
         self._loading = LoadingState()
         self._loading.visible = True
+        self._stale_banner = build_stale_banner(self._retry_load)
         self._body = ft.Column(spacing=16, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
         self._content = ft.Column(
-            controls=[self._connection_banner, self._error_text, self._loading, self._body],
+            controls=[self._connection_banner, self._error_text, self._stale_banner, self._loading, self._body],
             spacing=12,
             expand=True,
             scroll=ft.ScrollMode.AUTO,
@@ -63,11 +66,50 @@ class DataLoadingMixin:
     def dispose(self):
         self._disposed = True
 
+    def _cache_key(self) -> str:
+        """Ключ витрины: наследник задаёт свой (``budgets``/``analytics``)."""
+        return "data"
+
+    def _section_snapshot(self) -> dict:
+        """Снимок секций наследника (по умолчанию секций нет)."""
+        return {}
+
+    def _restore_sections(self, snapshot: dict) -> None:
+        """Восстановить секции наследника из снимка."""
+
+    def _data_snapshot(self) -> dict:
+        return {
+            "rows": self._rows,
+            "accounts": self._accounts,
+            "base_currency": self._base_currency,
+            "sections": self._section_snapshot(),
+        }
+
+    def _paint_cached(self, snapshot: dict) -> None:
+        self._rows = list(snapshot.get("rows") or [])
+        self._accounts = list(snapshot.get("accounts") or [])
+        self._base_currency = str(snapshot.get("base_currency") or "")
+        self._restore_sections(snapshot.get("sections") or {})
+        self._loading.visible = False
+        self._stale_banner.visible = False
+        self._rebuild()
+
+    def _retry_load(self) -> None:
+        CACHE.invalidate(self._cache_key())
+        self._load_task = asyncio.create_task(self._load_data())
+
     async def _load_data(self) -> None:
-        try:
+        cached = CACHE.get(self._cache_key())
+        if cached:
+            self._paint_cached(cached)
+            self.update()
+        else:
             self._error_text.visible = False
             self._loading.visible = True
             self.update()
+        try:
+            self._error_text.visible = False
+            self._stale_banner.visible = False
 
             if self._transaction_view and self._account_view:
                 rows = await asyncio.to_thread(self._transaction_view.get_all)
@@ -86,11 +128,15 @@ class DataLoadingMixin:
             await self._load_sections()
             self._loading.visible = False
             self._sync_banner()
-            self._rebuild()
+            snapshot = self._data_snapshot()
+            CACHE.set(self._cache_key(), snapshot)
+            if not cached or payload_changed(cached, snapshot):
+                self._rebuild()
+            self.update()
         except BackendUnreachableError:
-            self._fail("Сервер недоступен")
+            self._fail("Сервер недоступен", cached)
         except ApiError as exc:
-            self._fail(f"Ошибка загрузки: {exc}")
+            self._fail(f"Ошибка загрузки: {exc}", cached)
 
     async def _load_sections(self) -> None:
         """Секции сверх общих данных (по умолчанию их нет)."""
@@ -105,10 +151,15 @@ class DataLoadingMixin:
             return currency.strip() if isinstance(currency, str) else ""
         return ""
 
-    def _fail(self, message: str) -> None:
+    def _fail(self, message: str, cached=None) -> None:
         if self._disposed:
             return
         self._loading.visible = False
+        if cached:
+            self._stale_banner.visible = True
+            self._rebuild()
+            self.update()
+            return
         self._show_error(message)
 
     def _show_error(self, message: str) -> None:
